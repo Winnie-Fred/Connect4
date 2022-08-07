@@ -1,3 +1,4 @@
+from random import shuffle
 from tabulate import tabulate # type: ignore
 
 class Player:
@@ -28,9 +29,19 @@ class Board:
         print(self.board)
         print('\n' * 5)
 
+def _get_player_names_and_shuffle():
+    one_player = input("Enter your name: ")
+    other_player = input("Enter other player's name: ")
+    players = [one_player, other_player]
+    shuffle(players)
+    return players
+
 
 def play_game():
     board = Board()
     print(board)
+    players = _get_player_names_and_shuffle()
+    print(players)
+    print(f"{players[0]} goes first")
 
 play_game()
