@@ -3,15 +3,19 @@ class Player:
         self.name = name
         self.position = position
 
-def print_board():
+class Board:
+    board = []
     COLUMNS = 7
     ROWS = 6
-    board = []
-    print('\n' * 5)
+
     for row in range(ROWS):
         board.append([''] * COLUMNS)
-    for row in board:
-        print(row)
-    print('\n' * 5)
 
-print_board()
+    def print_board(self):
+        print('\n' * 5) 
+        for row in self.board:
+            print(row)
+        print('\n' * 5)
+
+board = Board()
+board.print_board()
