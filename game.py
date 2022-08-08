@@ -1,10 +1,14 @@
 from random import shuffle
 from typing import List
+
 from tabulate import tabulate # type: ignore
+from termcolor import colored  # type: ignore
+
 
 class Player:
-    def __init__(self, name):
+    def __init__(self, name, marker):
         self.name = name
+        self.marker = marker
                 
 
 class Board:
@@ -49,7 +53,7 @@ class Board:
         choice = self._get_position(player)
         for i, row in reversed(list(enumerate(self.grid))):
             if row[choice] == '':
-                row[choice] = "X"
+                row[choice] = player.marker
                 break
             else:
                 if i == 0:
@@ -65,21 +69,31 @@ def _get_player_names_and_shuffle():
     print(f"{players[0]} goes first")
     return tuple(players)
 
+def _get_players_colors(player):
+    while True:
+        color = input(f"{player}, Choose a color between Red and Blue. Enter 'R' for Red or 'B' for Blue: ")
+        if color.lower() == 'r':
+            return ('red', 'blue')
+        if color.lower() == 'b':
+            return ('blue', 'red')
+        else:
+            print("Invalid input. Enter 'R' for Red or 'B' for Blue")
+            continue
 
 def play_game():
     board = Board()
     print("****CONNECT4*****")
     players = _get_player_names_and_shuffle()
-    print(players)
+    colors = _get_players_colors(players[0])
 
-    player_one = Player(players[0])
+    player_one = Player(players[0], colored('O', colors[0], attrs=['bold']))
     board.play_at_position(player_one)
     board.print_board()
     
-    player_two = Player(players[1])
+    player_two = Player(players[1], colored('O', colors[1], attrs=['bold']))
     board.play_at_position(player_two)
     board.print_board()
         
-        
+
 play_game()
-   
+
