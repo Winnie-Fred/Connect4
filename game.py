@@ -37,7 +37,7 @@ class Board:
 
     def _get_position(self, player):
         while True:
-            choice = input(f"{player.name}, Enter the position you want to play at: ")
+            choice = input(f"{player.name}, enter the position you want to play at between 0 and 6: ")
             try:
                 choice = int(choice)
                 if not choice in range(0, 7):
@@ -85,6 +85,8 @@ def play_game():
     print("****CONNECT4*****")
     players = _get_player_names_and_shuffle()
     colors = _get_players_colors(players[0])
+
+    board.print_board() #  Print board at start of game
 
     player_one = Player(players[0], colored('O', colors[0], attrs=['bold']))
     board.play_at_position(player_one)
