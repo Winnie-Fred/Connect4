@@ -3,6 +3,7 @@ from typing import List
 
 from tabulate import tabulate # type: ignore
 from termcolor import colored  # type: ignore
+import numpy as np
 
 
 class Player:
@@ -58,8 +59,32 @@ class Board:
             else:
                 if i == 0:
                     print("That column is full")
-                    self.play_at_position(player) # Call function again to take in another input
-                continue    
+                    self.play_at_position(player) #  Call function again to take in another input
+                continue 
+
+    def _check_horizontal_win(self, player, pattern):
+        for row in self.grid:
+            for idx in range(len(row) - len(pattern) + 1):
+                if row[idx : idx + len(pattern)] == pattern:
+                    return (True, player)
+        return False
+
+    def _check_vertical_win(self, player, pattern):
+        numpy_grid = np.array(self.grid).T
+        for col in numpy_grid:
+            for idx in range(len(col) - len(pattern) + 1):
+                print("EXTRACT: ", col[idx : idx + len(pattern)])
+                if np.array_equal(col[idx : idx + len(pattern)], pattern):
+                    return (True, player)
+        return False
+
+    def check_win(self, player):
+        player_marker = player.marker
+        win_pattern = [player_marker] * 4
+        return self._check_vertical_win(player, win_pattern)
+        # return self._check_horizontal_win(player, win_pattern)
+
+
 
 def _get_player_names_and_shuffle():
     one_player = input("Enter your name: ")
@@ -92,10 +117,19 @@ def play_game():
     board.play_at_position(player_one)
     board.print_board()
     
-    player_two = Player(players[1], colored('O', colors[1], attrs=['bold']))
-    board.play_at_position(player_two)
-    board.print_board()
+    # player_two = Player(players[1], colored('O', colors[1], attrs=['bold']))
+    # board.play_at_position(player_two)
+    # board.print_board()
         
+    board.play_at_position(player_one)
+    board.print_board()
+
+    board.play_at_position(player_one)
+    board.print_board()
+
+    board.play_at_position(player_one)
+    board.print_board()
+
+    print(board.check_win(player_one))
 
 play_game()
-
