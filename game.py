@@ -73,7 +73,6 @@ class Board:
         numpy_grid = np.array(self.grid).T
         for col in numpy_grid:
             for idx in range(len(col) - len(pattern) + 1):
-                print("EXTRACT: ", col[idx : idx + len(pattern)])
                 if np.array_equal(col[idx : idx + len(pattern)], pattern):
                     return (True, player)
         return False
