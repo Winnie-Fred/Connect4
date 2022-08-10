@@ -91,14 +91,9 @@ class Board:
                     return True
         return False
 
-
     def check_win(self, player):
         player_marker = player.marker
-        # return self._check_vertical_win(player_marker)
-        
-        # return self._check_horizontal_win(player_marker)
-        # return self._check_left_to_right_diagonal_win(player_marker)
-        return self._check_right_to_left_diagonal_win(player_marker)
+        return any([self._check_horizontal_win(player_marker), self._check_vertical_win(player_marker), self._check_right_to_left_diagonal_win(player_marker), self._check_left_to_right_diagonal_win(player_marker)])
 
 
 def _get_player_names_and_shuffle():
