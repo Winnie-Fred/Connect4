@@ -97,8 +97,21 @@ class Board:
 
 
 def _get_player_names_and_shuffle():
-    one_player = input("Enter your name: ")
-    other_player = input("Enter other player's name: ")
+    while True:
+        one_player = input("Enter your name: ")
+        if one_player:
+            break
+        print("You must enter a name")
+
+    while True:
+        other_player = input("Enter other player's name: ")
+        if other_player == one_player:
+            print("A player already exists with that name. Choose another name")
+            continue
+        if other_player:
+            break
+        print("You must enter a name")
+
     players = [one_player, other_player]
     shuffle(players)
     print(f"{players[0]} goes first")
