@@ -129,12 +129,20 @@ def play_game():
     board.print_board() #  Print board at start of game
 
     player_one = Player(players[0], colored('O', colors[0], attrs=['bold']))
-    board.play_at_position(player_one)
-    board.print_board()
-    
     player_two = Player(players[1], colored('O', colors[1], attrs=['bold']))
-    board.play_at_position(player_two)
-    board.print_board()
+    
+    # Take turns to play till there's a winner
+    while True:
+        board.play_at_position(player_one)
+        board.print_board()
+        if board.check_win(player_one):
+            print(f"{player_one.name} wins!")
+            break
+        board.play_at_position(player_two)
+        board.print_board()
+        if board.check_win(player_two):
+            print(f"{player_two.name} wins!")
+            break
 
 play_game()
 
