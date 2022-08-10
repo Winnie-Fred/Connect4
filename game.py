@@ -21,8 +21,7 @@ class Board:
 
     def tabulate_board(self):
         headers = [str(header) for header in range(self.COLUMNS)]
-        row_ids = [str(row_id) for row_id in range(self.ROWS)]
-        return tabulate(self.grid, headers=headers, showindex=row_ids, tablefmt="fancy_grid")
+        return tabulate(self.grid, headers=headers, tablefmt="fancy_grid")
 
     def __repr__(self):
         return self.tabulate_board()
@@ -94,6 +93,11 @@ class Board:
         player_marker = player.marker
         return any([self._check_horizontal_win(player_marker), self._check_vertical_win(player_marker), self._check_right_to_left_diagonal_win(player_marker), self._check_left_to_right_diagonal_win(player_marker)])
 
+    def check_tie(self):
+        for row in self.grid:
+            if '' in row: #  Board not full, no tie yet
+                return False
+        return True
 
 def _get_player_names_and_shuffle():
     while True:
@@ -142,13 +146,25 @@ def play_game():
     while True:
         board.play_at_position(player_one)
         board.print_board()
+
         if board.check_win(player_one):
             print(f"{player_one.name} {player_one.marker} wins!")
             break
+
+        if board.check_tie():
+            print("It's a tie!")
+            break
+
+
         board.play_at_position(player_two)
         board.print_board()
+
         if board.check_win(player_two):
             print(f"{player_two.name} {player_two.marker} wins!")
+            break
+
+        if board.check_tie():
+            print("It's a tie!")
             break
 
         
