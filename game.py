@@ -38,7 +38,7 @@ class Board:
 
     def _get_position(self, player):
         while True:
-            choice = input(f"{player.name}, enter the position you want to play at between 0 and 6: ")
+            choice = input(f"{player.name} {player.marker}, enter the position you want to play at between 0 and 6: ")
             try:
                 choice = int(choice)
                 if not choice in range(0, 7):
