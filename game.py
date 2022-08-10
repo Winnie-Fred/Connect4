@@ -98,13 +98,13 @@ class Board:
 
 def _get_player_names_and_shuffle():
     while True:
-        one_player = input("Enter your name: ")
+        one_player = input("Enter your name: ").strip()
         if one_player:
             break
         print("You must enter a name")
 
     while True:
-        other_player = input("Enter other player's name: ")
+        other_player = input("Enter other player's name: ").strip()
         if other_player == one_player:
             print("A player already exists with that name. Choose another name")
             continue
