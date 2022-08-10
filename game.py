@@ -144,12 +144,12 @@ def play_game():
         board.play_at_position(player_one)
         board.print_board()
         if board.check_win(player_one):
-            print(f"{player_one.name} wins!")
+            print(f"{player_one.name} {player_one.marker} wins!")
             break
         board.play_at_position(player_two)
         board.print_board()
         if board.check_win(player_two):
-            print(f"{player_two.name} wins!")
+            print(f"{player_two.name} {player_two.marker} wins!")
             break
 
         
