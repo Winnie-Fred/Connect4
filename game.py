@@ -84,7 +84,7 @@ class Board:
                     return True
         return False
 
-    def _check_right_to_left_diagonal_win(self, player, player_marker):
+    def _check_right_to_left_diagonal_win(self, player_marker):
         for col in range(self.COLUMNS-1, 2, -1):
             for row in range(self.ROWS-3):
                 if player_marker == self.grid[row][col] == self.grid[row+1][col-1] == self.grid[row+2][col-2] == self.grid[row+3][col-3]:
@@ -94,11 +94,11 @@ class Board:
 
     def check_win(self, player):
         player_marker = player.marker
-        # self._check_vertical_win(player_marker)
+        # return self._check_vertical_win(player_marker)
         
-        return self._check_horizontal_win(player_marker)
-        # self._check_left_to_right_diagonal_win(player_marker)
-        # self._check_right_to_left_diagonal_win(player_marker)
+        # return self._check_horizontal_win(player_marker)
+        # return self._check_left_to_right_diagonal_win(player_marker)
+        return self._check_right_to_left_diagonal_win(player_marker)
 
 
 def _get_player_names_and_shuffle():
@@ -145,4 +145,3 @@ def play_game():
             break
 
 play_game()
-
