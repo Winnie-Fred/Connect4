@@ -3,7 +3,6 @@ from typing import List
 
 from tabulate import tabulate # type: ignore
 from termcolor import colored  # type: ignore
-import numpy as np
 
 
 class Player:
@@ -23,7 +22,7 @@ class Board:
     def tabulate_board(self):
         headers = [str(header) for header in range(self.COLUMNS)]
         row_ids = [str(row_id) for row_id in range(self.ROWS)]
-        return tabulate(self.grid, headers=headers, showindex=row_ids, tablefmt='fancy_grid')
+        return tabulate(self.grid, headers=headers, showindex=row_ids, tablefmt="fancy_grid")
 
     def __repr__(self):
         return self.tabulate_board()
