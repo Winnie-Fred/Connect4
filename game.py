@@ -152,4 +152,6 @@ def play_game():
             print(f"{player_two.name} wins!")
             break
 
-play_game()
+        
+if __name__ == "__main__":
+    play_game()
