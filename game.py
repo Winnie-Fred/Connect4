@@ -105,7 +105,7 @@ def _get_player_names_and_shuffle():
 
     while True:
         other_player = input("Enter other player's name: ").strip()
-        if other_player == one_player:
+        if other_player.lower() == one_player.lower():
             print("A player already exists with that name. Choose another name")
             continue
         if other_player:
