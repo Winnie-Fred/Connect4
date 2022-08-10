@@ -21,7 +21,7 @@ class Board:
 
     def tabulate_board(self):
         headers = [str(header) for header in range(self.COLUMNS)]
-        return tabulate(self.grid, headers=headers, tablefmt="fancy_grid")
+        return tabulate(self.grid, headers=headers, tablefmt="fancy_grid", numalign="center", stralign="center")
 
     def __repr__(self):
         return self.tabulate_board()
