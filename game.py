@@ -62,27 +62,43 @@ class Board:
                     self.play_at_position(player) #  Call function again to take in another input
                 continue 
 
-    def _check_horizontal_win(self, player, pattern):
+    def _check_horizontal_win(self, player_marker):
+        win_pattern = [player_marker] * 4
         for row in self.grid:
-            for idx in range(len(row) - len(pattern) + 1):
-                if row[idx : idx + len(pattern)] == pattern:
-                    return (True, player)
+            for idx in range(len(row) - len(win_pattern) + 1):
+                if row[idx : idx + len(win_pattern)] == win_pattern:
+                    return True
         return False
 
-    def _check_vertical_win(self, player, pattern):
-        numpy_grid = np.array(self.grid).T
-        for col in numpy_grid:
-            for idx in range(len(col) - len(pattern) + 1):
-                if np.array_equal(col[idx : idx + len(pattern)], pattern):
-                    return (True, player)
+    def _check_vertical_win(self, player_marker):
+        for col in range(self.COLUMNS):
+            for row in range(self.ROWS-3):
+                if player_marker == self.grid[row][col] == self.grid[row+1][col] == self.grid[row+2][col] == self.grid[row+3][col]:
+                    return True
         return False
+
+    def _check_left_to_right_diagonal_win(self, player_marker):
+        for col in range(self.COLUMNS-3):
+            for row in range(self.ROWS-3):
+                if player_marker == self.grid[row][col] == self.grid[row+1][col+1] == self.grid[row+2][col+2] == self.grid[row+3][col+3]:
+                    return True
+        return False
+
+    def _check_right_to_left_diagonal_win(self, player, player_marker):
+        for col in range(self.COLUMNS-1, 2, -1):
+            for row in range(self.ROWS-3):
+                if player_marker == self.grid[row][col] == self.grid[row+1][col-1] == self.grid[row+2][col-2] == self.grid[row+3][col-3]:
+                    return True
+        return False
+
 
     def check_win(self, player):
         player_marker = player.marker
-        win_pattern = [player_marker] * 4
-        return self._check_vertical_win(player, win_pattern)
-        # return self._check_horizontal_win(player, win_pattern)
-
+        # self._check_vertical_win(player_marker)
+        
+        return self._check_horizontal_win(player_marker)
+        # self._check_left_to_right_diagonal_win(player_marker)
+        # self._check_right_to_left_diagonal_win(player_marker)
 
 
 def _get_player_names_and_shuffle():
@@ -116,19 +132,9 @@ def play_game():
     board.play_at_position(player_one)
     board.print_board()
     
-    # player_two = Player(players[1], colored('O', colors[1], attrs=['bold']))
-    # board.play_at_position(player_two)
-    # board.print_board()
-        
-    board.play_at_position(player_one)
+    player_two = Player(players[1], colored('O', colors[1], attrs=['bold']))
+    board.play_at_position(player_two)
     board.print_board()
-
-    board.play_at_position(player_one)
-    board.print_board()
-
-    board.play_at_position(player_one)
-    board.print_board()
-
-    print(board.check_win(player_one))
 
 play_game()
+
