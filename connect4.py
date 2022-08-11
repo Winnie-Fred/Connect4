@@ -3,8 +3,14 @@ from termcolor import colored  # type: ignore
 
 from player import Player
 from board import Board
+from level import Level
 
 class Connect4Game:
+
+    POINTS_FOR_WINNING_ONE_ROUND = 10
+
+    def __init__(self):
+        self.level = Level()
 
     def _about_game(self):
         print("\n\n")
@@ -82,6 +88,7 @@ class Connect4Game:
         playing = True
 
         while playing:
+            print("\n\n", f"ROUND {self.level.current_level}".center(50, '-'))
             board = Board()
             board.print_board() #  Print board at start of each round
 
@@ -92,7 +99,7 @@ class Connect4Game:
                 board.print_board()
 
                 if board.check_win(player_one):
-                    player_one.points += 10
+                    player_one.points += self.POINTS_FOR_WINNING_ONE_ROUND
                     print(f"\n{player_one.name} {player_one.marker} wins this round!\n")
                     break
 
@@ -105,7 +112,7 @@ class Connect4Game:
                 board.print_board()
 
                 if board.check_win(player_two):
-                    player_two.points += 10
+                    player_two.points += self.POINTS_FOR_WINNING_ONE_ROUND
                     print(f"\n{player_two.name} {player_two.marker} wins this round!\n")
                     break
 
@@ -113,7 +120,7 @@ class Connect4Game:
                     print("\nIt's a tie!\n")
                     break
             
-            print("\n\nAt the end of this round, ")
+            print(f"\n\nAt the end of round {self.level.current_level}, ")
             print(f"{player_one.name} has {player_one.points} points")
             print(f"{player_two.name} has {player_two.points} points\n\n")
 
@@ -121,6 +128,7 @@ class Connect4Game:
                 play_again = input("Want to play another round? Enter 'Y' for 'yes' and 'N' for 'no': ").lower()
                 if play_again == 'y':
                     # Shuffle the players again before starting next round.
+                    self.level.current_level += 1
                     player_one, player_two = self._shuffle_players([player_one, player_two])
                     break
                 elif play_again == 'n':
