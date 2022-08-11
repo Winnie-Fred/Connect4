@@ -6,6 +6,8 @@ from board import Board
 
 class Connect4Game:
 
+    POINTS_FOR_WINNING_ONE_ROUND = 10
+
     def _about_game(self):
         print("\n\n")
         print("CONNECT4".center(100, '-'))
@@ -92,7 +94,7 @@ class Connect4Game:
                 board.print_board()
 
                 if board.check_win(player_one):
-                    player_one.points += 10
+                    player_one.points += self.POINTS_FOR_WINNING_ONE_ROUND
                     print(f"\n{player_one.name} {player_one.marker} wins this round!\n")
                     break
 
@@ -105,7 +107,7 @@ class Connect4Game:
                 board.print_board()
 
                 if board.check_win(player_two):
-                    player_two.points += 10
+                    player_two.points += self.POINTS_FOR_WINNING_ONE_ROUND
                     print(f"\n{player_two.name} {player_two.marker} wins this round!\n")
                     break
 
