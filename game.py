@@ -134,7 +134,7 @@ def _get_player_names():
 
     return [one_player, other_player]
 
-def shuffle_players(players):
+def _shuffle_players(players):
     shuffle(players)
     try:
         print(f"{players[0].name} goes first")
@@ -167,7 +167,7 @@ def _calculate_and_display_final_result(players):
 
 def play_game():
     print("****CONNECT4*****")
-    players = shuffle_players(_get_player_names())
+    players = _shuffle_players(_get_player_names())
     colors = _get_players_colors(players[0])
 
 
@@ -215,7 +215,7 @@ def play_game():
         while True:
             play_again = input("Want to play another round? Enter 'Y' for 'yes' and 'N' for 'no': ").lower()
             if play_again == 'y':
-                player_one, player_two = shuffle_players([player_one, player_two])
+                player_one, player_two = _shuffle_players([player_one, player_two])
                 break
             elif play_again == 'n':
                 print("\n\nGame ended")
