@@ -9,15 +9,31 @@ class Player:
     def __init__(self, name, marker):
         self.name = name
         self.marker = marker
-                
+        self._points = 0
+
+    @property
+    def points(self):
+        return self._points
+
+    @points.setter
+    def points(self, value):
+        if type(value) == int:
+            if (value % 10) == 0:
+                self._points = value
+            else:
+                raise ValueError("Point must be a multiple of 10")
+        else:
+            raise ValueError("Point must be an integer")
+
 
 class Board:
-    grid: List[List[str]] = []
     COLUMNS = 7
     ROWS = 6
 
-    for row in range(ROWS):
-        grid.append([''] * COLUMNS)
+    def __init__(self):
+        self.grid: List[List[str]] = []
+        for row in range(self.ROWS):
+            self.grid.append([''] * self.COLUMNS)
 
     def tabulate_board(self):
         headers = [str(header) for header in range(self.COLUMNS)]
@@ -30,6 +46,7 @@ class Board:
         return self.tabulate_board()
 
     def print_board(self):
+        
         print('\n' * 5)
         print(self.tabulate_board())
         print('\n' * 5)
@@ -99,7 +116,7 @@ class Board:
                 return False
         return True
 
-def _get_player_names_and_shuffle():
+def _get_player_names():
     while True:
         one_player = input("Enter your name: ").strip()
         if one_player:
@@ -115,10 +132,16 @@ def _get_player_names_and_shuffle():
             break
         print("You must enter a name")
 
-    players = [one_player, other_player]
+    return [one_player, other_player]
+
+def shuffle_players(players):
     shuffle(players)
-    print(f"{players[0]} goes first")
+    try:
+        print(f"{players[0].name} goes first")
+    except AttributeError:
+        print(f"{players[0]} goes first")
     return tuple(players)
+
 
 def _get_players_colors(player):
     while True:
@@ -128,44 +151,81 @@ def _get_players_colors(player):
         if color.lower() == 'b':
             return ('blue', 'red')
         else:
-            print("Invalid input. Enter 'R' for Red or 'B' for Blue")
+            print("Invalid input.")
             continue
 
+def _calculate_and_display_final_result(players):
+    player_one, player_two = players
+    print(f"\n{player_one.name} has {player_one.points} points")
+    print(f"{player_two.name} has {player_two.points} points\n")
+    if player_one.points > player_two.points:
+        print(f"{player_one.name} {player_one.marker} wins!\n")
+    elif player_two.points > player_one.points:
+        print(f"{player_two.name} {player_two.marker} wins!\n")
+    else:
+        print("Game ends in a tie\n")
+
 def play_game():
-    board = Board()
     print("****CONNECT4*****")
-    players = _get_player_names_and_shuffle()
+    players = shuffle_players(_get_player_names())
     colors = _get_players_colors(players[0])
 
-    board.print_board() #  Print board at start of game
 
     player_one = Player(players[0], colored('O', colors[0], attrs=['bold']))
     player_two = Player(players[1], colored('O', colors[1], attrs=['bold']))
     
-    # Take turns to play till there's a winner
-    while True:
-        board.play_at_position(player_one)
-        board.print_board()
+    playing = True
 
-        if board.check_win(player_one):
-            print(f"{player_one.name} {player_one.marker} wins!")
-            break
+    while playing:
+        board = Board()
+        board.print_board() #  Print board at start of game
 
-        if board.check_tie():
-            print("It's a tie!")
-            break
+        # Take turns to play till there's a winner
+        while True:
+
+            board.play_at_position(player_one)
+            board.print_board()
+
+            if board.check_win(player_one):
+                player_one.points += 10
+                print(f"\n{player_one.name} {player_one.marker} wins this round!\n")
+                break
+
+            if board.check_tie():
+                print("\nIt's a tie!\n")
+                break
 
 
-        board.play_at_position(player_two)
-        board.print_board()
+            board.play_at_position(player_two)
+            board.print_board()
 
-        if board.check_win(player_two):
-            print(f"{player_two.name} {player_two.marker} wins!")
-            break
+            if board.check_win(player_two):
+                player_two.points += 10
+                print(f"\n{player_two.name} {player_two.marker} wins this round!\n")
+                break
 
-        if board.check_tie():
-            print("It's a tie!")
-            break
+            if board.check_tie():
+                print("\nIt's a tie!\n")
+                break
+        
+        print("\n\nAt the end of this round, ")
+        print(f"{player_one.name} has {player_one.points} points")
+        print(f"{player_two.name} has {player_two.points} points\n\n")
+
+        while True:
+            play_again = input("Want to play another round? Enter 'Y' for 'yes' and 'N' for 'no': ").lower()
+            if play_again == 'y':
+                player_one, player_two = shuffle_players([player_one, player_two])
+                break
+            elif play_again == 'n':
+                print("\n\nGame ended")
+                _calculate_and_display_final_result([player_one, player_two])
+                print("Thanks for playing")
+                playing = False
+                break
+            else:
+                print("Invalid input.")
+                continue
 
         
 if __name__ == "__main__":
