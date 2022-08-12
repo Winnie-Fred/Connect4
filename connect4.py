@@ -125,7 +125,7 @@ class Connect4Game:
             print(f"{player_two.name} has {player_two.points} points\n\n")
 
             while True:
-                play_again = input("Want to play another round? Enter 'Y' for 'yes' and 'N' for 'no': ").lower()
+                play_again = input("Want to play another round? Enter 'Y' for 'yes' and 'N' for 'no': ").lower().strip()
                 if play_again == 'y':
                     # Shuffle the players again before starting next round.
                     self.level.current_level += 1
