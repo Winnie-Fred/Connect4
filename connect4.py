@@ -26,23 +26,26 @@ class Connect4Game:
         input("Press Enter key to continue . . . ")
 
 
-    def _get_player_names(self):
+    def _get_player_name(self):
         while True:
             one_player = input("Enter your name: ").strip()
             if one_player:
                 break
             print("You must enter a name")
+        return one_player
+
+    def _get_other_player_name(self, player):
 
         while True:
             other_player = input("Enter other player's name: ").strip()
-            if other_player.lower() == one_player.lower():
+            if other_player.lower() == player.lower():
                 print("A player already exists with that name. Choose another name")
                 continue
             if other_player:
                 break
             print("You must enter a name")
 
-        return [one_player, other_player]
+        return [player, other_player]
 
     def _shuffle_players(self, players):
         shuffle(players)
@@ -78,7 +81,7 @@ class Connect4Game:
 
     def play_game(self):
         self._about_game()
-        players = self._shuffle_players(self._get_player_names())
+        players = self._shuffle_players(self._get_other_player_name(self._get_player_name()))
         colors = self._get_players_colors(players[0])
 
 
