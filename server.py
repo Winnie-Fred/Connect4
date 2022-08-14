@@ -23,13 +23,13 @@ class Connect4TerminalPlusSocket:
 
     def start(self):
         print("[STARTING] server is starting...")
-        self.server.listen(2)
+        self.server.listen(1)
         print(f"[LISTENING] Server is listening on {self.SERVER}")
-        while True:
-            conn, addr = self.server.accept()
-            thread = threading.Thread(target=self.handle_connection, args=(conn, addr))
-            thread.start()
-            print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
+    
+        conn, addr = self.server.accept()
+        thread = threading.Thread(target=self.handle_connection, args=(conn, addr))
+        thread.start()
+        self.server.close()
 
     def handle_connection(self, conn, addr):
         print(f"[NEW CONNECTION] {addr} connected.")
@@ -39,7 +39,6 @@ class Connect4TerminalPlusSocket:
             conn.send(str.encode("Connected"))
             try:
                 msg_length = conn.recv(self.HEADER).decode(self.FORMAT)
-                print("msg_length: ", msg_length)
                 if msg_length:
                     msg_length = int(msg_length)
                     msg = conn.recv(msg_length).decode(self.FORMAT)
