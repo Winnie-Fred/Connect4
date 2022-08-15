@@ -1,4 +1,9 @@
 import socket
+import pickle
+
+from connect4 import Connect4Game
+
+connect4game = Connect4Game()
 
 
 class Network:
@@ -22,19 +27,26 @@ class Network:
         else:
             return self.client.recv(2048).decode(self.FORMAT)
 
-    def send(self, msg):
-        message = msg.encode(self.FORMAT)
-        msg_length = len(message)
-        send_length = str(msg_length).encode(self.FORMAT)
-        send_length += b' ' * (self.HEADER - len(send_length))
+    def play_game(self):
+        connect4game._about_game()
+        you = connect4game._get_player_name()
+        waiting = pickle.loads(self.client.recv(2048))
+        if waiting.startswith("Waiting for the other"):
+            print(waiting)
+        else:
+            opponent_name = waiting
+
+        shuffled_players = connect4game._shuffle_players([you, opponent_name])
+        print("Players shuffled", shuffled_players)
+
+    def send_to_server(self, msg):
         try:
-            self.client.send(send_length)
-            self.client.send(message)
+            self.client.send(pickle.dumps(msg))
         except socket.error as e:
             print(e)
         else:
-            print(self.client.recv(2048).decode(self.FORMAT))
+            return pickle.loads(self.client.recv(2048))
 
 n = Network()
-n.send("HELLO")
-n.send(n.DISCONNECT_MESSAGE)
+n.play_game()
+# n.send_to_server(n.DISCONNECT_MESSAGE)
