@@ -25,19 +25,23 @@ class Network:
         except:
             print("Connection failed")
         else:
-            return self.client.recv(2048).decode(self.FORMAT)
+            connected = self.client.recv(2048).decode(self.FORMAT)
+            self.play_game()
+            return connected
 
     def play_game(self):
         connect4game._about_game()
         you = connect4game._get_player_name()
-        waiting = pickle.loads(self.client.recv(2048))
-        if waiting.startswith("Waiting for the other"):
-            print(waiting)
+        self.send_to_server(you)
+        waiting = self.send_to_server(you)
+        if type(waiting) == str:
+            if waiting.startswith("Waiting for the other"):
+                print(waiting)
         else:
-            opponent_name = waiting
+            shuffled_players = waiting
+            print("SHUFFLED PLAYERS", shuffled_players)
+        
 
-        shuffled_players = connect4game._shuffle_players([you, opponent_name])
-        print("Players shuffled", shuffled_players)
 
     def send_to_server(self, msg):
         try:
@@ -48,5 +52,4 @@ class Network:
             return pickle.loads(self.client.recv(2048))
 
 n = Network()
-n.play_game()
 # n.send_to_server(n.DISCONNECT_MESSAGE)
