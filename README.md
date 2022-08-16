@@ -11,6 +11,9 @@ I chose this project to get hands-on experience with sockets and how online mult
 #### About the project
 You can run three versions of the project. The first one runs in a single terminal session where players can take turns on the same computer. The second version also runs in the terminal but uses sockets so that players can connect and play from different computers or different terminal sessions. The other version uses pygame (and sockets) to create a nicer interface to play the game.
 
+#### Status of the project
+Only the first version of the project is complete while the second is currently in progress.
+
 #### How to run the different versions of the project
 - Clone the project and cd into the project directory.
 - Install the dependencies by running `pip install -r requirements.txt`
