@@ -2,6 +2,7 @@ import socket
 import threading
 import pickle
 
+
 from typing import List
 
 from connect4 import Connect4Game
@@ -38,50 +39,46 @@ class Connect4TerminalPlusSocket:
         print(f"[LISTENING] Server is listening on {self.SERVER}")
         while True:
             conn, addr = self.server.accept()
-            clients.append(conn)
-            thread = threading.Thread(target=self.handle_connection, args=(conn, addr))
+            clients.append((conn, addr))
+            thread = threading.Thread(target=self.play_game, args=(conn, addr))
             thread.start()
             print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
             
 
-    def handle_connection(self, conn, addr):
+    def play_game(self, conn, addr):
         global opponent, clients
         print(f"[NEW CONNECTION] {addr} connected.")
+        conn.send(str.encode("CONNECTED"))
+        while True:
+            conn1, _ = clients[0]
+            conn2, _ = clients[1]
 
-        conn.send(str.encode("Connected"))
-
-        connected = True
-        while connected:
-            try:
-                msg = pickle.loads(conn.recv(2048))
-            except:
-                break
+            if conn1 == conn:
+                you = msg = pickle.loads(conn1.recv(2048))
             else:
-                if msg:
-                    if msg == self.DISCONNECT_MESSAGE:
-                        break
+                you = msg = pickle.loads(conn2.recv(2048))
 
-                    print(f"Received: ", msg)
-                    
+            if not opponent:
+                conn.send(pickle.dumps("Waiting for other player's name . . ."))
+                if conn1 == conn:
+                    opponent = pickle.loads(conn2.recv(2048))
                 else:
-                    print("Disconnected")
+                    opponent = pickle.loads(conn1.recv(2048))
+            
+            shuffled_players = connect4game._shuffle_players([you, opponent])
+
+            conn.sendall(pickle.dumps(shuffled_players))    
+
+            if msg:
+                if msg == self.DISCONNECT_MESSAGE:
                     break
-
-                
-                if not opponent:
-                    conn.send(pickle.dumps("Waiting for other player's name . . ."))
-                    if clients[0] == conn:
-                        opponent = clients[1].recv(2048)
-                    else:
-                        opponent = clients[0].recv(2048)
-                
-                conn.send(pickle.dumps(opponent))
-
-                
+            else:
+                print("Disconnected")
+                break
 
         print("Lost connection")
         opponent = ''
-        clients.remove(conn)
+        clients.remove((conn, addr))
         conn.close()
 
 connect4_terminal_plus_socket = Connect4TerminalPlusSocket()
