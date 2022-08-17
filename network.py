@@ -26,20 +26,25 @@ class Network:
             print("Connection failed")
         else:
             connected = self.client.recv(2048).decode(self.FORMAT)
+            print(connected)
             self.play_game()
             return connected
 
     def play_game(self):
         connect4game._about_game()
         you = connect4game._get_player_name()
-        self.send_to_server(you)
-        waiting = self.send_to_server(you)
-        if type(waiting) == str:
-            if waiting.startswith("Waiting for the other"):
-                print(waiting)
+        # waiting = self.send_to_server(you)
+        self.client.send(you.encode(self.FORMAT))
+        resp = self.client.recv(2048).decode(self.FORMAT)
+        print("RESPONSE: ", resp)
+        shuffled_players = []
+        if type(resp) == str:
+            if resp.startswith("Waiting"):
+                print(resp)
+                shuffled_players = pickle.loads(self.client.recv(2048))
         else:
-            shuffled_players = waiting
-            print("SHUFFLED PLAYERS", shuffled_players)
+            shuffled_players = resp
+        print("SHUFFLED PLAYERS", shuffled_players)
         
 
 
