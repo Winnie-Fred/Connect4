@@ -2,12 +2,15 @@ import socket
 import threading
 import pickle
 import time
+import copy
 
 from typing import List
 
 from connect4 import Connect4Game
 
 connect4game = Connect4Game()
+
+lock = threading.Lock()
 
 clients: List = []
 players: List = []
@@ -46,7 +49,10 @@ class Connect4TerminalPlusSocket:
             print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
         
     def start_game_when_two_clients(self, conn, addr):
-        global clients
+        with lock:
+            global clients
+            clients = copy.copy(clients)
+
         if len(clients) == 1:
             print("Waiting for other player to join the connection")
             while len(clients) != 2:
@@ -71,7 +77,10 @@ class Connect4TerminalPlusSocket:
                 
 
     def play_game(self, conn, addr):
-        global clients
+        with lock:
+            global clients
+            clients = copy.copy(clients)
+
         print(f"[NEW CONNECTION] {addr} connected.")
         conn.send(str.encode("CONNECTED"))
         
