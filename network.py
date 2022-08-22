@@ -7,11 +7,11 @@ connect4game = Connect4Game()
 
 
 class Network:
-    HEADER = 64
     FORMAT = 'utf-8'
     DISCONNECT_MESSAGE = "!DISCONNECT"
 
     def __init__(self):
+        self.HEADERSIZE = 10
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server = "127.0.0.1"
         self.port = 5050
@@ -24,37 +24,55 @@ class Network:
             self.client.connect(self.addr)
         except:
             print("Connection failed")
-        else:
-            connected = self.client.recv(2048).decode(self.FORMAT)
-            print(connected)
-            self.play_game()
-            return connected
+        else: 
+            self.play_game(self.client)
+           
 
-    def play_game(self):
-        connect4game._about_game()
-        you = connect4game._get_player_name()
-        # waiting = self.send_to_server(you)
-        self.client.send(you.encode(self.FORMAT))
-        resp = self.client.recv(2048).decode(self.FORMAT)
-        print("RESPONSE: ", resp)
-        shuffled_players = []
-        if type(resp) == str:
-            if resp.startswith("Waiting"):
-                print(resp)
-                shuffled_players = pickle.loads(self.client.recv(2048))
-        else:
-            shuffled_players = resp
-        print("SHUFFLED PLAYERS", shuffled_players)
-        
+    def send_data(self, conn, data):
+        data = pickle.dumps(data)
+        data = bytes(f'{len(data):<{self.HEADERSIZE}}', self.FORMAT) + data
+        conn.send(data)
 
 
-    def send_to_server(self, msg):
-        try:
-            self.client.send(pickle.dumps(msg))
-        except socket.error as e:
-            print(e)
-        else:
-            return pickle.loads(self.client.recv(2048))
+    def play_game(self, client):
+
+    
+        full_msg = b''
+        new_msg = True
+        while True:
+            msg = self.client.recv(16)
+            if new_msg:
+                msglen = int(msg[:self.HEADERSIZE])                
+                new_msg = False
+
+
+            full_msg += msg
+
+
+            if len(full_msg)-self.HEADERSIZE == msglen:
+                
+                # ----------------Use loaded json data here----------------
+
+                loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])
+                print("LOADED JSON", loaded_json)
+                new_msg = True
+                full_msg = b''
+                try:
+                    if "connected" in loaded_json:
+                        connect4game._about_game()
+                        you = connect4game._get_player_name()                       
+                        self.send_data(client, {'you':you})
+                    elif 'players' in loaded_json:
+                        players = loaded_json['players']
+                        print("PLAYERS RECIEVED: ", players)
+                        # self.send_data(client, {'DISCONNECT':self.DISCONNECT_MESSAGE})
+                        # break
+
+                except KeyError:
+                    self.send_data(client, {'DISCONNECT':self.DISCONNECT_MESSAGE})
+                    break
+
+                    # ----------------Use loaded json data here----------------
 
 n = Network()
 # n.send_to_server(n.DISCONNECT_MESSAGE)
