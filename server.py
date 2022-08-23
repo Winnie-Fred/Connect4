@@ -47,7 +47,7 @@ class Connect4TerminalPlusSocket:
         global clients
         print("[STARTING] server is starting...")
         self.server.listen(2)
-        print(f"[LISTENING] Server is listening on {self.SERVER}")
+        print(f"[LISTENING] server is listening on {self.SERVER}")
         thread = threading.Thread(target=self.start_game_when_two_clients)
         thread.start()
 
@@ -62,17 +62,18 @@ class Connect4TerminalPlusSocket:
         
     def start_game_when_two_clients(self):
         global clients
-        i = 0
+        
+        first_time = True
         lock = threading.Lock()
 
         while True:
             if len(clients) == 1:
-                if i == 0:
+                if first_time:
                     print("Waiting for other player to join the connection. . .")
                     conn, _ = clients[0]
                     self.send_data(conn, {"status":"Waiting for other player to join the connection. . ."})
                 time.sleep(5)
-                i += 1
+                first_time = False
                 continue
                     
             # TODO: Close conn if no other client joins connection after specified time
@@ -80,24 +81,22 @@ class Connect4TerminalPlusSocket:
             #     print("Connection timed out. No other player joined the game")
             #     self.reset_client()
 
-            elif len(clients) == 2:            
+            elif len(clients) == 2: 
+                id = 0           
                 print("Both clients connected. Starting game. . .")
                 for client in clients:
-                    conn, _ = client
+                    conn, addr = client
+                    self.send_data(conn, {"id": id})
+                    time.sleep(1)
                     self.send_data(conn, {"status":"Both clients connected. Starting game. . ."})
+                    time.sleep(1)
                     if client == clients[1]:
                         self.send_data(conn, {"waiting-for-name":"Waiting for other player to enter their name. . ."})
+                        time.sleep(1)
+                    id += 1
 
-                for client in clients:
-                    conn, addr = client
-                    thread = threading.Thread(target=self.get_player_names, args=(conn, addr, lock))
-                    thread.start()
-                    thread.join()
-
-                for client in clients:
-                    conn, addr = client
                     thread = threading.Thread(target=self.play_game, args=(conn, addr, lock))
-                    thread.start()
+                    thread.start()               
                 break
             
 
@@ -108,28 +107,21 @@ class Connect4TerminalPlusSocket:
         self.conn.close()
                 
 
-    def get_player_names(self, conn, addr, lock):
-        print("Player names thread running. . . ")
-        global players
-
+    def play_game(self, conn, addr, lock):
         print(f"[NEW CONNECTION] {addr} connected.")
+        global players, clients
 
-        # lock.acquire()
-        # conn1, _ = clients[0]
-        # conn2, _ = clients[1]
+        lock.acquire()
+        conn1, _ = clients[0]
+        conn2, _ = clients[1]
+        lock.release()
 
-        # if len(players) == 1:
-        #     if conn == conn1:
-        #         self.send_data(conn2, {"waiting-for-name":"Wait while other player enters their name"})
-        #     elif conn == conn2:
-        #         self.send_data(conn1, {"waiting-for-name":"Wait while other player enters their name"})
-        # lock.release()
-
-        
-        self.send_data(conn, {"connected":"True"})
+        opponent = ''
+        id = None
 
         full_msg = b''
         new_msg = True
+
         while True:
             msg = conn.recv(16)        
             if new_msg:
@@ -143,73 +135,33 @@ class Connect4TerminalPlusSocket:
                 # ----------------Use loaded json data here----------------
 
                 loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])
-                print("loaded_json: ",  loaded_json)
+                # print("loaded_json: ",  loaded_json)
                 new_msg = True
                 full_msg = b''     
                 try:
-                    if 'you' in loaded_json:
+                    if 'id' in loaded_json:
+                        id = loaded_json['id']
+                        if not id:
+                            self.send_data(conn, {"get-first-player-name":"True"})
+                    elif 'you' in loaded_json:
                         you = loaded_json['you']
+                        if conn == conn1:
+                            self.send_data(conn2, {'opponent':you})
+                        elif conn == conn2:
+                            self.send_data(conn1, {'opponent':you})                        
                         
-                        lock.acquire()                        
-                        players.append(you)
-                        lock.release()
-
-                        break                    
+                    elif 'opponent' in loaded_json:
+                        opponent = loaded_json['opponent']
+                                            
                     elif 'DISCONNECT' in loaded_json:
                         if loaded_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:                            
-                            self.reset_client(conn, addr)                            
+                            self.reset_client(conn, addr)
+
                 except KeyError:
                     self.reset_client(conn, addr)                          
 
                     # ----------------Use loaded json data here---------------- 
-
-
-
-
-    def play_game(self, conn, addr, lock):
-        print("play game thread running. . . ")
-        global players
-        global clients
         
-        with lock:
-            clients = copy.copy(clients)
-            players = copy.copy(players)
-        
-        self.send_data(conn, {"players":players})
-        
-        conn1, _ = clients[0]
-        conn2, _ = clients[1]
-
-        full_msg = b''
-        new_msg = True
-        while True:
-            msg = conn.recv(16)        
-            if new_msg:
-                msglen = int(msg[:self.HEADERSIZE])
-                new_msg = False
-
-
-            full_msg += msg
-
-            if len(full_msg)-self.HEADERSIZE == msglen:
-                # ----------------Use loaded json data here----------------
-
-                loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])
-                print("loaded_json: ",  loaded_json)
-                new_msg = True
-                full_msg = b''     
-                try:                    
-                    if 'DISCONNECT' in loaded_json:
-                        if loaded_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:                            
-                            break
-                except KeyError:                
-                    break
-
-                    # ----------------Use loaded json data here----------------   
-
-
-        self.reset_client(conn, addr)
-        
-
-connect4_terminal_plus_socket = Connect4TerminalPlusSocket()
-connect4_terminal_plus_socket.host_game()
+if __name__ == "__main__":
+    connect4_terminal_plus_socket = Connect4TerminalPlusSocket()
+    connect4_terminal_plus_socket.host_game()
