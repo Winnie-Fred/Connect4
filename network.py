@@ -54,11 +54,15 @@ class Network:
                 # ----------------Use loaded json data here----------------
 
                 loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])
-                print("LOADED JSON", loaded_json)
+                # print("LOADED JSON", loaded_json)
                 new_msg = True
                 full_msg = b''
                 try:
-                    if "connected" in loaded_json:
+                    if "status" in loaded_json:
+                        print(loaded_json['status'])
+                    elif "waiting-for-name" in loaded_json:
+                        print(loaded_json['waiting-for-name'])
+                    elif "connected" in loaded_json:
                         connect4game._about_game()
                         you = connect4game._get_player_name()                       
                         self.send_data(client, {'you':you})
