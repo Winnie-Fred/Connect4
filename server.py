@@ -72,7 +72,7 @@ class Connect4TerminalPlusSocket:
                     print("Waiting for other player to join the connection. . .")
                     conn, _ = clients[0]
                     self.send_data(conn, {"status":"Waiting for other player to join the connection. . ."})
-                time.sleep(5)
+                time.sleep(1)
                 first_time = False
                 continue
                     
@@ -117,6 +117,7 @@ class Connect4TerminalPlusSocket:
         lock.release()
 
         opponent = ''
+        you = ''
         id = None
 
         full_msg = b''
@@ -152,6 +153,13 @@ class Connect4TerminalPlusSocket:
                         
                     elif 'opponent' in loaded_json:
                         opponent = loaded_json['opponent']
+                    elif 'first' in loaded_json:
+                        self.send_data(conn1, {'first':loaded_json['first']})                        
+                        self.send_data(conn2, {'first':loaded_json['first']})
+                    elif 'colors' in loaded_json:
+                        self.send_data(conn1, {'colors':loaded_json['colors']})
+                        self.send_data(conn2, {'colors':loaded_json['colors']})
+
                                             
                     elif 'DISCONNECT' in loaded_json:
                         if loaded_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:                            

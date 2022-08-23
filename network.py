@@ -51,7 +51,7 @@ class Network:
 
 
     def play_game(self, client): 
-           
+
         full_msg = b''
         new_msg = True
         while True:
@@ -93,8 +93,28 @@ class Network:
                             self.send_data(client, {'you':self.you})                        
                         print("You are up against: ", self.opponent)
                         self.send_data(client, {'opponent':self.opponent})
+                        # Shuffling player names
+                        if not self.ID:
+                            first_player = connect4game._shuffle_players([self.you, self.opponent])
+                            self.send_data(client, {'first':first_player})                      
+                    elif "first" in loaded_json:
+                        first = loaded_json['first'][0]
+                        if self.ID:
+                            print("Randomly choosing who to go first . . .")                    
+                            print(f"{first} goes first")
+                        if first == self.you:
+                            colors = connect4game._get_players_colors(self.you)
+                            self.send_data(client, {'colors':colors})
+                        else:
+                            print(f"Waiting for {self.opponent} to choose their color. . .")
+                    elif "colors" in loaded_json:
+                        colors = loaded_json['colors']
+                        color = ''
+                        if first == self.you:
+                            color = colors[0]
+                        else:
+                            color = colors[1]
                         
-
                         # self.send_data(client, {'DISCONNECT':self.DISCONNECT_MESSAGE})
                         # break
 
