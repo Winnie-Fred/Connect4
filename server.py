@@ -68,7 +68,9 @@ class Connect4TerminalPlusSocket:
         while True:
             if len(clients) == 1:
                 if i == 0:
-                    print("Waiting for other player to join the connection")
+                    print("Waiting for other player to join the connection. . .")
+                    conn, _ = clients[0]
+                    self.send_data(conn, {"status":"Waiting for other player to join the connection. . ."})
                 time.sleep(5)
                 i += 1
                 continue
@@ -80,6 +82,12 @@ class Connect4TerminalPlusSocket:
 
             elif len(clients) == 2:            
                 print("Both clients connected. Starting game. . .")
+                for client in clients:
+                    conn, _ = client
+                    self.send_data(conn, {"status":"Both clients connected. Starting game. . ."})
+                    if client == clients[1]:
+                        self.send_data(conn, {"waiting-for-name":"Waiting for other player to enter their name. . ."})
+
                 for client in clients:
                     conn, addr = client
                     thread = threading.Thread(target=self.get_player_names, args=(conn, addr, lock))
@@ -105,6 +113,18 @@ class Connect4TerminalPlusSocket:
         global players
 
         print(f"[NEW CONNECTION] {addr} connected.")
+
+        # lock.acquire()
+        # conn1, _ = clients[0]
+        # conn2, _ = clients[1]
+
+        # if len(players) == 1:
+        #     if conn == conn1:
+        #         self.send_data(conn2, {"waiting-for-name":"Wait while other player enters their name"})
+        #     elif conn == conn2:
+        #         self.send_data(conn1, {"waiting-for-name":"Wait while other player enters their name"})
+        # lock.release()
+
         
         self.send_data(conn, {"connected":"True"})
 
@@ -130,7 +150,7 @@ class Connect4TerminalPlusSocket:
                     if 'you' in loaded_json:
                         you = loaded_json['you']
                         
-                        lock.acquire()
+                        lock.acquire()                        
                         players.append(you)
                         lock.release()
 
