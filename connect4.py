@@ -1,5 +1,7 @@
 from random import shuffle
 from termcolor import colored  # type: ignore
+from colorama import init # type: ignore
+init(autoreset= True)
 
 from player import Player
 from board import Board
