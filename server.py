@@ -112,9 +112,11 @@ class Connect4TerminalPlusSocket:
         global players, clients
 
         lock.acquire()
+        clients = copy.copy(clients)
+        lock.release()
+
         conn1, _ = clients[0]
         conn2, _ = clients[1]
-        lock.release()
 
         opponent = ''
         you = ''
@@ -158,8 +160,7 @@ class Connect4TerminalPlusSocket:
                         self.send_data(conn2, {'first':loaded_json['first']})
                     elif 'colors' in loaded_json:
                         self.send_data(conn1, {'colors':loaded_json['colors']})
-                        self.send_data(conn2, {'colors':loaded_json['colors']})
-
+                        self.send_data(conn2, {'colors':loaded_json['colors']})                  
                                             
                     elif 'DISCONNECT' in loaded_json:
                         if loaded_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:                            
