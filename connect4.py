@@ -1,11 +1,14 @@
+import os
 from random import shuffle
+
 from termcolor import colored  # type: ignore
-from colorama import init # type: ignore
-init(autoreset= True)
+
 
 from player import Player
 from board import Board
 from level import Level
+
+os.system('') # To ensure that escape sequences work, and coloured text is displayed normally and not as weird characters
 
 class Connect4Game:
 
