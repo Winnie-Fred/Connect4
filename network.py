@@ -6,10 +6,6 @@ import socket
 import pickle
 from threading import Thread
 
-
-from colorama import init # type: ignore
-init(autoreset= True)
-
 from termcolor import colored  # type: ignore
 
 from connect4 import Connect4Game
@@ -17,6 +13,7 @@ from player import Player
 from level import Level
 from board import Board
 
+os.system('') # To ensure that escape sequences work, and coloured text is displayed normally and not as weird characters
 
 connect4game = Connect4Game()
 
@@ -77,12 +74,14 @@ class Network:
 
     def simulate_loading_with_spinner(self, loading_msg, loaded_json):
         spaces_to_replace_loader = '  '
+        yellow_loading_msg = colored(loading_msg, "yellow", attrs=['bold'])
         for c in itertools.cycle(['|', '/', '-', '\\']):
             if loaded_json != self.loaded_json:
-                sys.stdout.write(f'\r{loading_msg}{spaces_to_replace_loader}')
+                green_loading_msg = colored(loading_msg, "green", attrs=['bold'])
+                sys.stdout.write(f'\r{green_loading_msg}{spaces_to_replace_loader}')
                 print("\n")
                 break
-            sys.stdout.write(f'\r{loading_msg} {c}')
+            sys.stdout.write(f'\r{yellow_loading_msg} {c}')
             sys.stdout.flush()
             time.sleep(0.1)
 
