@@ -71,7 +71,7 @@ class Connect4TerminalPlusSocket:
                 if first_time:
                     print("Waiting for other player to join the connection. . .")
                     conn, _ = clients[0]
-                    self.send_data(conn, {"status":"Waiting for other player to join the connection. . ."})
+                    self.send_data(conn, {"status":"Waiting for other player to join the connection"})
                 time.sleep(1)
                 first_time = False
                 continue
@@ -88,10 +88,10 @@ class Connect4TerminalPlusSocket:
                     conn, addr = client
                     self.send_data(conn, {"id": id})
                     time.sleep(1)
-                    self.send_data(conn, {"status":"Both clients connected. Starting game. . ."})
+                    self.send_data(conn, {"status":"Both clients connected. Starting game"})
                     time.sleep(1)
                     if client == clients[1]:
-                        self.send_data(conn, {"waiting-for-name":"Waiting for other player to enter their name. . ."})
+                        self.send_data(conn, {"waiting-for-name":"Waiting for other player to enter their name"})
                         time.sleep(1)
                     id += 1
 

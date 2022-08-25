@@ -1,5 +1,11 @@
+import os
+import sys
+import time
+import itertools
 import socket
 import pickle
+from threading import Thread
+
 
 from colorama import init # type: ignore
 init(autoreset= True)
@@ -28,11 +34,16 @@ class Network:
         self.player = Player(name='', marker='')
         self.your_turn = False
         self.level = Level()
+
         self.HEADERSIZE = 10
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server = "127.0.0.1"
         self.port = 5050
         self.addr = (self.server, self.port)
+
+        self.loading_thread = Thread()
+        self.loaded_json = {}
+
         self.connect()
 
 
@@ -42,6 +53,7 @@ class Network:
         except Exception as e:
             print(f"Connection failed: {e}")
         else:
+            self.loading_thread.start()
             self.play_game()
            
 
@@ -63,6 +75,17 @@ class Network:
 
         return other_player
 
+    def simulate_loading_with_spinner(self, loading_msg, loaded_json):
+        spaces_to_replace_loader = '  '
+        for c in itertools.cycle(['|', '/', '-', '\\']):
+            if loaded_json != self.loaded_json:
+                sys.stdout.write(f'\r{loading_msg}{spaces_to_replace_loader}')
+                print("\n")
+                break
+            sys.stdout.write(f'\r{loading_msg} {c}')
+            sys.stdout.flush()
+            time.sleep(0.1)
+
 
     def play_game(self): 
 
@@ -82,25 +105,40 @@ class Network:
                 
                 # ----------------Use loaded json data here----------------
 
-                loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])
-                # print("LOADED JSON", loaded_json)
+                self.loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])
+
+                # NOTE Calling .join on self.loading_thread ensures that the spinner function has completed 
+                # NOTE (and finished using stdout) before attempting to print anything else to stdout.
+                # NOTE The first time .join is called, it joins the self.loading_thread instantiated 
+                # NOTE and started in the init function of the Network class.
+
+                # ! .join must be called on loading_thread only after loaded pickle of full_msg is assigned to self.loaded_json.
+                # ! Otherwise, condtion for termination of spinner is never met
+                self.loading_thread.join() 
+
                 new_msg = True
                 full_msg = b''
                 try:
-                    if "id" in loaded_json:
-                        self.ID = loaded_json["id"]
+                    if "id" in self.loaded_json:
+                        self.ID = self.loaded_json["id"]
                         self.send_data({'id':self.ID})
-                    elif "status" in loaded_json:
-                        print(loaded_json['status'])
-                    elif "waiting-for-name" in loaded_json:
-                        print(loaded_json['waiting-for-name'])
-                    elif "get-first-player-name" in loaded_json:  
+                    elif "status" in self.loaded_json:                                                          
+                        loading_msg = self.loaded_json['status']  
+                        self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
+                        self.loading_thread.start()                        
+                    elif "waiting-for-name" in self.loaded_json:                                                              
+                        loading_msg = self.loaded_json['waiting-for-name']                                        
+                        self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
+                        self.loading_thread.start()
+                    elif "get-first-player-name" in self.loaded_json:                                                               
                         connect4game._about_game()                        
                         self.you = connect4game._get_player_name()
                         self.send_data({'you':self.you})
-                        print("Waiting for other player to enter their name. . .")
-                    elif "opponent" in loaded_json:
-                        self.opponent = loaded_json['opponent']
+                        loading_msg = "Waiting for other player to enter their name"
+                        self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
+                        self.loading_thread.start()                        
+                    elif "opponent" in self.loaded_json:                                                             
+                        self.opponent = self.loaded_json['opponent']
                         if not self.you:
                             connect4game._about_game()
                             self.you = self._get_other_player_name(self.opponent)
@@ -111,8 +149,8 @@ class Network:
                         if not self.ID:
                             first_player = connect4game._shuffle_players([self.you, self.opponent])
                             self.send_data({'first':first_player})                      
-                    elif "first" in loaded_json:
-                        first = loaded_json['first'][0]
+                    elif "first" in self.loaded_json:
+                        first = self.loaded_json['first'][0]
                         if self.ID:
                             print("Randomly choosing who to go first . . .")                    
                             print(f"{first} goes first")
@@ -120,9 +158,11 @@ class Network:
                             colors = connect4game._get_players_colors(self.you)
                             self.send_data({'colors':colors})
                         else:
-                            print(f"Waiting for {self.opponent} to choose their color. . .")
-                    elif "colors" in loaded_json:
-                        colors = loaded_json['colors']                        
+                            loading_msg = f"Waiting for {self.opponent} to choose their color"
+                            self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
+                            self.loading_thread.start()                            
+                    elif "colors" in self.loaded_json:                                                                                     
+                        colors = self.loaded_json['colors']                        
                         if first == self.you:
                             self.your_turn = True
                             self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))
@@ -140,11 +180,13 @@ class Network:
                             self.send_data({'board':board})
                             self.your_turn = False
                         else:
-                            print(f"Waiting for {self.opponent} to play. . .")
+                            loading_msg = f"Waiting for {self.opponent} to play"
+                            self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
+                            self.loading_thread.start()
                             self.your_turn = True
 
-                    elif "board" in loaded_json:
-                        board = loaded_json['board']
+                    elif "board" in self.loaded_json:
+                        board = self.loaded_json['board']
                         print(board)
 
                         # self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})
@@ -152,7 +194,8 @@ class Network:
 
                 except KeyError:
                     self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})
-                    break
+                    break                
+                    
 
                     # ----------------Use loaded json data here----------------
 if __name__ == "__main__":
