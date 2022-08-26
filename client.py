@@ -76,7 +76,8 @@ class Network:
         return other_player
 
     def simulate_loading_with_spinner(self, loading_msg, loaded_json):
-        spaces_to_replace_spinner = '  '
+        NO_OF_CHARACTERS_AFTER_LOADING_MSG = 5
+        spaces_to_replace_spinner = ' ' * NO_OF_CHARACTERS_AFTER_LOADING_MSG
         if type(loading_msg) == list:
             yellow_first_part = colored(loading_msg[0], "yellow", attrs=['bold'])
             yellow_last_part = colored(loading_msg[2], "yellow", attrs=['bold'])
@@ -92,7 +93,7 @@ class Network:
                 sys.stdout.write(f'\r{green_loading_msg}{spaces_to_replace_spinner}')
                 print("\n")
                 break
-            sys.stdout.write(f'\r{yellow_loading_msg} {c}')
+            sys.stdout.write(f'\r{yellow_loading_msg}  {c}  ')
             sys.stdout.flush()
             time.sleep(0.1)
 
