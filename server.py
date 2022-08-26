@@ -118,10 +118,6 @@ class Connect4TerminalPlusSocket:
         conn1, _ = clients[0]
         conn2, _ = clients[1]
 
-        opponent = ''
-        you = ''
-        id = None
-
         full_msg = b''
         new_msg = True
 
@@ -145,23 +141,29 @@ class Connect4TerminalPlusSocket:
                     if 'id' in loaded_json:
                         id = loaded_json['id']
                         if not id:
-                            self.send_data(conn, {"get-first-player-name":"True"})
+                            self.send_data(conn, {"get-first-player-name":True})
                     elif 'you' in loaded_json:
                         you = loaded_json['you']
                         if conn == conn1:
                             self.send_data(conn2, {'opponent':you})
                         elif conn == conn2:
                             self.send_data(conn1, {'opponent':you})                        
-                        
-                    elif 'opponent' in loaded_json:
-                        opponent = loaded_json['opponent']
                     elif 'first' in loaded_json:
                         self.send_data(conn1, {'first':loaded_json['first']})                        
                         self.send_data(conn2, {'first':loaded_json['first']})
                     elif 'colors' in loaded_json:
                         self.send_data(conn1, {'colors':loaded_json['colors']})
-                        self.send_data(conn2, {'colors':loaded_json['colors']})                  
-                                            
+                        self.send_data(conn2, {'colors':loaded_json['colors']})
+                    elif 'opponent_player_object' in loaded_json:
+                        if conn == conn1:
+                            self.send_data(conn2, {'opponent_player_object':loaded_json['opponent_player_object']})
+                        elif conn == conn2:
+                            self.send_data(conn1, {'opponent_player_object':loaded_json['opponent_player_object']})                                            
+                    elif 'board' in loaded_json:
+                        if conn == conn1:
+                            self.send_data(conn2, {'board':loaded_json['board']})                            
+                        elif conn == conn2:
+                            self.send_data(conn1, {'board':loaded_json['board']})                                                                        
                     elif 'DISCONNECT' in loaded_json:
                         if loaded_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:                            
                             self.reset_client(conn, addr)

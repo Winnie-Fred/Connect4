@@ -4,7 +4,7 @@ import time
 import itertools
 import socket
 import pickle
-from threading import Thread
+from threading import Thread, Event
 
 from termcolor import colored  # type: ignore
 
@@ -16,6 +16,7 @@ from board import Board
 os.system('') # To ensure that escape sequences work, and coloured text is displayed normally and not as weird characters
 
 connect4game = Connect4Game()
+
 
 
 class Network:
@@ -31,6 +32,7 @@ class Network:
         self.player = Player(name='', marker='')
         self.your_turn = False
         self.level = Level()
+        self.board = Board()
 
         self.HEADERSIZE = 10
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -40,6 +42,7 @@ class Network:
 
         self.loading_thread = Thread()
         self.loaded_json = {}
+        self.board_updated_event = Event()
 
         self.connect()
 
@@ -85,6 +88,30 @@ class Network:
             sys.stdout.flush()
             time.sleep(0.1)
 
+    def main_game_thread(self):
+        print("\n\n", f"ROUND {self.level.current_level}".center(50, '-'))
+        self.board.print_board() #  Print board at start of each round
+
+        first_time = True
+        while True:
+            self.loading_thread.join() # Wait for spinner to stop before printing to stdout
+
+            if self.your_turn:
+                if not first_time: #  Do not wait on first run of loop for board to be updated since no move has been made yet
+                    self.board_updated_event.wait() #  Wait until board is updated with other player's latest move
+                    self.board_updated_event.clear() #  Unset the event till it is set when board is updated again
+                    self.board.print_board() # Print board to show player their opponent's move
+
+                self.board.play_at_position(self.player)
+                self.board.print_board()
+                self.your_turn = False
+                self.send_data({'board':self.board})
+            else:
+                loading_msg = f"Waiting for {self.opponent.name} {self.opponent.marker} to play"
+                self.your_turn = True
+                self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
+                self.loading_thread.start()
+            first_time = False
 
     def play_game(self): 
 
@@ -113,7 +140,7 @@ class Network:
 
                 # ! .join must be called on loading_thread only after loaded pickle of full_msg is assigned to self.loaded_json.
                 # ! Otherwise, condtion for termination of spinner is never met
-                self.loading_thread.join() 
+                self.loading_thread.join()                 
 
                 new_msg = True
                 full_msg = b''
@@ -142,8 +169,7 @@ class Network:
                             connect4game._about_game()
                             self.you = self._get_other_player_name(self.opponent)
                             self.send_data({'you':self.you})                        
-                        print("You are up against: ", self.opponent)
-                        self.send_data({'opponent':self.opponent})
+                        print("You are up against: ", self.opponent)                        
                         # Shuffling player names
                         if not self.ID:
                             first_player = connect4game._shuffle_players([self.you, self.opponent])
@@ -164,29 +190,19 @@ class Network:
                         colors = self.loaded_json['colors']                        
                         if first == self.you:
                             self.your_turn = True
-                            self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))
+                            self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))                            
                         else:
                             self.your_turn = False
-                            self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))
-                        
-                        print("\n\n", f"ROUND {self.level.current_level}".center(50, '-'))
-                        board = Board()
-                        board.print_board() #  Print board at start of each round
-                        
-                        if self.your_turn:
-                            board.play_at_position(self.player)
-                            board.print_board()
-                            self.send_data({'board':board})
-                            self.your_turn = False
-                        else:
-                            loading_msg = f"Waiting for {self.opponent} to play"
-                            self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
-                            self.loading_thread.start()
-                            self.your_turn = True
-
+                            self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
+                        self.send_data({'opponent_player_object':self.player})
+                    elif "opponent_player_object" in self.loaded_json:
+                        self.opponent = self.loaded_json['opponent_player_object']                        
+                        main_game_thread = Thread(target=self.main_game_thread)
+                        main_game_thread.start()                        
                     elif "board" in self.loaded_json:
-                        board = self.loaded_json['board']
-                        print(board)
+                        self.board = self.loaded_json['board']
+                        self.board_updated_event.set()                                              
+                        
 
                         # self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})
                         # break
