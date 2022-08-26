@@ -77,10 +77,18 @@ class Network:
 
     def simulate_loading_with_spinner(self, loading_msg, loaded_json):
         spaces_to_replace_spinner = '  '
-        yellow_loading_msg = colored(loading_msg, "yellow", attrs=['bold'])
+        if type(loading_msg) == list:
+            yellow_first_part = colored(loading_msg[0], "yellow", attrs=['bold'])
+            yellow_last_part = colored(loading_msg[2], "yellow", attrs=['bold'])
+            green_first_part = colored(loading_msg[0], "green", attrs=['bold'])
+            green_last_part = colored(loading_msg[2], "green", attrs=['bold'])
+            yellow_loading_msg = f"{yellow_first_part}{loading_msg[1]}{yellow_last_part}"
+            green_loading_msg = f"{green_first_part}{loading_msg[1]}{green_last_part}"
+        else:
+            yellow_loading_msg = colored(loading_msg, "yellow", attrs=['bold'])
+            green_loading_msg = colored(loading_msg, "green", attrs=['bold'])
         for c in itertools.cycle(['|', '/', '-', '\\']):
             if loaded_json != self.loaded_json:
-                green_loading_msg = colored(loading_msg, "green", attrs=['bold'])
                 sys.stdout.write(f'\r{green_loading_msg}{spaces_to_replace_spinner}')
                 print("\n")
                 break
@@ -127,7 +135,9 @@ class Network:
                     break
 
             else:
-                loading_msg = f"Waiting for {self.opponent.name} {self.opponent.marker} to play"
+                # Text is split into a list so that text can be colored separate from marker in the simulate_loading_with_spinner function
+                # If raw string is entered directly, text after the marker does not get coloured.
+                loading_msg = [f"Waiting for {self.opponent.name} ", self.opponent.marker, " to play"]
                 self.your_turn = True
                 self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
                 self.loading_thread.start()
