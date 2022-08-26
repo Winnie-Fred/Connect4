@@ -163,7 +163,10 @@ class Connect4TerminalPlusSocket:
                         if conn == conn1:
                             self.send_data(conn2, {'board':loaded_json['board']})                            
                         elif conn == conn2:
-                            self.send_data(conn1, {'board':loaded_json['board']})                                                                        
+                            self.send_data(conn1, {'board':loaded_json['board']})  
+                    elif 'round_over' in loaded_json:
+                        self.send_data(conn1, loaded_json)
+                        self.send_data(conn2, loaded_json)
                     elif 'DISCONNECT' in loaded_json:
                         if loaded_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:                            
                             self.reset_client(conn, addr)
