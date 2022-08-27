@@ -32,7 +32,7 @@ class Network:
         self.player = Player(name='', marker='')
         self.your_turn = False
         self.level = Level()
-        self.board = Board()
+        
 
         self.HEADERSIZE = 10
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -42,7 +42,9 @@ class Network:
 
         self.loading_thread = Thread()
         self.loaded_json = {}
-        self.board_updated_event = Event()        
+        self.board_updated_event = Event() 
+        self.play_again_reply_received = Event() 
+        self.first_player_received = Event()      
 
         self.connect()
 
@@ -76,7 +78,8 @@ class Network:
         return other_player
 
     def simulate_loading_with_spinner(self, loading_msg, loaded_json):
-        spaces_to_replace_spinner = '  '
+        NO_OF_CHARACTERS_AFTER_LOADING_MSG = 5
+        spaces_to_replace_spinner = ' ' * NO_OF_CHARACTERS_AFTER_LOADING_MSG
         if type(loading_msg) == list:
             yellow_first_part = colored(loading_msg[0], "yellow", attrs=['bold'])
             yellow_last_part = colored(loading_msg[2], "yellow", attrs=['bold'])
@@ -92,56 +95,115 @@ class Network:
                 sys.stdout.write(f'\r{green_loading_msg}{spaces_to_replace_spinner}')
                 print("\n")
                 break
-            sys.stdout.write(f'\r{yellow_loading_msg} {c}')
+            sys.stdout.write(f'\r{yellow_loading_msg}  {c}  ')
             sys.stdout.flush()
             time.sleep(0.1)
 
     def main_game_thread(self):
-        print("\n\n", f"ROUND {self.level.current_level}".center(50, '-'))
-        self.board.print_board() #  Print board at start of each round
+        playing = True
 
-        first_time = True
-        while True:
-            if self.your_turn:
+        while playing:
+            print("\n\n", f"ROUND {self.level.current_level}".center(50, '-'))
+            self.board = Board()
+            self.board.print_board() #  Print board at start of each round
 
-                if not first_time: #  Do not wait on first run of loop for board to be updated since no move has been made yet
-                    self.board_updated_event.wait() #  Wait until board is updated with other player's latest move
-                    self.board_updated_event.clear() #  Unset the event till it is set when board is updated again
-                    self.board.print_board() #  Print board to show player their opponent's move
+            first_time = True
+            while True:
+                if self.your_turn:
 
-                # At this point, the opponent has won so we want to break to end this loop and 
-                # so that we do not collect this user's input anymore.
-                if 'round_over' in self.loaded_json: 
-                    if self.loaded_json['winner'] is not None:
-                        print(f"\n{self.opponent.name} {self.opponent.marker} wins this round")
-                        print("Better luck next time!\n")
-                        self.opponent.points = self.loaded_json['winner'].points
+                    if not first_time: #  Do not wait on first run of loop for board to be updated since no move has been made yet
+                        self.board_updated_event.wait() #  Wait until board is updated with other player's latest move
+                        self.board_updated_event.clear() #  Unset the event till it is set when board is updated again
+                        self.board.print_board() #  Print board to show player their opponent's move
+
+                    # At this point, the opponent has won so we want to break to end this loop and 
+                    # so that we do not collect this user's input anymore.
+                    if 'round_over' in self.loaded_json: 
+                        if self.loaded_json['winner'] is not None:
+                            print(f"\n{self.opponent.name} {self.opponent.marker} wins this round")
+                            print("Better luck next time!\n")
+                            self.opponent.points = self.loaded_json['winner'].points
+                        break
+
+                    self.board.play_at_position(self.player)
+                    self.board.print_board()
+                    self.your_turn = False
+                    self.send_data({'board':self.board})
+
+                    if self.board.check_win(self.player):
+                        self.player.points += self.POINTS_FOR_WINNING_ONE_ROUND
+                        print(f"\n{self.player.name} {self.player.marker} wins this round!\n")
+                        self.send_data({'round_over':True, 'winner':self.player})
+                        break
+
+                    if self.board.check_tie():
+                        print("\nIt's a tie!\n")
+                        self.send_data({'round_over':True, 'winner':None})
+                        break
+
+                else:
+                    # Text is split into a list so that text can be colored separate from marker in the simulate_loading_with_spinner function
+                    # If raw string is entered directly, text after the marker does not get coloured.
+                    loading_msg = [f"Waiting for {self.opponent.name} ", self.opponent.marker, " to play"]
+                    self.your_turn = True
+                    self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
+                    self.loading_thread.start()
+                first_time = False
+
+            print(f"\n\nAt the end of round {self.level.current_level}, ")
+            print(f"You have {self.player.points} points")
+            print(f"{self.opponent.name} has {self.opponent.points} points\n\n")
+
+            while True:
+                play_again = input("Want to play another round? Enter 'Y' for 'yes' and 'N' for 'no': ").lower().strip()
+                if play_again == 'y':
+                    # Shuffle the players again before starting next round.
+                    self.send_data({'play_again':True})
+
+                    if 'play_again' not in self.loaded_json:
+                        loading_msg = f"Waiting for {self.opponent.name} to reply"
+                        self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
+                        self.loading_thread.start()
+
+                    self.play_again_reply_received.wait()
+                    self.play_again_reply_received.clear()
+
+                    if self.loaded_json['play_again']:
+                        self.level.current_level += 1 
+
+                        if not self.ID:
+                            first_player = connect4game._shuffle_players([self.player, self.opponent])[0]
+                            self.send_data({'first_player':first_player})
+
+                        self.first_player_received.wait()
+                        self.first_player_received.clear()
+
+                        # The check is between Player objects' names and not the objects themselves because their 
+                        # points may be different if one of them is leading from the previous round
+                        if self.loaded_json['first_player'].name == self.player.name:
+                            self.your_turn = True                            
+                        else:
+                            self.your_turn = False
+                        first_time = True
+                        break
+                    else:
+                        # Opponent does not want to play another round
+                        print(f"{self.opponent.name} has ended the game")
+                        print("At the end of the game, ")
+                        connect4game._calculate_and_display_final_result([self.player, self.opponent])
+                        print("Thanks for playing")
+                        playing = False
+                        break
+                elif play_again == 'n':
+                    self.send_data({'play_again':False})
+                    print("At the end of the game, ")
+                    connect4game._calculate_and_display_final_result([self.player, self.opponent])                    
+                    print("Thanks for playing")
+                    playing = False
                     break
-
-                self.board.play_at_position(self.player)
-                self.board.print_board()
-                self.your_turn = False
-                self.send_data({'board':self.board})
-
-                if self.board.check_win(self.player):
-                    self.player.points += self.POINTS_FOR_WINNING_ONE_ROUND
-                    print(f"\n{self.player.name} {self.player.marker} wins this round!\n")
-                    self.send_data({'round_over':True, 'winner':self.player})
-                    break
-
-                if self.board.check_tie():
-                    print("\nIt's a tie!\n")
-                    self.send_data({'round_over':True, 'winner':None})
-                    break
-
-            else:
-                # Text is split into a list so that text can be colored separate from marker in the simulate_loading_with_spinner function
-                # If raw string is entered directly, text after the marker does not get coloured.
-                loading_msg = [f"Waiting for {self.opponent.name} ", self.opponent.marker, " to play"]
-                self.your_turn = True
-                self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
-                self.loading_thread.start()
-            first_time = False
+                else:
+                    print("Invalid input.")
+                    continue
 
 
 
@@ -234,11 +296,11 @@ class Network:
                     elif "board" in self.loaded_json:
                         self.board = self.loaded_json['board']
                         self.board_updated_event.set() 
-                    elif 'round_over' in self.loaded_json:
-                        main_game_thread.join() #  Wait for main_game_thread to terminate before printing results of round
-                        print(f"\n\nAt the end of round {self.level.current_level}, ")
-                        print(f"You have {self.player.points} points")
-                        print(f"{self.opponent.name} has {self.opponent.points} points\n\n")                        
+                    elif 'play_again' in self.loaded_json:
+                        self.play_again_reply_received.set()
+                    elif 'first_player' in self.loaded_json:
+                        self.first_player_received.set()
+                                                
                             
 
                         # self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})
