@@ -21,13 +21,14 @@ players: List = []
 class Connect4TerminalPlusSocket:
     def __init__(self):
         self.HEADERSIZE = 10
-        # SERVER = socket.gethostbyname(socket.gethostname())
+        # self.SERVER = socket.gethostbyname(socket.gethostname())
         self.SERVER = "127.0.0.1"
         self.PORT = 5050
         self.ADDR = (self.SERVER, self.PORT)
         self.FORMAT = 'utf-8'
         self.DISCONNECT_MESSAGE = "!DISCONNECT"
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        
 
     def host_game(self):
         try:
@@ -48,16 +49,13 @@ class Connect4TerminalPlusSocket:
         print("[STARTING] server is starting...")
         self.server.listen(2)
         print(f"[LISTENING] server is listening on {self.SERVER}")
-        thread = threading.Thread(target=self.start_game_when_two_clients)
-        thread.start()
+        threading.Thread(target=self.start_game_when_two_clients).start()
 
-        i = 1
         while True:
             conn, addr = self.server.accept()
             clients.append((conn, addr))
 
-            print(f"[ACTIVE CONNECTIONS] {i}")
-            i += 1
+            print(f"[ACTIVE CONNECTIONS] {len(clients)}")
             
         
     def start_game_when_two_clients(self):
@@ -100,11 +98,12 @@ class Connect4TerminalPlusSocket:
                 break
             
 
-    def reset_client(self, conn, addr):
+    def remove_client(self, conn, addr):
         global clients
         print("Lost connection")
-        clients.remove((conn, addr))
-        self.conn.close()
+        print(f"[DISCONNECTION] {addr} disconnected.")
+        clients.remove((conn, addr))        
+        conn.close()
                 
 
     def play_game(self, conn, addr, lock):
@@ -122,7 +121,8 @@ class Connect4TerminalPlusSocket:
         new_msg = True
 
         while True:
-            msg = conn.recv(16)        
+            msg = conn.recv(16)   
+                 
             if new_msg:
                 msglen = int(msg[:self.HEADERSIZE])
                 new_msg = False
@@ -167,22 +167,32 @@ class Connect4TerminalPlusSocket:
                     elif 'round_over' in loaded_json:
                         self.send_data(conn1, loaded_json)
                         self.send_data(conn2, loaded_json)
-                    elif 'play_again' in loaded_json:                        
-                        if conn == conn1:
-                            self.send_data(conn2, {'play_again':loaded_json['play_again']})
-                        elif conn == conn2:
-                            self.send_data(conn1, {'play_again':loaded_json['play_again']})
+                    elif 'play_again' in loaded_json:
+                        try:
+                            if conn == conn1:
+                                self.send_data(conn2, {'play_again':loaded_json['play_again']})
+                            elif conn == conn2:
+                                self.send_data(conn1, {'play_again':loaded_json['play_again']})
+                        except OSError: # Other client may have disconnected already so sending data to it will raise OSError exception
+                            continue
                     elif 'first_player' in loaded_json:                        
                         self.send_data(conn1, {'first_player':loaded_json['first_player']})                        
                         self.send_data(conn2, {'first_player':loaded_json['first_player']})
+                    elif 'wait_for_new_client' in loaded_json:
+                        threading.Thread(target=self.start_game_when_two_clients).start()
+                        break
                     elif 'DISCONNECT' in loaded_json:
                         if loaded_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:                            
-                            self.reset_client(conn, addr)
-
+                            self.remove_client(conn, addr)
+                            break
                 except KeyError:
-                    self.reset_client(conn, addr)                          
+                    self.remove_client(conn, addr)
+                    break                          
+        
+                    # ----------------Use loaded json data here----------------
+                     
 
-                    # ----------------Use loaded json data here---------------- 
+
         
 if __name__ == "__main__":
     connect4_terminal_plus_socket = Connect4TerminalPlusSocket()
