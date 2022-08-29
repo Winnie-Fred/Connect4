@@ -19,7 +19,7 @@ connect4game = Connect4Game()
 
 
 
-class Network:
+class Client:
     FORMAT = 'utf-8'
     DISCONNECT_MESSAGE = "!DISCONNECT"
     POINTS_FOR_WINNING_ONE_ROUND = 10
@@ -235,7 +235,7 @@ class Network:
                 # NOTE Calling .join on self.loading_thread ensures that the spinner function has completed 
                 # NOTE (and finished using stdout) before attempting to print anything else to stdout.
                 # NOTE The first time .join is called, it joins the self.loading_thread instantiated 
-                # NOTE and started in the init function of the Network class.
+                # NOTE and started in the init function of the Client class.
 
                 # ! .join must be called on loading_thread only after loaded pickle of full_msg is assigned to self.loaded_json.
                 # ! Otherwise, condition for termination of spinner is never met
@@ -310,9 +310,9 @@ class Network:
                     self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})                   
                     break
 
-        
+        main_game_thread.join() #  Wait for main_game_thread thread to end before printing
         print("Disconnected")
                     # ----------------Use loaded json data here----------------
 
 if __name__ == "__main__":
-    n = Network()
+    client = Client()

@@ -18,7 +18,7 @@ clients: List = []
 players: List = []
 
 
-class Connect4TerminalPlusSocket:
+class Server:
     def __init__(self):
         self.HEADERSIZE = 10
         # self.SERVER = socket.gethostbyname(socket.gethostname())
@@ -195,5 +195,5 @@ class Connect4TerminalPlusSocket:
 
         
 if __name__ == "__main__":
-    connect4_terminal_plus_socket = Connect4TerminalPlusSocket()
-    connect4_terminal_plus_socket.host_game()
+    server = Server()
+    server.host_game()
