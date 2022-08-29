@@ -44,12 +44,13 @@ class Client:
         self.loaded_json = {}
         self.board_updated_event = Event() 
         self.play_again_reply_received = Event() 
-        self.first_player_received = Event()              
+        self.first_player_received = Event() 
+        self.game_over_event = Event()             
 
-        self.connect()
+        self.connect_to_game()
 
 
-    def connect(self):
+    def connect_to_game(self):
         try:
             self.client.connect(self.addr)
         except Exception as e:
@@ -199,6 +200,7 @@ class Client:
                 elif play_again == 'n':
                     self.send_data({'play_again':False})
                     self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})
+                    self.game_over_event.set()
                     print("At the end of the game, ")
                     connect4game._calculate_and_display_final_result([self.player, self.opponent])                    
                     print("Thanks for playing")                    
@@ -305,12 +307,16 @@ class Client:
                         self.play_again_reply_received.set()                        
                     elif 'first_player' in self.loaded_json:
                         self.first_player_received.set()
-
+                    elif 'timeout' in self.loaded_json:
+                        print(self.loaded_json['timeout'])
+                        self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})                   
+                        break
                 except KeyError:
                     self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})                   
                     break
 
-        main_game_thread.join() #  Wait for main_game_thread thread to end before printing
+        if self.game_over_event.is_set():
+            main_game_thread.join() #  Wait for main_game_thread thread to end before printing
         print("Disconnected")
                     # ----------------Use loaded json data here----------------
 
