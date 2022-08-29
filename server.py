@@ -18,7 +18,7 @@ clients: List = []
 players: List = []
 
 
-class Connect4TerminalPlusSocket:
+class Server:
     def __init__(self):
         self.HEADERSIZE = 10
         # self.SERVER = socket.gethostbyname(socket.gethostname())
@@ -28,6 +28,8 @@ class Connect4TerminalPlusSocket:
         self.FORMAT = 'utf-8'
         self.DISCONNECT_MESSAGE = "!DISCONNECT"
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        self.TIMEOUT_FOR_SERVER = 10
         
 
     def host_game(self):
@@ -52,33 +54,45 @@ class Connect4TerminalPlusSocket:
         threading.Thread(target=self.start_game_when_two_clients).start()
 
         while True:
-            conn, addr = self.server.accept()
+            try:
+                conn, addr = self.server.accept()
+            except OSError:
+                break
             clients.append((conn, addr))
 
             print(f"[ACTIVE CONNECTIONS] {len(clients)}")
+        print("[CLOSED] server is closed")
             
         
     def start_game_when_two_clients(self):
         global clients
         
+        start_time = time.time()
+
         first_time = True
         lock = threading.Lock()
 
         while True:
-            if len(clients) == 1:
+            if not clients:
+                if time.time() > start_time + self.TIMEOUT_FOR_SERVER:
+                    print("Connection timed out: No client joined the connection. Try restarting the server.")
+                    self.server.close()
+                    break
+                time.sleep(1)
+                continue
+            elif len(clients) == 1:
                 if first_time:
                     print("Waiting for other player to join the connection. . .")
                     conn, _ = clients[0]
                     self.send_data(conn, {"status":"Waiting for other player to join the connection"})
+                if time.time() > start_time + self.TIMEOUT_FOR_SERVER:
+                    print("Connection timed out: No other player joined the game. Try restarting the server.")
+                    self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try restarting the server."})
+                    self.server.close()
+                    break
                 time.sleep(1)
                 first_time = False
                 continue
-                    
-            # TODO: Close conn if no other client joins connection after specified time
-            # elif len(clients) == 1:
-            #     print("Connection timed out. No other player joined the game")
-            #     self.reset_client()
-
             elif len(clients) == 2: 
                 id = 0           
                 print("Both clients connected. Starting game. . .")
@@ -195,5 +209,5 @@ class Connect4TerminalPlusSocket:
 
         
 if __name__ == "__main__":
-    connect4_terminal_plus_socket = Connect4TerminalPlusSocket()
-    connect4_terminal_plus_socket.host_game()
+    server = Server()
+    server.host_game()
