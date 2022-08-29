@@ -44,7 +44,7 @@ class Network:
         self.loaded_json = {}
         self.board_updated_event = Event() 
         self.play_again_reply_received = Event() 
-        self.first_player_received = Event()      
+        self.first_player_received = Event()              
 
         self.connect()
 
@@ -56,7 +56,8 @@ class Network:
             print(f"Connection failed: {e}")
         else:
             self.loading_thread.start()
-            self.play_game()
+            Thread(target=self.play_game).start()
+            
            
 
     def send_data(self, data):
@@ -155,7 +156,7 @@ class Network:
             print(f"{self.opponent.name} has {self.opponent.points} points\n\n")
 
             while True:
-                play_again = input("Want to play another round? Enter 'Y' for 'yes' and 'N' for 'no': ").lower().strip()
+                play_again = input("Want to play another round? Choosing 'no' will end the game and close this connection. \nEnter 'Y' for 'yes' and 'N' for 'no': ").lower().strip()
                 if play_again == 'y':
                     # Shuffle the players again before starting next round.
                     self.send_data({'play_again':True})
@@ -188,23 +189,24 @@ class Network:
                         break
                     else:
                         # Opponent does not want to play another round
-                        print(f"{self.opponent.name} has ended the game")
+                        print(f"{self.opponent.name} has quit")
                         print("At the end of the game, ")
                         connect4game._calculate_and_display_final_result([self.player, self.opponent])
                         print("Thanks for playing")
+                        self.send_data({'wait_for_new_client':True})                        
                         playing = False
                         break
                 elif play_again == 'n':
                     self.send_data({'play_again':False})
+                    self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})
                     print("At the end of the game, ")
                     connect4game._calculate_and_display_final_result([self.player, self.opponent])                    
-                    print("Thanks for playing")
+                    print("Thanks for playing")                    
                     playing = False
                     break
                 else:
                     print("Invalid input.")
-                    continue
-
+                    continue        
 
 
     def play_game(self): 
@@ -213,6 +215,9 @@ class Network:
         new_msg = True
         while True:
             msg = self.client.recv(16)
+            if not msg:
+                break
+            
             if new_msg:
                 msglen = int(msg[:self.HEADERSIZE])                
                 new_msg = False
@@ -233,7 +238,7 @@ class Network:
                 # NOTE and started in the init function of the Network class.
 
                 # ! .join must be called on loading_thread only after loaded pickle of full_msg is assigned to self.loaded_json.
-                # ! Otherwise, condtion for termination of spinner is never met
+                # ! Otherwise, condition for termination of spinner is never met
                 self.loading_thread.join()                 
 
                 new_msg = True
@@ -297,21 +302,17 @@ class Network:
                         self.board = self.loaded_json['board']
                         self.board_updated_event.set() 
                     elif 'play_again' in self.loaded_json:
-                        self.play_again_reply_received.set()
+                        self.play_again_reply_received.set()                        
                     elif 'first_player' in self.loaded_json:
                         self.first_player_received.set()
-                                                
-                            
-
-                        # self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})
-                        # break
 
                 except KeyError:
-                    self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})
-                    break                
-                    
+                    self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})                   
+                    break
 
+        
+        print("Disconnected")
                     # ----------------Use loaded json data here----------------
+
 if __name__ == "__main__":
     n = Network()
-    # n.send_to_server(n.DISCONNECT_MESSAGE)
