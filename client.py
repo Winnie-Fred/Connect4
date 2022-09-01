@@ -42,10 +42,11 @@ class Client:
 
         self.loading_thread = Thread()
         self.loaded_json = {}
+
         self.board_updated_event = Event() 
         self.play_again_reply_received = Event() 
         self.first_player_received = Event() 
-        self.game_over_event = Event()             
+        self.game_over_event = Event() 
 
         self.connect_to_game()
 
@@ -143,7 +144,7 @@ class Client:
                         self.send_data({'round_over':True, 'winner':None})
                         break
 
-                else:
+                else:                    
                     # Text is split into a list so that text can be colored separate from marker in the simulate_loading_with_spinner function
                     # If raw string is entered directly, text after the marker does not get coloured.
                     loading_msg = [f"Waiting for {self.opponent.name} ", self.opponent.marker, " to play"]
@@ -210,7 +211,6 @@ class Client:
                     print("Invalid input.")
                     continue        
 
-
     def play_game(self): 
 
         full_msg = b''
@@ -232,7 +232,7 @@ class Client:
                 
                 # ----------------Use loaded json data here----------------
 
-                self.loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])                          
+                self.loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])                  
 
                 # NOTE Calling .join on self.loading_thread ensures that the spinner function has completed 
                 # NOTE (and finished using stdout) before attempting to print anything else to stdout.
@@ -242,18 +242,29 @@ class Client:
                 # ! .join must be called on loading_thread only after loaded pickle of full_msg is assigned to self.loaded_json.
                 # ! Otherwise, condition for termination of spinner is never met
                 self.loading_thread.join()                 
+                # print("Loaded_json", self.loaded_json)                                        
 
                 new_msg = True
                 full_msg = b''
                 try:
                     if "id" in self.loaded_json:
                         self.ID = self.loaded_json["id"]
+                        loading_msg = "Both clients connected. Starting game"
                         self.send_data({'id':self.ID})
+                        self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
+                        self.loading_thread.start()                                                                        
+                    if "other_client_disconnected" in self.loaded_json: 
+                        # TODO: Stop main_game_thread here. Promote it from thread to process so as to use .terminate to stop it
+                        print(f"\n{self.loaded_json['other_client_disconnected']}")                        
+                        self.send_data(self.loaded_json)
+                        # Continues listening for msgs, next msg would be the "waiting for other player to join the connection" msg
+                        # Therefore the cycle repeats itself as game starts afresh if another player joins the connection before timeout
+                        continue 
                     elif "status" in self.loaded_json:                                                          
                         loading_msg = self.loaded_json['status']  
                         self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
-                        self.loading_thread.start()                        
-                    elif "waiting-for-name" in self.loaded_json:                                                              
+                        self.loading_thread.start()                  
+                    elif "waiting-for-name" in self.loaded_json:
                         loading_msg = self.loaded_json['waiting-for-name']                                        
                         self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
                         self.loading_thread.start()
@@ -299,7 +310,8 @@ class Client:
                     elif "opponent_player_object" in self.loaded_json:
                         self.opponent = self.loaded_json['opponent_player_object']                        
                         main_game_thread = Thread(target=self.main_game_thread)
-                        main_game_thread.start()                        
+                        main_game_thread.daemon = True
+                        main_game_thread.start()                   
                     elif "board" in self.loaded_json:
                         self.board = self.loaded_json['board']
                         self.board_updated_event.set() 
@@ -308,12 +320,11 @@ class Client:
                     elif 'first_player' in self.loaded_json:
                         self.first_player_received.set()
                     elif 'timeout' in self.loaded_json:
-                        print(self.loaded_json['timeout'])
-                        self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})                   
+                        print(self.loaded_json['timeout'])                                           
                         break
                 except KeyError:
                     self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})                   
-                    break
+                    break            
 
         if self.game_over_event.is_set():
             main_game_thread.join() #  Wait for main_game_thread thread to end before printing
