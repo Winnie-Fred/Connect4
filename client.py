@@ -46,7 +46,8 @@ class Client:
         self.board_updated_event = Event() 
         self.play_again_reply_received = Event() 
         self.first_player_received = Event() 
-        self.game_over_event = Event()
+        self.game_over_event = Event() # This is set when player no longer wants to play
+        self.game_ended = Event() # This is set when opponent no longer wants to play
         self.other_client_disconnected = Event()
 
         self.condition = Condition() # condition that waits for some event or other_client_disconnected event to be set
@@ -63,8 +64,6 @@ class Client:
             self.loading_thread.start()
             Thread(target=self.play_game).start()
             
-           
-
     def send_data(self, data):
         data = pickle.dumps(data)
         data = bytes(f'{len(data):<{self.HEADERSIZE}}', self.FORMAT) + data
@@ -105,7 +104,7 @@ class Client:
             sys.stdout.flush()
             time.sleep(0.1)
 
-    def print_result_at_end_of_game(self, round_or_game="round"):
+    def print_result(self, round_or_game="round"):
         if round_or_game == "round":
             print(f"\n\nAt the end of round {self.level.current_level}, ")
             print(f"You have {self.player.points} points")
@@ -135,7 +134,7 @@ class Client:
                                 self.condition.wait()
                         if self.board_updated_event.is_set():
                             self.board_updated_event.clear() #  Unset the event till it is set when board is updated again
-                        elif self.other_client_disconnected.is_set(): # Checks if opponent disconnected while waiting for opponent to make their move
+                        elif self.other_client_disconnected.is_set(): #  Checks if opponent disconnected while waiting for opponent to make their move
                             self.other_client_disconnected.clear()
                             print("Other player disconnected here where client was waiting for opponent to make their move.")
                             playing = False
@@ -177,7 +176,7 @@ class Client:
                     self.loading_thread.start()
                 first_time = False
 
-            self.print_result_at_end_of_game("round")
+            self.print_result("round")
 
             while True:
 
@@ -208,9 +207,6 @@ class Client:
                         playing = False
                         break
                     
-                    # self.play_again_reply_received.wait()
-                    # self.play_again_reply_received.clear()
-
                     if self.loaded_json['play_again']:
                         self.level.current_level += 1 
 
@@ -231,9 +227,6 @@ class Client:
                             playing = False
                             break
 
-                        # self.first_player_received.wait()
-                        # self.first_player_received.clear()
-
                         # The check is between Player objects' names and not the objects themselves because their 
                         # points may be different if one of them is leading from the previous round
                         if self.loaded_json['first_player'].name == self.player.name:
@@ -245,15 +238,16 @@ class Client:
                     else:
                         # Opponent does not want to play another round
                         print(f"{self.opponent.name} has quit")
-                        self.print_result_at_end_of_game("game")
+                        self.print_result("game")
                         self.send_data({'wait_for_new_client':True})                        
+                        self.game_ended.set()
                         playing = False
                         break
                 elif play_again == 'n':
                     self.send_data({'play_again':False})
                     self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})
                     self.game_over_event.set()
-                    self.print_result_at_end_of_game("game")                   
+                    self.print_result("game")                   
                     playing = False
                     break
                 else:
@@ -270,6 +264,7 @@ class Client:
         full_msg = b''
         new_msg = True
         while True:
+            #TODO: Catch exception when receiving and sending msg fails 
             msg = self.client.recv(16)
             if not msg:
                 break
@@ -312,17 +307,21 @@ class Client:
                         with self.condition:
                             self.condition.notify()                        
                         main_game_thread.join()
-                        
-                        if main_game_started:                             
-                            # If main_game_started is True, Player objects have non-empty values 
-                            # and can be safely accessed in print_result_at_end_of_game() function. 
-                            # Also, there's no need to print results if the round did not start at all
-                            self.print_result_at_end_of_game("round")
-                            self.print_result_at_end_of_game("game")
-                        else:
-                            print(f"\nOther client disconnected unexpectedly\n")
+
+                        if not self.game_ended.is_set() and not self.game_over_event.is_set():
+                            if main_game_started:                             
+                                # If main_game_started is True, Player objects have non-empty values 
+                                # and can be safely accessed in print_result() function. 
+                                # Also, there's no need to print results if the round did not start at all
+                                self.print_result("round")
+                                self.print_result("game")
+                            else:
+                                print(f"\nOther client disconnected unexpectedly\n")
 
                         self.send_data(self.loaded_json)
+
+                        if self.game_over_event.is_set(): #  Do not listen for more msgs if disconnect msg has been sent
+                            break
 
                         # Continues listening for msgs, next msg would be the "waiting for other player to join the connection" msg
                         # Therefore the cycle repeats itself as game starts afresh if another player joins the connection before timeout
@@ -381,7 +380,8 @@ class Client:
                         main_game_thread.daemon = True
                         with self.condition:
                             main_game_thread.start()
-                        main_game_started = True                 
+                        main_game_started = True
+                        self.game_ended.clear()               
                     elif "board" in self.loaded_json:
                         self.board = self.loaded_json['board']
                         self.board_updated_event.set() 
