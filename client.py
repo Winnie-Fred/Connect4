@@ -104,7 +104,7 @@ class Client:
             sys.stdout.flush()
             time.sleep(0.1)
 
-    def print_result(self, round_or_game="round"):
+    def _print_result(self, round_or_game="round"):
         if round_or_game == "round":
             print(f"\n\nAt the end of round {self.level.current_level}, ")
             print(f"You have {self.player.points} points")
@@ -113,6 +113,17 @@ class Client:
             print(f"At the end of the game, after {self.level.current_level} rounds,")
             connect4game._calculate_and_display_final_result([self.player, self.opponent])
             print("Thanks for playing\n")
+
+    def _wait_for_two_events(self, some_event):
+        while not (some_event.is_set() or self.other_client_disconnected.is_set()):            
+            with self.condition:
+                self.condition.wait()
+        if some_event.is_set():
+            some_event.clear()
+            return False
+        elif self.other_client_disconnected.is_set():
+            self.other_client_disconnected.clear()            
+            return True
 
     def main_game_thread(self):
         playing = True
@@ -127,19 +138,11 @@ class Client:
                 self.loading_thread.join()
                 if self.your_turn:
 
-                    if not first_time: #  Do not wait on first run of loop for board to be updated since no move has been made yet
-                        while not (self.board_updated_event.is_set() or self.other_client_disconnected.is_set()):
-                            # Wait until board is updated with other player's latest move or until other_client_disconnected event is set
-                            with self.condition:
-                                self.condition.wait()
-                        if self.board_updated_event.is_set():
-                            self.board_updated_event.clear() #  Unset the event till it is set when board is updated again
-                        elif self.other_client_disconnected.is_set(): #  Checks if opponent disconnected while waiting for opponent to make their move
-                            self.other_client_disconnected.clear()
-                            print("Other player disconnected here where client was waiting for opponent to make their move.")
+                    if not first_time: #  Do not wait on first run of loop for board to be updated since no move has been made yet                        
+                        # Wait until board is updated with other player's latest move or until other_client_disconnected event is set
+                        if self._wait_for_two_events(self.board_updated_event): #  Other client has disconnected
                             playing = False
-                            return
-                        # self.board_updated_event.wait() 
+                            return  #  "return" is used instead of "break" so that the play_again loop will not run
                         self.board.print_board() #  Print board to show player their opponent's move
 
                     # At this point, the opponent has won so we want to break to end this loop and 
@@ -176,12 +179,11 @@ class Client:
                     self.loading_thread.start()
                 first_time = False
 
-            self.print_result("round")
+            self._print_result("round")
 
             while True:
 
                 if self.other_client_disconnected.is_set(): # Checks if opponent disconnected in the first run of this loop or after client entered a reply that was neither 'y' nor 'n'
-                    print("Other player disconnected here where reply was neither 'y' nor 'n'.")
                     playing = False
                     break
 
@@ -195,17 +197,10 @@ class Client:
                         self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
                         self.loading_thread.start()
 
-                    while not (self.play_again_reply_received.is_set() or self.other_client_disconnected.is_set()):
-                        # Wait until board is updated with other player's latest move or until other_client_disconnected event is set
-                        with self.condition:
-                            self.condition.wait()
-                    if self.play_again_reply_received.is_set():
-                        self.play_again_reply_received.clear() #  Unset the event till it is set when board is updated again
-                    elif self.other_client_disconnected.is_set(): # Checks if opponent disconnected while client was waiting for reply
-                        self.other_client_disconnected.clear()
-                        print("Other player disconnected here where client was waiting for reply.")
+                    # Wait until opponent replies or until other_client_disconnected event is set
+                    if self._wait_for_two_events(self.play_again_reply_received):  #  Other client has disconnected
                         playing = False
-                        break
+                        return
                     
                     if self.loaded_json['play_again']:
                         self.level.current_level += 1 
@@ -214,18 +209,10 @@ class Client:
                             first_player = connect4game._shuffle_players([self.player, self.opponent])[0]
                             self.send_data({'first_player':first_player})
 
-
-                        while not (self.first_player_received.is_set() or self.other_client_disconnected.is_set()):
-                            # Wait until board is updated with other player's latest move or until other_client_disconnected event is set
-                            with self.condition:
-                                self.condition.wait()
-                        if self.first_player_received.is_set():
-                            self.first_player_received.clear() #  Unset the event till it is set when board is updated again
-                        elif self.other_client_disconnected.is_set(): # Checks if opponent disconnected while client was waiting for reply
-                            self.other_client_disconnected.clear()
-                            print("Other player disconnected here where client was waiting for 'y' or 'n'.")
+                        # Wait until first player is received or until other_client_disconnected event is set
+                        if self._wait_for_two_events(self.first_player_received):  #  Other client has disconnected
                             playing = False
-                            break
+                            return                
 
                         # The check is between Player objects' names and not the objects themselves because their 
                         # points may be different if one of them is leading from the previous round
@@ -238,7 +225,7 @@ class Client:
                     else:
                         # Opponent does not want to play another round
                         print(f"{self.opponent.name} has quit")
-                        self.print_result("game")
+                        self._print_result("game")
                         self.send_data({'wait_for_new_client':True})                        
                         self.game_ended.set()
                         playing = False
@@ -247,7 +234,7 @@ class Client:
                     self.send_data({'play_again':False})
                     self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})
                     self.game_over_event.set()
-                    self.print_result("game")                   
+                    self._print_result("game")                   
                     playing = False
                     break
                 else:
@@ -311,10 +298,10 @@ class Client:
                         if not self.game_ended.is_set() and not self.game_over_event.is_set():
                             if main_game_started:                             
                                 # If main_game_started is True, Player objects have non-empty values 
-                                # and can be safely accessed in print_result() function. 
+                                # and can be safely accessed in _print_result() function. 
                                 # Also, there's no need to print results if the round did not start at all
-                                self.print_result("round")
-                                self.print_result("game")
+                                self._print_result("round")
+                                self._print_result("game")
                             else:
                                 print(f"\nOther client disconnected unexpectedly\n")
 
