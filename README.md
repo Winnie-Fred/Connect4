@@ -11,8 +11,10 @@ I chose this project to get hands-on experience with sockets and how online mult
 #### About the project
 You can run three versions of the project. The first one runs in a single terminal session where players can take turns on the same computer. The second version also runs in the terminal but uses sockets so that players can connect and play from different computers or different terminal sessions. The other version uses pygame (and sockets) to create a nicer interface to play the game.
 
-#### Status of the project
-The first and second versions of the project are complete.
+For the second version, the game logic is actually kept client-side. While this allows for cheating because the client cannot be trusted, preventing cheating is not really a priority of this simple project but minimizing network traffic is.
+
+#### Status of the project and possible future features
+The first version of the project is complete. The second version is currently in progress. In the second version, the rounds continue until one player decides to stop. The game works fine for the second version but there are still some features that may be added such as trying to reconnect a client when they disconnect, or preventing the program from crashing when a client or server disconnects unexpectedly. It also only supports 1 pair of 2 clients right now but functionality may be added to allow more than a pair at a time. Keyboard interrupts will also handled.
 
 #### How to run the different versions of the project
 - Clone the project and cd into the project directory.
