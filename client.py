@@ -61,6 +61,7 @@ class Client:
         except Exception as e:
             print(f"Connection failed: {e}")
         else:
+            self.loading_thread.daemon = True
             self.loading_thread.start()
             Thread(target=self.play_game).start()
             
@@ -85,19 +86,35 @@ class Client:
     def simulate_loading_with_spinner(self, loading_msg, loaded_json):
         NO_OF_CHARACTERS_AFTER_LOADING_MSG = 5
         spaces_to_replace_spinner = ' ' * NO_OF_CHARACTERS_AFTER_LOADING_MSG
+
+        def color_final_loading_msg():
+            if type(loading_msg) == list:                
+                if 'other_client_disconnected' in self.loaded_json or 'timeout' in self.loaded_json:
+                    red_first_part = colored(loading_msg[0], "red", attrs=['bold'])
+                    red_last_part = colored(loading_msg[2], "red", attrs=['bold'])
+                    final_loading_msg = f"{red_first_part}{loading_msg[1]}{red_last_part}"
+                else:
+                    green_first_part = colored(loading_msg[0], "green", attrs=['bold'])
+                    green_last_part = colored(loading_msg[2], "green", attrs=['bold'])
+                    final_loading_msg = f"{green_first_part}{loading_msg[1]}{green_last_part}"
+            else:
+                if 'other_client_disconnected' in self.loaded_json or 'timeout' in self.loaded_json:
+                    final_loading_msg = colored(loading_msg, "red", attrs=['bold'])
+                else:
+                    final_loading_msg = colored(loading_msg, "green", attrs=['bold'])
+            return final_loading_msg
+
         if type(loading_msg) == list:
             yellow_first_part = colored(loading_msg[0], "yellow", attrs=['bold'])
             yellow_last_part = colored(loading_msg[2], "yellow", attrs=['bold'])
-            green_first_part = colored(loading_msg[0], "green", attrs=['bold'])
-            green_last_part = colored(loading_msg[2], "green", attrs=['bold'])
             yellow_loading_msg = f"{yellow_first_part}{loading_msg[1]}{yellow_last_part}"
-            green_loading_msg = f"{green_first_part}{loading_msg[1]}{green_last_part}"
         else:
             yellow_loading_msg = colored(loading_msg, "yellow", attrs=['bold'])
-            green_loading_msg = colored(loading_msg, "green", attrs=['bold'])
+            
+                
         for c in itertools.cycle(['|', '/', '-', '\\']):
             if loaded_json != self.loaded_json:
-                sys.stdout.write(f'\r{green_loading_msg}{spaces_to_replace_spinner}')
+                sys.stdout.write(f'\r{color_final_loading_msg()}{spaces_to_replace_spinner}')
                 print("\n")
                 break
             sys.stdout.write(f'\r{yellow_loading_msg}  {c}  ')
@@ -135,7 +152,6 @@ class Client:
 
             first_time = True
             while True:
-                self.loading_thread.join()
                 if self.your_turn:
 
                     if not first_time: #  Do not wait on first run of loop for board to be updated since no move has been made yet                        
@@ -182,7 +198,6 @@ class Client:
             self._print_result("round")
 
             while True:
-
                 if self.other_client_disconnected.is_set(): # Checks if opponent disconnected in the first run of this loop or after client entered a reply that was neither 'y' nor 'n'
                     playing = False
                     break
@@ -200,7 +215,7 @@ class Client:
                     # Wait until opponent replies or until other_client_disconnected event is set
                     if self._wait_for_two_events(self.play_again_reply_received):  #  Other client has disconnected
                         playing = False
-                        return
+                        break
                     
                     if self.loaded_json['play_again']:
                         self.level.current_level += 1 
@@ -212,7 +227,7 @@ class Client:
                         # Wait until first player is received or until other_client_disconnected event is set
                         if self._wait_for_two_events(self.first_player_received):  #  Other client has disconnected
                             playing = False
-                            return                
+                            break                
 
                         # The check is between Player objects' names and not the objects themselves because their 
                         # points may be different if one of them is leading from the previous round
@@ -303,7 +318,8 @@ class Client:
                                 self._print_result("round")
                                 self._print_result("game")
                             else:
-                                print(f"\nOther client disconnected unexpectedly\n")
+                                print(colored(self.loaded_json['other_client_disconnected'], "red", attrs=['bold']))
+                                print("\n")
 
                         self.send_data(self.loaded_json)
 
@@ -383,7 +399,7 @@ class Client:
                         with self.condition:
                             self.condition.notify()
                     elif 'timeout' in self.loaded_json:
-                        print(self.loaded_json['timeout'])                                           
+                        print(colored(self.loaded_json['timeout'], "red", attrs=['bold']))
                         break
                 except KeyError:
                     self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})                   
@@ -391,7 +407,7 @@ class Client:
 
         if self.game_over_event.is_set():
             main_game_thread.join() #  Wait for main_game_thread thread to end before printing
-        print("Disconnected")
+        print(f"\nDisconnected\n")
                     # ----------------Use loaded json data here----------------
 
 if __name__ == "__main__":
