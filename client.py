@@ -128,7 +128,12 @@ class Client:
             print(f"You have {self.player.points} points")
             print(f"{self.opponent.name} has {self.opponent.points} points\n\n")
         elif round_or_game == "game":
-            print(f"At the end of the game, after {self.level.current_level} rounds,")
+            
+            if self.level.current_level == 1:
+                print(f"At the end of the game,")
+            else:
+                print(f"At the end of the game, after {self.level.current_level} rounds,")
+                
             connect4game._calculate_and_display_final_result([self.player, self.opponent])
             print("Thanks for playing\n")
 
@@ -317,9 +322,8 @@ class Client:
                         main_game_thread.join()                        
                         
                         if not self.game_ended.is_set() and not self.game_over_event.is_set():
-                            print("\n")
-                            print(colored(self.loaded_json['other_client_disconnected'], "red", attrs=['bold']))
-                            print("\n")
+                            disconnect_msg = colored(self.loaded_json['other_client_disconnected'], "red", attrs=['bold'])
+                            print(f"\n{disconnect_msg}\n")
                             if main_game_started:                             
                                 # If main_game_started is True, Player objects have non-empty values 
                                 # and can be safely accessed in _print_result() function. 
