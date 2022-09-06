@@ -247,7 +247,7 @@ class Client:
                         break
                 elif play_again == 'n':
                     self.send_data({'play_again':False})
-                    self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})
+                    self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE, 'disconnect_sent_to_end_game':True})
                     self.game_over_event.set()
                     self._print_result("game")                   
                     playing = False
@@ -310,16 +310,17 @@ class Client:
                             self.condition.notify()                        
                         main_game_thread.join()
 
+                        
                         if not self.game_ended.is_set() and not self.game_over_event.is_set():
+                            print(colored(self.loaded_json['other_client_disconnected'], "red", attrs=['bold']))
+                            print("\n")
                             if main_game_started:                             
                                 # If main_game_started is True, Player objects have non-empty values 
                                 # and can be safely accessed in _print_result() function. 
                                 # Also, there's no need to print results if the round did not start at all
                                 self._print_result("round")
                                 self._print_result("game")
-                            else:
-                                print(colored(self.loaded_json['other_client_disconnected'], "red", attrs=['bold']))
-                                print("\n")
+                        
 
                         self.send_data(self.loaded_json)
 
@@ -331,7 +332,7 @@ class Client:
                         continue 
                     elif "status" in self.loaded_json:                                                          
                         loading_msg = self.loaded_json['status'] 
-                        main_game_started = False # Set value to False as game loop has begun again or for the first time 
+                        main_game_started = False # Set value to False as game loop has begun again or for the first time
                         self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
                         self.loading_thread.start()                  
                     elif "waiting-for-name" in self.loaded_json:

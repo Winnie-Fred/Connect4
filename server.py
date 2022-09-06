@@ -32,7 +32,7 @@ class Server:
         except socket.error as msg:
             self.server = None
 
-        self.TIMEOUT_FOR_SERVER = 20
+        self.TIMEOUT_FOR_CLIENT = 20
         
 
     def host_game(self):
@@ -79,7 +79,6 @@ class Server:
     def start_game_when_two_clients(self):
         global clients
         
-        start_time = time.time()
 
         first_time_for_no_client = True
         first_time_for_one_client = True
@@ -89,26 +88,23 @@ class Server:
             if not clients:
                 if first_time_for_no_client:
                     print("Waiting for clients to join the connection. . .")
-                    first_time_for_no_client = False
-                if time.time() > start_time + self.TIMEOUT_FOR_SERVER:
-                    print("Connection timed out: No client joined the connection. Try restarting the server.")
-                    self.server.close()
-                    break
-                time.sleep(1) # Busy wait if not clients
+                    first_time_for_no_client = False #  Set to False so that print statement prints only once
+                    first_time_for_one_client = True
+                time.sleep(1) #  Busy wait if not clients
                 continue
             elif len(clients) == 1:
                 conn, addr = clients[0]
                 if first_time_for_one_client:
+                    start_time = time.time()
                     print("Waiting for other player to join the connection. . .")
                     self.send_data(conn, {"status":"Waiting for other player to join the connection"})
-                    first_time_for_one_client = False
-                if time.time() > start_time + self.TIMEOUT_FOR_SERVER:
-                    print("Connection timed out: No other player joined the game. Try restarting the server.")
-                    self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try restarting the server."})
+                    first_time_for_one_client = False #  Set to False so that print statement prints only once and msg is sent only once
+                    first_time_for_no_client = True
+                if time.time() > start_time + self.TIMEOUT_FOR_CLIENT:
+                    print("Connection timed out: No other player joined the game. Try joining the connection again.")
+                    self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try joining the connection again."})
                     self.remove_client(conn, addr)
-                    self.server.close()
-                    break
-                time.sleep(1) # Busy wait if one client
+                time.sleep(1) #  Busy wait if one client
                 continue
             elif len(clients) == 2:                           
                 print("Both clients connected. Starting game. . .")
@@ -117,16 +113,20 @@ class Server:
 
                     thread = threading.Thread(target=self.play_game, args=(conn, addr))
                     thread.start()                   
-
                 break
             
 
-    def remove_client(self, conn, addr):
+    def remove_client(self, conn, addr, start_new_game=True):
         global clients
         print("Lost connection")
         print(f"[DISCONNECTION] {addr} disconnected.")
         clients.remove((conn, addr))        
         conn.close()
+
+        # Listen for new connection(s) after losing client only if the thread is not already running and if start_new_game is True
+        if not self.start_game_when_two_clients_thread.is_alive() and start_new_game:
+            self.start_game_when_two_clients_thread = threading.Thread(target=self.start_game_when_two_clients)
+            self.start_game_when_two_clients_thread.start()
                 
 
     def play_game(self, conn, addr):
@@ -163,7 +163,6 @@ class Server:
 
                 if not msg:
                     self.remove_client(conn, addr)
-                    threading.Thread(target=self.start_game_when_two_clients).start()
                     break
 
                 if new_msg:
@@ -228,12 +227,13 @@ class Server:
                             self.start_game_when_two_clients_thread.start()
                             break
                         elif 'other_client_disconnected' in loaded_json:
-                            self.start_game_when_two_clients_thread = threading.Thread(target=self.start_game_when_two_clients)
-                            self.start_game_when_two_clients_thread.start()
                             break
                         elif 'DISCONNECT' in loaded_json:
                             if loaded_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:                            
-                                self.remove_client(conn, addr)
+                                if 'disconnect_sent_to_end_game' in loaded_json and len(clients) == 2:
+                                    self.remove_client(conn, addr, start_new_game=False)
+                                else:
+                                    self.remove_client(conn, addr)
                                 break
                     except KeyError:
                         self.remove_client(conn, addr)
