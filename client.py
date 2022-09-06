@@ -320,7 +320,7 @@ class Client:
                                 # Also, there's no need to print results if the round did not start at all
                                 self._print_result("round")
                                 self._print_result("game")
-                        
+
 
                         self.send_data(self.loaded_json)
 
