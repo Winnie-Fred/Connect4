@@ -327,14 +327,16 @@ class Client:
                         if self.game_over_event.is_set(): #  Do not listen for more msgs if disconnect msg has been sent
                             break
 
-                        # Continues listening for msgs, next msg would be the "waiting for other player to join the connection" msg
+                        # Continues listening for msgs, next msg would be the "waiting for other player to join the connection" status msg
                         # Therefore the cycle repeats itself as game starts afresh if another player joins the connection before timeout
                         continue 
                     elif "status" in self.loaded_json:                                                          
                         loading_msg = self.loaded_json['status'] 
-                        main_game_started = False # Set value to False as game loop has begun again or for the first time
+                        main_game_started = False #  Set value to False as game setup has begun again or as game is being set up for the first time
+                        if self.game_ended.is_set():
+                            main_game_thread.join() #  Make sure main_game_thread has ended before starting process of setting up game again
                         self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
-                        self.loading_thread.start()                  
+                        self.loading_thread.start()               
                     elif "waiting-for-name" in self.loaded_json:
                         loading_msg = self.loaded_json['waiting-for-name']                                        
                         self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json))
