@@ -67,6 +67,8 @@ class Client:
             self.client.connect(self.addr)
         except socket.gaierror as e:
             print(f"Address-related error connecting to server: {e}")
+            self.client.close()
+            self.client = None
         except socket.error as e:
             print(f"Connection error: {e}")
             self.client.close()
