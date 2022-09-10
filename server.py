@@ -55,7 +55,7 @@ class Server:
         data = bytes(f'{len(data):<{self.HEADERSIZE}}', self.FORMAT) + data
         try:
             conn.send(data)
-        except socket.error as e:
+        except socket.error:
             raise
 
 
@@ -85,13 +85,13 @@ class Server:
         first_time_for_one_client = True
         # lock = threading.Lock()
 
-        while True:
+        while True: # Busy wait
             if not clients:
                 if first_time_for_no_client:
                     print("Waiting for clients to join the connection. . .")
                     first_time_for_no_client = False #  Set to False so that print statement prints only once
                     first_time_for_one_client = True
-                time.sleep(1) #  Busy wait if not clients
+                time.sleep(1) #  Sleep if not clients
                 continue
             elif len(clients) == 1:
                 conn, addr = clients[0]
@@ -105,7 +105,7 @@ class Server:
                     print("Connection timed out: No other player joined the game. Try joining the connection again.")
                     self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try joining the connection again."})
                     self.remove_client(conn, addr)
-                time.sleep(1) #  Busy wait if one client
+                time.sleep(1) #  Sleep if one client
                 continue
             elif len(clients) == 2:                           
                 print("Both clients connected. Starting game. . .")
@@ -158,7 +158,7 @@ class Server:
             try:
                 try:
                     msg = conn.recv(16)   
-                except ConnectionResetError as e: #  This exception is caught when the client tries to receive a msg from a disconnected client
+                except ConnectionResetError as e: #  This exception is caught when the server tries to receive a msg from a disconnected client
                     print(f"Connection Reset: {e}")
                     if conn == conn1:
                         self.send_data(conn2, {"other_client_disconnected":"Other client disconnected unexpectedly"})
