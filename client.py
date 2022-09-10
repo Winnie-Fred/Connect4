@@ -26,14 +26,6 @@ class Client:
         
 
     def __init__(self):
-        self.ID = None
-        self.you = ""
-        self.opponent = Player(name='', marker='')
-        self.player = Player(name='', marker='')
-        self.your_turn = False
-        self.level = Level()
-        
-
         self.HEADERSIZE = 10
 
         try:
@@ -49,15 +41,7 @@ class Client:
         self.loading_thread = Thread()
         self.loaded_json = {}
 
-        self.end_thread_event = Event()
-        self.board_updated_event = Event() 
-        self.play_again_reply_received = Event() 
-        self.first_player_received = Event() 
-        self.game_over_event = Event() # This is set when player no longer wants to play
-        self.game_ended = Event() # This is set when opponent no longer wants to play
-        self.other_client_disconnected = Event()
-
-        self.condition = Condition() # condition that waits for some event or other_client_disconnected event to be set
+        self.reset_game()
 
         self.connect_to_game()
 
@@ -77,6 +61,8 @@ class Client:
             if self.client is None:
                 print('Could not open socket')
                 sys.exit(1)
+
+            # Ask if they want to create or join game here and send response to server
 
             self.loading_thread.daemon = True
             self.loading_thread.start()
@@ -171,7 +157,8 @@ class Client:
             return True
 
     def _set_up_to_terminate_program(self, error_msg, main_game_thread=None, main_game_started=False):
-        if not self.end_thread_event.is_set(): #  print game stats and error msg only if one hasn't been printed before
+        if not self.end_thread_event.is_set(): #  print game stats and error msg only if these have not been done before
+            print(f"\n{error_msg}\n") #  Print exception or error
             
             self.end_thread_event.set()
             self.loading_thread.join()
@@ -191,7 +178,24 @@ class Client:
                     self._print_result("round")
                     self._print_result("game")
 
-            print(f"\n{error_msg}\n")
+
+    def reset_game(self):
+        self.ID = None
+        self.you = ""
+        self.opponent = Player(name='', marker='')
+        self.player = Player(name='', marker='')
+        self.your_turn = False
+        self.level = Level()
+
+        self.end_thread_event = Event()
+        self.board_updated_event = Event() 
+        self.play_again_reply_received = Event() 
+        self.first_player_received = Event() 
+        self.game_over_event = Event() # This is set when player no longer wants to play
+        self.game_ended = Event() # This is set when opponent no longer wants to play
+        self.other_client_disconnected = Event()
+
+        self.condition = Condition() # condition that waits for some event or other_client_disconnected event to be set
 
 
     def main_game_thread(self):
@@ -319,7 +323,6 @@ class Client:
                             self.your_turn = True                            
                         else:
                             self.your_turn = False
-                        first_time = True
                         break
                     else:
                         # Opponent does not want to play another round
@@ -407,6 +410,7 @@ class Client:
                 try:
                     try:
                         if "id" in self.loaded_json:
+                            self.reset_game()
                             self.ID = self.loaded_json["id"]
                             loading_msg = "Both clients connected. Starting game"
                             self.send_data({'id':self.ID})

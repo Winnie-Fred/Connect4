@@ -158,7 +158,7 @@ class Server:
             try:
                 try:
                     msg = conn.recv(16)   
-                except ConnectionResetError as e: #  This exception is caught when the client tries to receive a msg from a disconnected client
+                except ConnectionResetError as e: #  This exception is caught when the server tries to receive a msg from a disconnected client
                     print(f"Connection Reset: {e}")
                     if conn == conn1:
                         self.send_data(conn2, {"other_client_disconnected":"Other client disconnected unexpectedly"})
