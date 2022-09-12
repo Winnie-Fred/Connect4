@@ -8,6 +8,7 @@ import copy
 from typing import List
 
 from connect4 import Connect4Game
+from exceptions import SendingDataError
 
 connect4game = Connect4Game()
 
@@ -25,8 +26,6 @@ class Server:
         self.ADDR = (self.SERVER, self.PORT)
         self.FORMAT = 'utf-8'
         self.DISCONNECT_MESSAGE = "!DISCONNECT"
-        self.conn = None
-        self.addr = None
 
         self.clients: List = []
         self.clients_lock = threading.RLock()
@@ -62,16 +61,7 @@ class Server:
             conn.send(data)
         except socket.error as e:
             print(f"Error sending '{copy_data}': {e}")
-            if conn != self.conn: 
-                opponent_conn, opponent_addr = self.opponent_conn_and_addr
-                # This means if sender of msg is not the current client, data was being sent to the other client, 
-                # therefore, send other_client_disconnected msg to current client
-                self.send_data(self.conn, {"other_client_disconnected":"An error occured with the other client"})
-                self.remove_client(opponent_conn, opponent_addr)
-            else:
-                self.remove_client(self.conn, self.addr)
-                raise # Only raise if it's the current client whose socket is closed or has trouble sending data so that this exception is caught in play_game thread
-
+            raise SendingDataError(conn)
 
     def start(self):
         print("[STARTING] server is starting...")
@@ -86,10 +76,6 @@ class Server:
                 break
             with self.clients_lock:
                 self.clients.append((conn, addr))
-            self.conn = conn
-            self.addr = addr
-
-            with self.clients_lock:
                 print(f"[ACTIVE CONNECTIONS] {len(self.clients)}")
         print("[CLOSED] server is closed")
             
@@ -97,7 +83,6 @@ class Server:
     def start_game_when_two_clients(self):
         first_time_for_no_client = True
         first_time_for_one_client = True
-        # lock = threading.Lock()
 
         while True: # Busy wait
             self.clients_lock.acquire()
@@ -170,10 +155,8 @@ class Server:
             conn2, addr2 = self.clients[1]
         
             if conn == conn1:
-                self.opponent_conn_and_addr = self.clients[1]
                 self.send_data(conn1, {"id": self.clients.index((conn1, addr1))})
             else:
-                self.opponent_conn_and_addr = self.clients[0]
                 self.send_data(conn2, {"id": self.clients.index((conn2, addr2))})
             
 
@@ -261,7 +244,6 @@ class Server:
                             self.send_data(conn1, {'first_player':loaded_json['first_player']})                        
                             self.send_data(conn2, {'first_player':loaded_json['first_player']})
                         elif 'wait_for_new_client' in loaded_json:
-                            print("Waiting for new client so starting thread again")
                             self.start_game_when_two_clients_thread = threading.Thread(target=self.start_game_when_two_clients)
                             self.start_game_when_two_clients_thread.start()
                             break
@@ -279,9 +261,19 @@ class Server:
                         self.remove_client(conn, addr)
                         break               
                             # ----------------Use loaded json data here----------------
-            except socket.error:
-                break
-
+            except SendingDataError as e:
+                if conn != e:
+                    # This means if sender of msg is not the current client, data was being sent to the other client, 
+                    # therefore, send other_client_disconnected msg to current client
+                    if conn == conn1:
+                        self.send_data(conn1, {"other_client_disconnected":"An error occured with the other client"})
+                        self.remove_client(conn2, addr2)
+                    elif conn == conn2:
+                        self.send_data(conn2, {"other_client_disconnected":"An error occured with the other client"})
+                        self.remove_client(conn1, addr1)
+                else:
+                    self.remove_client(conn, addr)                    
+                    break
 
         
 if __name__ == "__main__":
