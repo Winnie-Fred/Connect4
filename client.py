@@ -4,7 +4,7 @@ import time
 import itertools
 import socket
 import pickle
-from threading import Thread, Event, Condition
+from threading import Thread, Event, Condition, RLock
 
 from termcolor import colored  # type: ignore
 
@@ -31,7 +31,7 @@ class Client:
         try:
             self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         except socket.error as e:
-            print(f"Error creating socket: {e}")
+            print(colored(f"Error creating socket: {e}", "red", attrs=['bold']))
             self.client = None
 
         self.server = "127.0.0.1"
@@ -40,8 +40,9 @@ class Client:
 
         self.loading_thread = Thread()
         self.loaded_json = {}
+        self.loaded_json_lock = RLock()
 
-        self.reset_game()
+        self._reset_game()
 
         self.connect_to_game()
 
@@ -50,16 +51,16 @@ class Client:
         try:
             self.client.connect(self.addr)
         except socket.gaierror as e:
-            print(f"Address-related error connecting to server: {e}")
+            print(colored(f"Address-related error connecting to server: {e}", "red", attrs=['bold']))
             self.client.close()
             self.client = None
         except socket.error as e:
-            print(f"Connection error: {e}")
+            print(colored(f"Connection error: {e}", "red", attrs=['bold']))
             self.client.close()
             self.client = None
         else:
             if self.client is None:
-                print('Could not open socket')
+                print(colored(f"Could not open socket", "red", attrs=['bold']))                
                 sys.exit(1)
 
             # Ask if they want to create or join game here and send response to server
@@ -75,7 +76,6 @@ class Client:
             self.client.send(data)
         except socket.error:
             raise
-
 
     def _get_other_player_name(self, player):
 
@@ -119,11 +119,12 @@ class Client:
             yellow_loading_msg = colored(loading_msg, "yellow", attrs=['bold'])
             
                 
-        for c in itertools.cycle(['|', '/', '-', '\\']):         
-            if loaded_json != self.loaded_json or self.end_thread_event.is_set():
-                sys.stdout.write(f'\r{color_final_loading_msg()}{spaces_to_replace_spinner}')
-                print("\n")
-                break
+        for c in itertools.cycle(['|', '/', '-', '\\']):
+            with self.loaded_json_lock:         
+                if loaded_json != self.loaded_json or self.end_thread_event.is_set():
+                    sys.stdout.write(f'\r{color_final_loading_msg()}{spaces_to_replace_spinner}')
+                    print("\n")
+                    break
             sys.stdout.write(f'\r{yellow_loading_msg}  {c}  ')
             sys.stdout.flush()
             time.sleep(0.1)
@@ -158,19 +159,20 @@ class Client:
 
     def _set_up_to_terminate_program(self, error_msg, main_game_thread=None, main_game_started=False):
         if not self.end_thread_event.is_set(): #  print game stats and error msg only if these have not been done before
-            print(f"\n{error_msg}\n") #  Print exception or error
-            
             self.end_thread_event.set()
             self.loading_thread.join()
+
             with self.condition:
                 self.condition.notify()
             if main_game_thread is not None:
                 main_game_thread.join()
 
+            print(f"\n{error_msg}\n") #  Print exception or error
+
             # Print game stats
             if not self.game_ended.is_set() and not self.game_over_event.is_set():
                 # If one of the conditions are satisfied, player objects have non-empty values and can be safely accessed 
-                # in _print_result() function. Also, there's no need to print results if the round did not start at all
+                # in _print_result() method. Also, there's no need to print results if the round did not start at all
                 if main_game_started:                                             
                     self._print_result("round")
                     self._print_result("game")
@@ -178,8 +180,7 @@ class Client:
                     self._print_result("round")
                     self._print_result("game")
 
-
-    def reset_game(self):
+    def _reset_game(self):
         self.ID = None
         self.you = ""
         self.opponent = Player(name='', marker='')
@@ -196,7 +197,6 @@ class Client:
         self.other_client_disconnected = Event()
 
         self.condition = Condition() # condition that waits for some event or other_client_disconnected event to be set
-
 
     def main_game_thread(self):
         playing = True
@@ -219,12 +219,13 @@ class Client:
 
                     # At this point, the opponent has won so we want to break to end this loop and 
                     # so that we do not collect this user's input anymore.
-                    if 'round_over' in self.loaded_json: 
-                        if self.loaded_json['winner'] is not None:
-                            print(f"\n{self.opponent.name} {self.opponent.marker} wins this round")
-                            print("Better luck next time!\n")
-                            self.opponent.points = self.loaded_json['winner'].points
-                        break
+                    with self.loaded_json_lock:
+                        if 'round_over' in self.loaded_json: 
+                            if self.loaded_json['winner'] is not None:
+                                print(f"\n{self.opponent.name} {self.opponent.marker} wins this round")
+                                print("Better luck next time!\n")
+                                self.opponent.points = self.loaded_json['winner'].points
+                            break
 
                     self.board.play_at_position(self.player)
 
@@ -267,7 +268,8 @@ class Client:
                     # If raw string is entered directly, text after the marker does not get coloured.
                     loading_msg = [f"Waiting for {self.opponent.name} ", self.opponent.marker, " to play"]
                     self.your_turn = True
-                    self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
+                    with self.loaded_json_lock:
+                        self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
                     self.loading_thread.start()
                 first_time = False
 
@@ -289,17 +291,20 @@ class Client:
                         playing = False
                         return
 
-                    if 'play_again' not in self.loaded_json and 'other_client_disconnected' not in self.loaded_json:
-                        loading_msg = f"Waiting for {self.opponent.name} to reply"
-                        self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
-                        self.loading_thread.start()
+                    with self.loaded_json_lock:
+                        if 'play_again' not in self.loaded_json and 'other_client_disconnected' not in self.loaded_json:
+                            loading_msg = f"Waiting for {self.opponent.name} to reply"
+                            self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
+                            self.loading_thread.start()
 
                     # Wait until opponent replies or until other_client_disconnected event is set or until end_thread_event is set
                     if self._wait_for_one_of_multiple_events(self.play_again_reply_received):  #  Other client has disconnected or end_thread_event is set
                         playing = False
                         break
                     
+                    self.loaded_json_lock.acquire()
                     if self.loaded_json['play_again']:
+                        self.loaded_json_lock.release()
                         self.level.current_level += 1 
 
                         if not self.ID:
@@ -319,12 +324,14 @@ class Client:
 
                         # The check is between Player objects' names and not the objects themselves because their 
                         # points may be different if one of them is leading from the previous round
-                        if self.loaded_json['first_player'].name == self.player.name:
-                            self.your_turn = True                            
-                        else:
-                            self.your_turn = False
-                        break
+                        with self.loaded_json_lock:
+                            if self.loaded_json['first_player'].name == self.player.name:
+                                self.your_turn = True                            
+                            else:
+                                self.your_turn = False
+                            break
                     else:
+                        self.loaded_json_lock.release()
                         # Opponent does not want to play another round
                         self.game_ended.set()
                         print(f"{self.opponent.name} has quit")
@@ -391,130 +398,131 @@ class Client:
                 
                 # -------------------------------------Use loaded json data here-------------------------------------
 
-                self.loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])                  
+                with self.loaded_json_lock:
+                    self.loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])                  
 
                 # NOTE Calling .join on self.loading_thread ensures that the spinner function has completed 
                 # NOTE (and finished using stdout) before attempting to print anything else to stdout.
                 # NOTE The first time .join is called, it joins the self.loading_thread instantiated 
                 # NOTE and started in the init function of the Client class.
 
-                # ! .join must be called on loading_thread only after self.new_msg_received event is set.
+                # ! .join must be called on loading_thread only after loaded pickle of full_msg is assigned to self.loaded_json.
                 # ! Otherwise, condition for termination of spinner is never met
 
                 self.loading_thread.join() 
 
-                # print("Loaded_json", self.loaded_json)                                       
+                # with self.loaded_json_lock:
+                #     print("Loaded_json", self.loaded_json)                                       
 
                 new_msg = True
                 full_msg = b''
                 try:
                     try:
-                        if "id" in self.loaded_json:
-                            self.reset_game()
-                            self.ID = self.loaded_json["id"]
-                            loading_msg = "Both clients connected. Starting game"
-                            self.send_data({'id':self.ID})
-                            self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
-                            self.loading_thread.start()                                                                        
-                        if "other_client_disconnected" in self.loaded_json: 
-                            self.other_client_disconnected.set()
-                            with self.condition:
-                                self.condition.notify()                        
-                            main_game_thread.join()                        
-                            
-                            if not self.game_ended.is_set() and not self.game_over_event.is_set():
-                                disconnect_msg = colored(self.loaded_json['other_client_disconnected'], "red", attrs=['bold'])
-                                print(f"\n{disconnect_msg}\n")
-                                if main_game_started:                             
-                                    # If main_game_started is True, Player objects have non-empty values 
-                                    # and can be safely accessed in _print_result() function. 
-                                    # Also, there's no need to print results if the round did not start at all
-                                    self._print_result("round")
-                                    self._print_result("game")
-
-
-                            self.send_data(self.loaded_json)
-
-                            if self.game_over_event.is_set(): #  Do not listen for more msgs if disconnect msg has been sent
-                                break
-
-                            # Continues listening for msgs, next msg would be the "waiting for other player to join the connection" status msg
-                            # Therefore the cycle repeats itself as game starts afresh if another player joins the connection before timeout
-                            continue 
-                        elif "status" in self.loaded_json:                                                          
-                            loading_msg = self.loaded_json['status'] 
-                            main_game_started = False #  Set value to False as game setup has begun again or as game is being set up for the first time
-                            if self.game_ended.is_set():
-                                main_game_thread.join() #  Make sure main_game_thread has ended before starting process of setting up game again
-                            self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
-                            self.loading_thread.start()               
-                        elif "waiting-for-name" in self.loaded_json:
-                            loading_msg = self.loaded_json['waiting-for-name']                                        
-                            self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
-                            self.loading_thread.start()
-                        elif "get-first-player-name" in self.loaded_json:                                                               
-                            connect4game._about_game()                        
-                            self.you = connect4game._get_player_name()
-                            self.send_data({'you':self.you})
-                            loading_msg = "Waiting for other player to enter their name"
-                            self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
-                            self.loading_thread.start()                        
-                        elif "opponent" in self.loaded_json:                                                             
-                            self.opponent = self.loaded_json['opponent']
-                            if not self.you:
-                                connect4game._about_game()
-                                self.you = self._get_other_player_name(self.opponent)
-                                self.send_data({'you':self.you})                        
-                            print("You are up against: ", self.opponent)                        
-                            # Shuffling player names
-                            if not self.ID:
-                                first_player = connect4game._shuffle_players([self.you, self.opponent])
-                                self.send_data({'first':first_player})                      
-                        elif "first" in self.loaded_json:
-                            first = self.loaded_json['first'][0]
-                            if self.ID:
-                                print("Randomly choosing who to go first . . .")                    
-                                print(f"{first} goes first")
-                            if first == self.you:
-                                colors = connect4game._get_players_colors(self.you)
-                                self.send_data({'colors':colors})
-                            else:
-                                loading_msg = f"Waiting for {self.opponent} to choose their color"
+                        with self.loaded_json_lock:
+                            if "id" in self.loaded_json:
+                                self._reset_game()
+                                self.ID = self.loaded_json["id"]
+                                loading_msg = "Both clients connected. Starting game"
+                                self.send_data({'id':self.ID})
                                 self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
-                                self.loading_thread.start()                            
-                        elif "colors" in self.loaded_json:                                                                                     
-                            colors = self.loaded_json['colors']                        
-                            if first == self.you:
-                                self.your_turn = True
-                                self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))                            
-                            else:
-                                self.your_turn = False
-                                self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
-                            self.send_data({'opponent_player_object':self.player})
-                        elif "opponent_player_object" in self.loaded_json:
-                            self.opponent = self.loaded_json['opponent_player_object']                        
-                            main_game_thread = Thread(target=self.main_game_thread)
-                            main_game_thread.daemon = True
-                            with self.condition:
-                                main_game_thread.start()
-                            main_game_started = True
-                            self.game_ended.clear()               
-                        elif "board" in self.loaded_json:
-                            self.board = self.loaded_json['board']
-                            self.board_updated_event.set() 
-                            with self.condition:
-                                self.condition.notify()
-                        elif 'play_again' in self.loaded_json:
-                            self.play_again_reply_received.set()                        
-                            with self.condition:
-                                self.condition.notify()
-                        elif 'first_player' in self.loaded_json:
-                            self.first_player_received.set()
-                            with self.condition:
-                                self.condition.notify()
-                        elif 'timeout' in self.loaded_json:
-                            print(colored(self.loaded_json['timeout'], "red", attrs=['bold']))
-                            break
+                                self.loading_thread.start()                                                                        
+                            if "other_client_disconnected" in self.loaded_json: 
+                                self.other_client_disconnected.set()
+                                with self.condition:
+                                    self.condition.notify()                        
+                                main_game_thread.join()                        
+                                
+                                if not self.game_ended.is_set() and not self.game_over_event.is_set():
+                                    disconnect_msg = colored(self.loaded_json['other_client_disconnected'], "red", attrs=['bold'])
+                                    print(f"\n{disconnect_msg}\n")
+                                    if main_game_started:                             
+                                        # If main_game_started is True, Player objects have non-empty values 
+                                        # and can be safely accessed in _print_result() function. 
+                                        # Also, there's no need to print results if the round did not start at all
+                                        self._print_result("round")
+                                        self._print_result("game")
+                                    self.send_data(self.loaded_json)
+
+                                if self.game_over_event.is_set(): #  Do not listen for more msgs if disconnect msg has been sent
+                                    break
+
+                                # Continues listening for msgs, next msg would be the "waiting for other player to join the connection" status msg
+                                # Therefore the cycle repeats itself as game starts afresh if another player joins the connection before timeout
+                                continue 
+                            elif "status" in self.loaded_json:                                                          
+                                loading_msg = self.loaded_json['status'] 
+                                main_game_started = False #  Set value to False as game setup has begun again or as game is being set up for the first time
+                                if self.game_ended.is_set():
+                                    main_game_thread.join() #  Make sure main_game_thread has ended before starting process of setting up game again
+                                self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
+                                self.loading_thread.start()               
+                            elif "waiting-for-name" in self.loaded_json:
+                                loading_msg = self.loaded_json['waiting-for-name']                                        
+                                self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
+                                self.loading_thread.start()
+                            elif "get-first-player-name" in self.loaded_json:                                                               
+                                connect4game._about_game()                        
+                                self.you = connect4game._get_player_name()
+                                self.send_data({'you':self.you})
+                                loading_msg = "Waiting for other player to enter their name"
+                                self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
+                                self.loading_thread.start()                        
+                            elif "opponent" in self.loaded_json:                                                             
+                                self.opponent = self.loaded_json['opponent']
+                                if not self.you:
+                                    connect4game._about_game()
+                                    self.you = self._get_other_player_name(self.opponent)
+                                    self.send_data({'you':self.you})                        
+                                print("You are up against: ", self.opponent)                        
+                                # Shuffling player names
+                                if not self.ID:
+                                    first_player = connect4game._shuffle_players([self.you, self.opponent])
+                                    self.send_data({'first':first_player})                      
+                            elif "first" in self.loaded_json:
+                                first = self.loaded_json['first'][0]
+                                if self.ID:
+                                    print("Randomly choosing who to go first . . .")                    
+                                    print(f"{first} goes first")
+                                if first == self.you:
+                                    colors = connect4game._get_players_colors(self.you)
+                                    self.send_data({'colors':colors})
+                                else:
+                                    loading_msg = f"Waiting for {self.opponent} to choose their color"
+                                    self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
+                                    self.loading_thread.start()                            
+                            elif "colors" in self.loaded_json:                                                                                     
+                                colors = self.loaded_json['colors']                        
+                                if first == self.you:
+                                    self.your_turn = True
+                                    self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))                            
+                                else:
+                                    self.your_turn = False
+                                    self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
+                                self.send_data({'opponent_player_object':self.player})
+                            elif "opponent_player_object" in self.loaded_json:
+                                self.opponent = self.loaded_json['opponent_player_object']                        
+                                main_game_thread = Thread(target=self.main_game_thread)
+                                main_game_thread.daemon = True
+                                with self.condition:
+                                    main_game_thread.start()
+                                main_game_started = True
+                                self.game_ended.clear()               
+                            elif "board" in self.loaded_json:
+                                self.board = self.loaded_json['board']
+                                self.board_updated_event.set() 
+                                with self.condition:
+                                    self.condition.notify()
+                            elif 'play_again' in self.loaded_json:
+                                self.play_again_reply_received.set()                        
+                                with self.condition:
+                                    self.condition.notify()
+                            elif 'first_player' in self.loaded_json:
+                                self.first_player_received.set()
+                                with self.condition:
+                                    self.condition.notify()
+                            elif 'timeout' in self.loaded_json:
+                                print(colored(self.loaded_json['timeout'], "red", attrs=['bold']))
+                                break
                     except KeyError:
                         self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})                   
                         break
