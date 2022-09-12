@@ -398,8 +398,8 @@ class Client:
                 
                 # -------------------------------------Use loaded json data here-------------------------------------
 
-                # with self.loaded_json_lock:
-                #     self.loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])                  
+                with self.loaded_json_lock:
+                    self.loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])                  
 
                 # NOTE Calling .join on self.loading_thread ensures that the spinner function has completed 
                 # NOTE (and finished using stdout) before attempting to print anything else to stdout.
@@ -411,8 +411,8 @@ class Client:
 
                 self.loading_thread.join() 
 
-                with self.loaded_json_lock:
-                    print("Loaded_json", self.loaded_json)                                       
+                # with self.loaded_json_lock:
+                #     print("Loaded_json", self.loaded_json)                                       
 
                 new_msg = True
                 full_msg = b''
