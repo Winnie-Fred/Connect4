@@ -261,6 +261,7 @@ class Server:
                             self.send_data(conn1, {'first_player':loaded_json['first_player']})                        
                             self.send_data(conn2, {'first_player':loaded_json['first_player']})
                         elif 'wait_for_new_client' in loaded_json:
+                            print("Waiting for new client so starting thread again")
                             self.start_game_when_two_clients_thread = threading.Thread(target=self.start_game_when_two_clients)
                             self.start_game_when_two_clients_thread.start()
                             break
