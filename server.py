@@ -76,6 +76,7 @@ class Server:
                 break
             with self.clients_lock:
                 self.clients.append((conn, addr))
+
                 print(f"[ACTIVE CONNECTIONS] {len(self.clients)}")
         print("[CLOSED] server is closed")
             
@@ -102,7 +103,7 @@ class Server:
                     print("Waiting for other player to join the connection. . .")
                     try:
                         self.send_data(conn, {"status":"Waiting for other player to join the connection"})
-                    except socket.error:
+                    except SendingDataError:
                         self.remove_client(conn, addr)
                     first_time_for_one_client = False #  Set to False so that print statement prints only once and msg is sent only once
                     first_time_for_no_client = True
@@ -110,7 +111,7 @@ class Server:
                     print("Connection timed out: No other player joined the game. Try joining the connection again.")
                     try:
                         self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try joining the connection again."})
-                    except socket.error:
+                    except SendingDataError:
                         self.remove_client(conn, addr)
                     self.remove_client(conn, addr)
                 time.sleep(1) #  Sleep if one client
