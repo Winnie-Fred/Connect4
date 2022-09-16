@@ -441,11 +441,10 @@ class Client:
                         self._reset_game()
                         self.ID = self.loaded_json["id"]
                         loading_msg = "Both clients connected. Starting game"
-                        self.send_data({'id':self.ID})
                         self.loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
                         self.loaded_json_lock.release()
                         self.loading_thread.start()                                                                        
-                    if "other_client_disconnected" in self.loaded_json: 
+                    elif "other_client_disconnected" in self.loaded_json: 
                         self.other_client_disconnected.set()
                         with self.condition:
                             self.condition.notify()                        
@@ -536,9 +535,9 @@ class Client:
                         with self.condition:
                             self.condition.notify()
                     elif "round_over" in self.loaded_json and "winner" in self.loaded_json:
-                        self.round_over_event.set()
                         self.round_over_json = self.loaded_json
                         self.loaded_json_lock.release()
+                        self.round_over_event.set()
                     elif 'play_again' in self.loaded_json:
                         self.play_again_reply = self.loaded_json['play_again']
                         self.loaded_json_lock.release()
