@@ -29,6 +29,7 @@ class Server:
 
         self.clients: List = []
         self.clients_lock = threading.RLock()
+        self.new_client_event = threading.Event()
 
         try:
            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -67,26 +68,30 @@ class Server:
         print(f"[LISTENING] server is listening on {self.SERVER}")
 
         while True:
-            try:
-                # self.clients_lock.acquire()
-                # if len(self.clients) < 2:
-                #     self.clients_lock.release()
-                conn, addr = self.server.accept()
-                # else:
-                #     self.clients_lock.release()
-            except OSError:
-                break
-            with self.clients_lock:
-                self.clients.append((conn, addr))
+            self.clients_lock.acquire()
+            if len(self.clients) < 2:
+                try:
+                    self.clients_lock.release()
+                    conn, addr = self.server.accept()
+                except OSError:
+                    break
 
-                if len(self.clients) == 1:
-                    self.start_game_when_two_clients_thread = threading.Thread(target=self.start_game_when_two_clients)
-                    self.start_game_when_two_clients_thread.start()
+                with self.clients_lock:
+                    self.clients.append((conn, addr))
+                    self.new_client_event.set()
 
+                    if len(self.clients) == 1:
+                        self.start_game_when_two_clients_thread = threading.Thread(target=self.start_game_when_two_clients)
+                        self.start_game_when_two_clients_thread.start()
 
+                    print(f"[ACTIVE CONNECTIONS] {len(self.clients)}")
+            else:
+                self.clients_lock.release()
+                continue
 
-                print(f"[ACTIVE CONNECTIONS] {len(self.clients)}")
         print("[CLOSED] server is closed")
+
+
             
         
     def start_game_when_two_clients(self):
@@ -95,17 +100,19 @@ class Server:
         while True: # Busy wait
             self.clients_lock.acquire()
             if len(self.clients) == 1:
-                conn, addr = self.clients[0]
                 self.clients_lock.release()
-                if first_time:
-                    start_time = time.time()
-                    print("Waiting for other player to join the connection. . .")
-                    try:
-                        self.send_data(conn, {"status":"Waiting for other player to join the connection"})
-                    except SendingDataError:
-                        self.remove_client(conn, addr)
-                    first_time = False #  Set to False so that print statement prints only once and msg is sent only once
-                if time.time() > start_time + self.TIMEOUT_FOR_CLIENT:
+                self.new_client_event.clear()
+                conn, addr = self.clients[0]
+                
+                print("Waiting for other player to join the connection. . .")
+                try:
+                    self.send_data(conn, {"status":"Waiting for other player to join the connection"})
+                except SendingDataError:
+                    self.remove_client(conn, addr)
+
+                if self.new_client_event.wait(self.TIMEOUT_FOR_CLIENT):
+                    continue
+                else:
                     print("Connection timed out: No other player joined the game. Try joining the connection again.")
                     try:
                         self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try joining the connection again."})
@@ -113,9 +120,8 @@ class Server:
                         pass
                     self.remove_client(conn, addr)
                     break
-                time.sleep(1) #  Sleep if one client
-                continue
             elif len(self.clients) == 2:                           
+                self.new_client_event.clear()
                 print("Both clients connected. Starting game. . .")
                 for client in self.clients:
                     conn, addr = client
@@ -176,7 +182,7 @@ class Server:
                     # ----------------Use loaded json data here----------------
 
                     loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])
-                    # print("loaded_json: ",  loaded_json)
+                    print("loaded_json: ",  loaded_json)
                     new_msg = True
                     full_msg = b''     
                     try:
