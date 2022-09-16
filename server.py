@@ -153,13 +153,21 @@ class Server:
         
         full_msg = b''
         new_msg = True
-
+        id = None
         try:
             with self.clients_lock:
                 if conn == conn1:
-                    self.send_data(conn1, {"id": self.clients.index((conn1, addr1))})
+                    id = self.clients.index((conn1, addr1))
+                    self.send_data(conn1, {"id": id})
                 else:
-                    self.send_data(conn2, {"id": self.clients.index((conn2, addr2))})
+                    id = self.clients.index((conn2, addr2))
+                    self.send_data(conn2, {"id": id})
+
+            if not id: #  If id is 0 i.e. if first connected player...
+                self.send_data(conn, {"get_first_player_name":True})
+            else:
+                self.send_data(conn, {"waiting_for_name":"Waiting for other player to enter their name"})
+                
             while True:
                 try:
                     msg = conn.recv(16)                                  
@@ -186,13 +194,7 @@ class Server:
                     new_msg = True
                     full_msg = b''     
                     try:
-                        if 'id' in loaded_json:
-                            id = loaded_json['id']
-                            if not id: #  If id is 0 i.e. if first connected player...
-                                self.send_data(conn, {"get_first_player_name":True})
-                            else:
-                                self.send_data(conn, {"waiting_for_name":"Waiting for other player to enter their name"})
-                        elif 'you' in loaded_json:
+                        if 'you' in loaded_json:
                             you = loaded_json['you']
                             if conn == conn1:
                                 self.send_data(conn2, {'opponent':you})
