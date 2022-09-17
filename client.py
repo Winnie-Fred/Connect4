@@ -341,13 +341,15 @@ class Client:
                             playing = False
                             break                
 
+                        if self.ID: #  Show that it is shuffling for the player other than the one that shuffled
+                            print("Randomly choosing who to go first . . .")
+                            print(f"{self.first_player_for_next_round.name} goes first")
+
                         # The check is between Player objects' names and not the objects themselves because their 
                         # points may be different if one of them is leading from the previous round
                         if self.first_player_for_next_round.name == self.player.name:
                             self.your_turn = True                            
-                        else:
-                            print("Randomly choosing who to go first . . .")
-                            print(f"{self.first_player_for_next_round.name} goes first")
+                        else:                            
                             self.your_turn = False
                         break
                     else:
