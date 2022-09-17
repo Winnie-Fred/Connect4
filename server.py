@@ -46,8 +46,8 @@ class Server:
             self.server.listen()
         except socket.error as e:
             self.server.close()
-            self.server = None
             print(e)
+            sys.exit(1)
         else:
             if self.server is None:
                 print('Could not open socket')
@@ -60,7 +60,7 @@ class Server:
         data = bytes(f'{len(data):<{self.HEADERSIZE}}', self.FORMAT) + data
         try:
             conn.send(data)
-        except socket.error as e:
+        except socket.error:
             raise SendingDataError(copy_data)
 
     def start(self):
@@ -68,26 +68,28 @@ class Server:
         print(f"[LISTENING] server is listening on {self.SERVER}")
 
         while True:
-            self.clients_lock.acquire()
-            if len(self.clients) < 2:
-                try:
-                    self.clients_lock.release()
-                    conn, addr = self.server.accept()
-                except OSError:
-                    break
+            try:
+                conn, addr = self.server.accept()
+            except OSError:
+                break
 
-                with self.clients_lock:
+            with self.clients_lock:
+                if len(self.clients) < 2: #  Continue with program only if number of clients connected is not yet two
                     self.clients.append((conn, addr))
                     self.new_client_event.set()
+                else: #  Send error msg and close the conn
+                    try:
+                        self.send_data(conn, {"server_full":"Maximum number of clients connected. Try again later"})
+                    except:
+                        pass
+                    conn.close()
+                    continue
 
-                    if len(self.clients) == 1:
-                        self.start_game_when_two_clients_thread = threading.Thread(target=self.start_game_when_two_clients)
-                        self.start_game_when_two_clients_thread.start()
+                if len(self.clients) == 1:
+                    self.start_game_when_two_clients_thread = threading.Thread(target=self.start_game_when_two_clients)
+                    self.start_game_when_two_clients_thread.start()
 
-                    print(f"[ACTIVE CONNECTIONS] {len(self.clients)}")
-            else:
-                self.clients_lock.release()
-                continue
+                print(f"[ACTIVE CONNECTIONS] {len(self.clients)}")
 
         print("[CLOSED] server is closed")
 
@@ -95,7 +97,6 @@ class Server:
             
         
     def start_game_when_two_clients(self):
-        first_time = True
 
         while True: # Busy wait
             self.clients_lock.acquire()
@@ -176,7 +177,6 @@ class Server:
                     break                
 
                 if not msg:
-                    print("No msg")
                     break
 
                 if new_msg:
@@ -190,7 +190,7 @@ class Server:
                     # ----------------Use loaded json data here----------------
 
                     loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])
-                    print("loaded_json: ",  loaded_json)
+                    # print("loaded_json: ",  loaded_json)
                     new_msg = True
                     full_msg = b''     
                     try:
