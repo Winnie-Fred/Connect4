@@ -14,14 +14,18 @@ You can run three versions of the project. The first one runs in a single termin
 For the second version, the game logic is actually kept client-side. While this allows for cheating because the client cannot be trusted, preventing cheating is not really a priority of this simple project but minimizing network traffic is.
 
 #### Status of the project and possible future features
-The first version of the project is complete. The second version is currently in progress. In the second version, the rounds continue until one player decides to stop. The game works fine for the second version but there are still some features that may be added such as trying to reconnect a client when they disconnect, or preventing the program from crashing when a client or server disconnects unexpectedly. It also only supports 1 pair of 2 clients right now but functionality may be added to allow more than a pair at a time. Keyboard interrupts will also handled.
+The first version of the project is complete. 
+
+The second version is currently in progress. In the second version, the rounds continue until one player decides to stop. Unexpected disconnection of client or server is handled on both client and server.
+
+The game works fine for the second version but there are still some features that may be added. It only supports 1 pair of 2 clients right now but functionality may be added to allow for more than a pair at a time. Keyboard interrupts will also be handled on both server and client.
 
 #### How to run the different versions of the project
 - Clone the project and cd into the project directory.
 - Create a virtual environment and activate it.
 - Install the dependencies by running `pip install -r requirements.txt`
 - To run the first version of the project, run `python connect4.py` to play.
-
+- 
 
 #### Credits and Inspiration
 This project is inspired by the Connect4 project on Crio at crio.do [here](https://www.crio.do/projects/python-multiplayer-game-connect4/)
