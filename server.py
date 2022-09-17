@@ -252,8 +252,13 @@ class Server:
             else:
                 self.send_data(conn1, {"other_client_disconnected":"Other client disconnected unexpectedly"})
                 self.remove_client(conn1, addr1)
-        except socket.error as e:
-            print(f"Error receiving data: {e}")            
+        except (socket.error, Exception) as e:
+            print(f"Some Error occured: {e}")
+            print("Closing both clients...")
+            if conn == conn1:
+                self.remove_client(conn2, addr2)
+            else:
+                self.remove_client(conn1, addr1)
         
         self.remove_client(conn, addr)
         

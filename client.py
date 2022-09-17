@@ -554,8 +554,8 @@ class Client:
                         print(colored(self.loaded_json['timeout'], "red", attrs=['bold']))
                         self.loaded_json_lock.release()
                         break                
-                except socket.error:
-                    error_msg = colored(f"Error sending data: Other client may have disconnected", "red", attrs=['bold'])
+                except (socket.error, Exception) as e:
+                    error_msg = colored(f"An error occured or other client may have disconnected: {e}", "red", attrs=['bold'])
                     self._set_up_to_terminate_program(error_msg, main_game_thread=main_game_thread, main_game_started=main_game_started)
                     break         
 
