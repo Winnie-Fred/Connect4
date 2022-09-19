@@ -29,7 +29,10 @@ class Board:
 
     def _get_position(self, player):
         while True:
-            choice = input(f"{player.name} {player.marker}, enter the position you want to play at between 0 and 6: ")
+            try:
+                choice = input(f"{player.name} {player.marker}, enter the position you want to play at between 0 and 6: ")
+            except EOFError:
+                return
             try:
                 choice = int(choice)
                 if not choice in range(0, 7):
@@ -43,6 +46,8 @@ class Board:
 
     def play_at_position(self, player):
         choice = self._get_position(player)
+        if choice is None:
+            return
         for i, row in reversed(list(enumerate(self.grid))):
             if row[choice] == '':
                 row[choice] = player.marker

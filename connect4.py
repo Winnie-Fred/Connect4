@@ -33,7 +33,10 @@ class Connect4Game:
 
     def _get_player_name(self):
         while True:
-            one_player = input("Enter your name: ").strip()
+            try:
+                one_player = input("Enter your name: ").strip()
+            except EOFError:
+                return
             if one_player:
                 break
             print("You must enter a name")
@@ -42,7 +45,10 @@ class Connect4Game:
     def _get_other_player_name(self, player):
 
         while True:
-            other_player = input("Enter other player's name: ").strip()
+            try:
+                other_player = input("Enter other player's name: ").strip()
+            except EOFError:
+                return                
             if other_player.lower() == player.lower():
                 print("A player already exists with that name. Choose another name")
                 continue
@@ -64,7 +70,10 @@ class Connect4Game:
 
     def _get_players_colors(self, player):
         while True:
-            color = input(f"{player}, Choose a color for your token between Red and Blue. Enter 'R' for Red or 'B' for Blue: ")
+            try:
+                color = input(f"{player}, Choose a color for your token between Red and Blue. Enter 'R' for Red or 'B' for Blue: ")
+            except EOFError:
+                return
             if color.lower() == 'r':
                 return ('red', 'blue')
             if color.lower() == 'b':
@@ -133,7 +142,10 @@ class Connect4Game:
             print(f"{player_two.name} has {player_two.points} points\n\n")
 
             while True:
-                play_again = input("Want to play another round? Enter 'Y' for 'yes' and 'N' for 'no': ").lower().strip()
+                try:
+                    play_again = input("Want to play another round? Enter 'Y' for 'yes' and 'N' for 'no': ").lower().strip()
+                except EOFError:
+                    return
                 if play_again == 'y':
                     # Shuffle the players again before starting next round.
                     self.level.current_level += 1
