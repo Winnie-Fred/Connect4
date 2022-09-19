@@ -148,13 +148,20 @@ class Server:
 
         print(f"[NEW CONNECTION] {addr} connected.")
 
-        with self.clients_lock:
-            conn1, addr1 = self.clients[0]
-            conn2, addr2 = self.clients[1]
         
         full_msg = b''
         new_msg = True
         id = None
+
+        with self.clients_lock:
+            try:
+                conn1, addr1 = self.clients[0]
+                conn2, addr2 = self.clients[1]
+            except IndexError:
+                print("Index error: Client no longer exists")
+                self.remove_client(conn, addr)
+                return
+
         try:
             with self.clients_lock:
                 if conn == conn1:
@@ -237,28 +244,34 @@ class Server:
                             self.send_data(conn2, {'first_player':loaded_json['first_player']})                                                
                         elif 'DISCONNECT' in loaded_json:
                             if loaded_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:
+                                if 'close_other_client' in loaded_json:
+                                    if loaded_json['close_other_client']:
+                                        if conn == conn1:
+                                            self.send_data(conn2, {"other_client_disconnected":"Other client disconnected unexpectedly"})
+                                        else:
+                                            self.send_data(conn1, {"other_client_disconnected":"Other client disconnected unexpectedly"})
                                 break
                     except KeyError:
                         break               
                             # ----------------Use loaded json data here----------------
         
         except SendingDataError as data:
-            print(f"Error sending '{data}'")
+            print(f"Error sending '{data}'")            
         except ConnectionResetError as e: #  This exception is caught when the server tries to receive a msg from a disconnected client
             print(f"Connection Reset: {e}")
             if conn == conn1:
                 self.send_data(conn2, {"other_client_disconnected":"Other client disconnected unexpectedly"})
-                self.remove_client(conn2, addr2)
             else:
                 self.send_data(conn1, {"other_client_disconnected":"Other client disconnected unexpectedly"})
-                self.remove_client(conn1, addr1)
         except (socket.error, Exception) as e:
             print(f"Some Error occured: {e}")
             print("Closing both clients...")
-            if conn == conn1:
-                self.remove_client(conn2, addr2)
-            else:
-                self.remove_client(conn1, addr1)
+
+        # Close other and current client
+        if conn == conn1:
+            self.remove_client(conn2, addr2)
+        else:
+            self.remove_client(conn1, addr1)
         
         self.remove_client(conn, addr)
         
