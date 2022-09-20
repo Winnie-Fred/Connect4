@@ -15,10 +15,6 @@ from board import Board
 
 os.system('') # To ensure that escape sequences work, and coloured text is displayed normally and not as weird characters
 
-connect4game = Connect4Game()
-
-
-
 class Client:
     FORMAT = 'utf-8'
     DISCONNECT_MESSAGE = "!DISCONNECT"
@@ -42,7 +38,6 @@ class Client:
         self.main_game_thread_complete.set()
         self._reset_session()
         self._reset_game()        
-        self.connect_to_game()
 
     def connect_to_game(self):
         try:
@@ -175,7 +170,6 @@ class Client:
             some_event.clear()
             return False
         elif self.other_client_disconnected.is_set():
-            self.other_client_disconnected.clear()            
             return True
         elif self.end_thread_event.is_set():
             return True
@@ -241,6 +235,7 @@ class Client:
         self._reset_for_new_round()
 
     def main_game_thread(self):
+        general_error_msg = colored(f"An error occured with the server or other client may have disconnected", "red", attrs=['bold'])
         self.main_game_thread_complete.clear()
         playing = True
 
@@ -281,11 +276,10 @@ class Client:
                     try:
                         self.send_data({'board':self.board})
                     except socket.error:
-                        error_msg = colored(f"Error sending data: Other client may have disconnected", "red", attrs=['bold'])
                         # ! self.main_game_thread_complete must be set before self._set_up_to_terminate_program(), 
                         # ! otherwise, deadlock will occur as self.main_game_thread_complete.wait() will block infinitely
                         self.main_game_thread_complete.set()
-                        self._set_up_to_terminate_program(error_msg)
+                        self._set_up_to_terminate_program(general_error_msg)
                         return                   
 
                     self.board.print_board()
@@ -297,9 +291,8 @@ class Client:
                         try:
                             self.send_data({'round_over':True, 'winner':self.player})
                         except socket.error:
-                            error_msg = colored(f"Error sending data: Other client may have disconnected", "red", attrs=['bold'])
                             self.main_game_thread_complete.set()
-                            self._set_up_to_terminate_program(error_msg)
+                            self._set_up_to_terminate_program(general_error_msg)
                             return                        
                         break
 
@@ -308,9 +301,8 @@ class Client:
                         try:
                             self.send_data({'round_over':True, 'winner':None})
                         except socket.error:
-                            error_msg = colored(f"Error sending data: Other client may have disconnected", "red", attrs=['bold'])
                             self.main_game_thread_complete.set()
-                            self._set_up_to_terminate_program(error_msg)
+                            self._set_up_to_terminate_program(general_error_msg)
                             return
                         break
                 else:             
@@ -339,9 +331,8 @@ class Client:
                         try:
                             self.send_data({'play_again':True})
                         except socket.error:
-                            error_msg = colored(f"Error sending data: Other client may have disconnected", "red", attrs=['bold'])
                             self.main_game_thread_complete.set()
-                            self._set_up_to_terminate_program(error_msg)
+                            self._set_up_to_terminate_program(general_error_msg)
                             return
 
                     if not self.play_again_reply_received.is_set() and not self.other_client_disconnected.is_set():
@@ -364,9 +355,8 @@ class Client:
                             try:
                                 self.send_data({'first_player':first_player})
                             except socket.error as e:
-                                error_msg = colored(f"Error sending data: Other client may have disconnected", "red", attrs=['bold'])
                                 self.main_game_thread_complete.set()
-                                self._set_up_to_terminate_program(error_msg)
+                                self._set_up_to_terminate_program(general_error_msg)
                                 return
 
                         # Wait until first player is received or until other_client_disconnected event is set or until end_thread_event is set
@@ -400,11 +390,10 @@ class Client:
                             self.send_data({'play_again':False})
                             self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})
                         except socket.error:
-                            error_msg = colored(f"Error sending data: Other client may have disconnected", "red", attrs=['bold'])
                             # Unlike other places where this funciton is called, loop is not terminated immediately
                             # because it will terminate anyway in the outer block, and so that it will end naturally like when client quits 
                             self.main_game_thread_complete.set()
-                            self._set_up_to_terminate_program(error_msg)
+                            self._set_up_to_terminate_program(general_error_msg)
                     playing = False
                     break
                 else:
@@ -412,26 +401,21 @@ class Client:
                     continue
         self.main_game_thread_complete.set()
 
-    def play_game(self): 
+    def play_game(self):
 
-        main_game_thread = Thread()
-        main_game_thread.daemon = True
-        main_game_thread.start()
-
-        self.main_game_started.clear()
-
+        general_error_msg = colored(f"An error occured with the server or other client may have disconnected", "red", attrs=['bold'])
         full_msg = b''
         new_msg = True
+
         while True:            
             try:
                 msg = self.client.recv(16)
             except ConnectionResetError: #  This exception is caught when the client tries to receive a msg from a disconnected server
-                error_msg = colored(f"Connection Reset: Other client may have disconnected", "red", attrs=['bold'])
+                error_msg = colored(f"Connection Reset: An error occured with the server or other client may have disconnected", "red", attrs=['bold'])
                 self._set_up_to_terminate_program(error_msg)
                 break
             except socket.error:
-                error_msg = colored(f"Error receiving data: Other client may have disconnected", "red", attrs=['bold'])
-                self._set_up_to_terminate_program(error_msg)
+                self._set_up_to_terminate_program(general_error_msg)
                 break
             
             if not msg: #  This breaks out of the loop when disconnect msg has been sent to server and/or client conn has been closed server-side
@@ -439,7 +423,7 @@ class Client:
                 
                 if not self.keyboard_interrupt_event.is_set() and not self.game_ended.is_set() and not self.game_over_event.is_set(): 
                     # Connection was forcibly closed by server
-                    error_msg = colored("An error occured or other client may have disconnected", "red", attrs=['bold'])
+                    error_msg = general_error_msg
 
                 self._set_up_to_terminate_program(error_msg)
                 break
@@ -493,9 +477,7 @@ class Client:
                         break
                     elif "status" in self.loaded_json:                                                          
                         loading_msg = self.loaded_json['status'] 
-                        self.main_game_started.clear() #  Unset value as game setup has begun again or as game is being set up for the first time
-                        if self.game_ended.is_set():
-                            main_game_thread.join() #  Make sure main_game_thread has ended before starting process of setting up game again
+                        #  Unset value as game setup has begun again or as game is being set up for the first time                        
                         loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
                         self.loaded_json_lock.release()
                         loading_thread.daemon = True
@@ -559,7 +541,6 @@ class Client:
                         with self.condition:
                             main_game_thread.start()
                         self.main_game_started.set()
-                        self.game_ended.clear()               
                     elif "board" in self.loaded_json:
                         self.board = self.loaded_json['board']
                         self.loaded_json_lock.release()
@@ -588,8 +569,7 @@ class Client:
                         break                
                 except (socket.error, Exception):
                     if not self.keyboard_interrupt_event.is_set():
-                        error_msg = colored(f"An error occured or other client may have disconnected", "red", attrs=['bold'])
-                        self._set_up_to_terminate_program(error_msg)
+                        self._set_up_to_terminate_program(general_error_msg)
                     break        
                 # -------------------------------------Use loaded json data here-------------------------------------
 
@@ -604,28 +584,25 @@ class Client:
         else:
             self.connect_to_game()
 
-    def main_thread_to_exit_program(self):
+    def terminate_program(self):
+        self.keyboard_interrupt_event.set()
+        error_msg = colored(f"Keyboard Interrupt: Program ended", "red", attrs=['bold'])        
+        self._set_up_to_terminate_program('')
         try:
-            while not self.stop_flag.is_set():  # allow other threads to exit the main thread too
-                time.sleep(0.1)
-        except KeyboardInterrupt:
-            self.keyboard_interrupt_event.set()
-            error_msg = colored(f"Keyboard Interrupt: Program ended", "red", attrs=['bold'])        
-            self._set_up_to_terminate_program('')
-            try:
-                self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE, 'close_other_client':True})
-            except socket.error:
-                pass
-            self.client.close()
-            self.play_game_thread.join()
-            print(f"\n{error_msg}\n")
+            self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE, 'close_other_client':True})
+        except socket.error:
+            pass
+        self.client.close()
+        self.play_game_thread.join()
+        print(f"\n{error_msg}\n")
         
 
 if __name__ == "__main__":
+    connect4game = Connect4Game()
+    client = Client()
     try:
-        client = Client()
+        client.connect_to_game()
+        while not client.stop_flag.is_set():  # simulate work to keep main thread alive while other threads work
+            time.sleep(0.1)
     except KeyboardInterrupt:
-        error_msg = colored(f"Keyboard Interrupt: Program ended", "red", attrs=['bold'])        
-        print(f"\n{error_msg}\n")
-    else:
-        client.main_thread_to_exit_program()
+        client.terminate_program()
