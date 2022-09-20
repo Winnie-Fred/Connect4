@@ -24,7 +24,8 @@ class Client:
 
         self.HEADERSIZE = 10
 
-        self.server = "127.0.0.1"
+        self.server = socket.gethostbyname(socket.gethostname())
+        # self.server = "127.0.0.1" #  Uncomment this line to test on localhost
         self.port = 5050
         self.addr = (self.server, self.port)
 
@@ -51,36 +52,50 @@ class Client:
             print(f"Goodbye\n")
             self.stop_flag.set()
             return
+
+        try:
+            ip = input("Enter the IP address of the machine the server is running on or press Enter "
+                        "if this machine is hosting the server\nTip - If you are having trouble with this, "
+                        "copy the IPv4 address of the server host machine and paste it here: ").strip().lower()
+        except EOFError:
+            self.stop_flag.set()
+            return
+
+        print("\n")
+
+        if ip:
+            self.server = ip
+            self.addr = (self.server, self.port)
+
+
+        try:
+            self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        except socket.error as e:
+            print(colored(f"Error creating socket: {e}", "red", attrs=['bold']))
+            self.client = None
+
+        try:
+            self.client.connect(self.addr)
+        except socket.gaierror as e:
+            print(colored(f"Address-related error connecting to server: {e}", "red", attrs=['bold']))
+            self.client.close()
+            self.stop_flag.set()
+        except socket.error as e:
+            print(colored(f"Connection error: {e}", "red", attrs=['bold']))
+            self.client.close()
+            self.stop_flag.set()
         else:
-
-            try:
-                self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            except socket.error as e:
-                print(colored(f"Error creating socket: {e}", "red", attrs=['bold']))
-                self.client = None
-
-            try:
-                self.client.connect(self.addr)
-            except socket.gaierror as e:
-                print(colored(f"Address-related error connecting to server: {e}", "red", attrs=['bold']))
-                self.client.close()
+            if self.client is None:
+                print(colored(f"Could not open socket", "red", attrs=['bold']))                
                 self.stop_flag.set()
-            except socket.error as e:
-                print(colored(f"Connection error: {e}", "red", attrs=['bold']))
-                self.client.close()
-                self.stop_flag.set()
-            else:
-                if self.client is None:
-                    print(colored(f"Could not open socket", "red", attrs=['bold']))                
-                    self.stop_flag.set()
-                    return
+                return
 
-                self._reset_session()
-                self._reset_game()
-               
-                self.play_game_thread = Thread(target=self.play_game)
-                self.play_game_thread.daemon = True
-                self.play_game_thread.start()
+            self._reset_session()
+            self._reset_game()
+            
+            self.play_game_thread = Thread(target=self.play_game)
+            self.play_game_thread.daemon = True
+            self.play_game_thread.start()
             
     def send_data(self, data):
         data = pickle.dumps(data)
@@ -191,13 +206,16 @@ class Client:
             if not self.game_ended.is_set() and not self.game_over_event.is_set():
                 # If one of the conditions is satisfied, player objects have non-empty values and can be safely accessed 
                 # in _print_result() method. Also, there's no need to print results if the round did not start at all
-                if error_msg:
-                    print(f"\n{error_msg}\n") #  Print exception or error
+                
+                if error_msg: #  this means _set_up_to_terminate_program() was not called by terminate_program()
+                    if not self.keyboard_interrupt_event.wait(0.1):
+                        # This will make keyboard_interrupt error to be the only error displayed when keyboard interrupt occurs
+                        print(f"\n{error_msg}\n") #  Print exception or error
 
                 # Print game stats
                 if self.main_game_started.is_set():                                         
                     self._print_result("round")
-                    self._print_result("game")                   
+                    self._print_result("game")              
 
     def _reset_session(self):
         self.loaded_json = {}

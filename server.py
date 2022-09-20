@@ -12,8 +12,8 @@ from exceptions import SendingDataError
 class Server:
     def __init__(self):
         self.HEADERSIZE = 10
-        # self.SERVER = socket.gethostbyname(socket.gethostname())
-        self.SERVER = "127.0.0.1"
+        self.SERVER = socket.gethostbyname(socket.gethostname())
+        # self.SERVER = "127.0.0.1" 5#  Uncomment this line to test on localhost
         self.PORT = 5050
         self.ADDR = (self.SERVER, self.PORT)
         self.FORMAT = 'utf-8'
