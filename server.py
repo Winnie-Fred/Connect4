@@ -2,19 +2,11 @@ import socket
 import sys
 import threading
 import pickle
-import time
 import copy
 
 from typing import List
 
-from connect4 import Connect4Game
 from exceptions import SendingDataError
-
-connect4game = Connect4Game()
-
-
-to_shuffle = threading.Event()
-to_shuffle.set()
 
 
 class Server:
@@ -29,7 +21,17 @@ class Server:
 
         self.clients: List = []
         self.clients_lock = threading.RLock()
+
+        self.play_game_threads: List = []
+        self.play_game_threads_lock = threading.RLock()
+
         self.new_client_event = threading.Event()
+        self.stop_flag = threading.Event()
+        self.wait_for_new_client_thread_complete = threading.Event()
+        self.start_game_when_two_clients_thread_complete = threading.Event()
+        self.start_game_when_two_clients_thread_complete.set()
+        self.condition = threading.Condition()
+
 
         try:
            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -66,12 +68,15 @@ class Server:
     def start(self):
         print("[STARTING] server is starting...")
         print(f"[LISTENING] server is listening on {self.SERVER}")
+        self.server.settimeout(1)
 
         while True:
             try:
                 conn, addr = self.server.accept()
+            except socket.timeout:
+                continue
             except OSError:
-                break
+                break            
 
             with self.clients_lock:
                 if len(self.clients) < 2: #  Continue with program only if number of clients connected is not yet two
@@ -86,19 +91,20 @@ class Server:
                     continue
 
                 if len(self.clients) == 1:
-                    self.start_game_when_two_clients_thread = threading.Thread(target=self.start_game_when_two_clients)
-                    self.start_game_when_two_clients_thread.start()
+                    thread = threading.Thread(target=self.start_game_when_two_clients)
+                    thread.daemon = True
+                    thread.start()
 
                 print(f"[ACTIVE CONNECTIONS] {len(self.clients)}")
 
         print("[CLOSED] server is closed")
-
-
-            
-        
+                 
     def start_game_when_two_clients(self):
+        self.start_game_when_two_clients_thread_complete.clear()
+        while True:
+            if self.stop_flag.is_set():
+                break
 
-        while True: # Busy wait
             self.clients_lock.acquire()
             if len(self.clients) == 1:
                 self.clients_lock.release()
@@ -111,15 +117,22 @@ class Server:
                 except SendingDataError:
                     self.remove_client(conn, addr)
 
-                if self.new_client_event.wait(self.TIMEOUT_FOR_CLIENT):
-                    continue
+                thread = threading.Thread(target=self.wait_for_new_client)
+                thread.daemon = True
+                thread.start()
+
+                if self.wait_for_one_of_multiple_events(self.wait_for_new_client_thread_complete):
+                    if self.new_client_event.is_set():
+                        continue                    
+                    else:
+                        print("Connection timed out: No other player joined the game. Try joining the connection again.")
+                        try:
+                            self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try joining the connection again."})
+                        except SendingDataError:
+                            pass
+                        self.remove_client(conn, addr)
+                        break
                 else:
-                    print("Connection timed out: No other player joined the game. Try joining the connection again.")
-                    try:
-                        self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try joining the connection again."})
-                    except SendingDataError:
-                        pass
-                    self.remove_client(conn, addr)
                     break
             elif len(self.clients) == 2:                           
                 self.new_client_event.clear()
@@ -128,9 +141,39 @@ class Server:
                     conn, addr = client
 
                     thread = threading.Thread(target=self.play_game, args=(conn, addr))
+                    thread.daemon = True
+
+                    with self.play_game_threads_lock:
+                        self.play_game_threads.append(thread)
+
                     thread.start()                   
                 self.clients_lock.release()
                 break
+        self.start_game_when_two_clients_thread_complete.set()
+
+    def wait_for_one_of_multiple_events(self, some_event):
+
+        """Wait for some event or keyboard interrupt which sets self.stop_flag"""
+
+        while not (some_event.is_set() or self.stop_flag.is_set()):
+            with self.condition:
+                self.condition.wait()
+        if some_event.is_set():
+            return True
+        elif self.stop_flag.is_set():
+            return False
+
+    def wait_for_new_client(self):
+        self.wait_for_new_client_thread_complete.clear()
+        if self.new_client_event.wait(self.TIMEOUT_FOR_CLIENT):
+            self.wait_for_new_client_thread_complete.set()
+            with self.condition:
+                self.condition.notify()
+            return True
+        self.wait_for_new_client_thread_complete.set()
+        with self.condition:
+            self.condition.notify()
+        return False
 
     def remove_client(self, conn, addr):
         with self.clients_lock:
@@ -141,10 +184,36 @@ class Server:
                 print("Client already removed from list")
             else:
                 print(f"[DISCONNECTION] {addr} disconnected.")
-                
+
+    def terminate_program(self):
+
+        """Wait for threads to complete and exit program"""
+
+        self.stop_flag.set()
+        with self.condition:
+            self.condition.notify()
+
+        if not self.start_game_when_two_clients_thread_complete.is_set():
+            self.start_game_when_two_clients_thread_complete.wait()
+
+        self.server.close()
+        with self.clients_lock:
+            for client in self.clients:
+                conn, _ = client
+                conn.close()
+
+        with self.play_game_threads_lock:
+            for thread in self.play_game_threads:
+                if thread.is_alive():
+                    thread.join()
+
+        print("Keyboard Interrupt detected")
+        print("[CLOSED] server is closed")
+        sys.exit(1)
 
     def play_game(self, conn, addr):
-        self.start_game_when_two_clients_thread.join()
+        if not self.start_game_when_two_clients_thread_complete.is_set():
+            self.start_game_when_two_clients_thread_complete.wait()
 
         print(f"[NEW CONNECTION] {addr} connected.")
 
@@ -277,4 +346,7 @@ class Server:
         
 if __name__ == "__main__":
     server = Server()
-    server.host_game()
+    try:
+        server.host_game()
+    except KeyboardInterrupt:
+        server.terminate_program()
