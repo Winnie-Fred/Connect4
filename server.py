@@ -13,7 +13,7 @@ class Server:
     def __init__(self):
         self.HEADERSIZE = 10
         self.SERVER = socket.gethostbyname(socket.gethostname())
-        # self.SERVER = "127.0.0.1" 5#  Uncomment this line to test on localhost
+        # self.SERVER = "127.0.0.1" #  Uncomment this line to test on localhost
         self.PORT = 5050
         self.ADDR = (self.SERVER, self.PORT)
         self.FORMAT = 'utf-8'
@@ -43,6 +43,18 @@ class Server:
         
 
     def host_game(self):
+
+        try:
+            ip = input("Enter the IP address of this machine or press Enter "
+                        f"to use {self.SERVER}\nTip - If you are having trouble with this, or you do not wish to use this IP, "
+                        "copy the IPv4 address of this machine and paste it here: ").strip()
+        except EOFError:
+            self.server = None
+        else:
+            if ip:
+                self.SERVER = ip
+                self.ADDR = (self.SERVER, self.PORT)
+
         try:
             self.server.bind(self.ADDR)
             self.server.listen()
@@ -75,8 +87,8 @@ class Server:
                 conn, addr = self.server.accept()
             except socket.timeout:
                 continue
-            except OSError:
-                break            
+            except socket.error as e:
+                break
 
             with self.clients_lock:
                 if len(self.clients) < 2: #  Continue with program only if number of clients connected is not yet two
@@ -134,9 +146,13 @@ class Server:
                         break
                 else:
                     break
-            elif len(self.clients) == 2:                           
+            elif len(self.clients) == 2:                         
                 self.new_client_event.clear()
                 print("Both clients connected. Starting game. . .")
+
+                with self.play_game_threads_lock:
+                    self.play_game_threads = [] #  Clear old threads stored in list
+
                 for client in self.clients:
                     conn, addr = client
 
@@ -207,7 +223,7 @@ class Server:
                 if thread.is_alive():
                     thread.join()
 
-        print("Keyboard Interrupt detected")
+        print(f"\nKeyboard Interrupt detected")
         print("[CLOSED] server is closed")
         sys.exit(1)
 

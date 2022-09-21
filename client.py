@@ -24,6 +24,7 @@ class Client:
 
         self.HEADERSIZE = 10
 
+        self.client = None
         self.server = socket.gethostbyname(socket.gethostname())
         # self.server = "127.0.0.1" #  Uncomment this line to test on localhost
         self.port = 5050
@@ -31,7 +32,6 @@ class Client:
 
         self.spinner_thread_complete = Event()
         self.main_game_thread_complete = Event()
-        self.main_game_started = Event()
         self.keyboard_interrupt_event = Event()
         self.stop_flag = Event()
     
@@ -41,6 +41,15 @@ class Client:
         self._reset_game()        
 
     def connect_to_game(self):
+        # ! self.client must be initialized first before collecting input so that client.send in Keyboard Interrupt handler does not 
+        # ! raise Exception in client.terminate_program
+
+        try:
+            self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        except socket.error as e:
+            print(colored(f"Error creating socket: {e}", "red", attrs=['bold']))
+            self.client = None
+
         try:
             connect = input("\nReady to play Connect4?\nPress Enter to join a game or Q to quit: ").strip().lower()
         except EOFError:
@@ -54,9 +63,10 @@ class Client:
             return
 
         try:
-            ip = input("Enter the IP address of the machine the server is running on or press Enter "
-                        "if this machine is hosting the server\nTip - If you are having trouble with this, "
-                        "copy the IPv4 address of the server host machine and paste it here: ").strip().lower()
+            ip = input("Enter the IP address of the machine the server is running on or press Enter if this machine is hosting the server"
+                        f" to use {self.server}"
+                        "\nTip - If you are having trouble with this, or this IP is wrong, "
+                        "copy the IPv4 address of the server host machine and paste it here: ").strip()
         except EOFError:
             self.stop_flag.set()
             return
@@ -66,13 +76,6 @@ class Client:
         if ip:
             self.server = ip
             self.addr = (self.server, self.port)
-
-
-        try:
-            self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        except socket.error as e:
-            print(colored(f"Error creating socket: {e}", "red", attrs=['bold']))
-            self.client = None
 
         try:
             self.client.connect(self.addr)
@@ -249,6 +252,7 @@ class Client:
         self.game_over_event = Event() # This is set when player no longer wants to play
         self.game_ended = Event() # This is set when opponent no longer wants to play
         self.condition = Condition() # condition that waits for some event or other_client_disconnected event to be set
+        self.main_game_started = Event()
 
         self._reset_for_new_round()
 
