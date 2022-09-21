@@ -19,7 +19,8 @@ class Server:
         self.FORMAT = 'utf-8'
         self.DISCONNECT_MESSAGE = "!DISCONNECT"
 
-        self.TIMEOUT_FOR_RECV = 30
+        self.TIMEOUT_FOR_RECV = 300
+        self.TIMEOUT_FOR_OTHER_CLIENT_TO_JOIN = 300
 
         self.clients: List = []
         self.clients_lock = threading.RLock()
@@ -41,7 +42,6 @@ class Server:
             print(f"Error creating socket: {e}")
             sys.exit(1)
 
-        self.TIMEOUT_FOR_CLIENT = 20
         
 
     def host_game(self):
@@ -183,7 +183,7 @@ class Server:
 
     def wait_for_new_client(self):
         self.wait_for_new_client_thread_complete.clear()
-        if self.new_client_event.wait(self.TIMEOUT_FOR_CLIENT):
+        if self.new_client_event.wait(self.TIMEOUT_FOR_OTHER_CLIENT_TO_JOIN):
             self.wait_for_new_client_thread_complete.set()
             with self.condition:
                 self.condition.notify()
@@ -271,7 +271,7 @@ class Server:
                     print(f"Connection Aborted: {e}") 
                     break
                 except socket.timeout as e:
-                    print(f"recv timed out. Connection is half-open or client took too long to respond: {e}")               
+                    print(f"recv timed out. Connection is half-open or client took too long to respond. Ensure this machine is still connected to the network.")               
                     break
 
                 if not msg:

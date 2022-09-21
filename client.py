@@ -73,7 +73,7 @@ class Client:
         try:
             ip = input("Enter the IP address of the machine the server is running on or press Enter if this machine is hosting the server"
                         f" to use {self.server}"
-                        "\nTip - If you are having trouble with this, or this IP is wrong, "
+                        "\nTip - If you are having trouble with this, or you do not wish to use this IP, "
                         "copy the IPv4 address of the server host machine and paste it here: ").strip()
         except EOFError:
             ip = ''
@@ -247,7 +247,7 @@ class Client:
         self.other_client_disconnected = Event()
         self.game_over_event = Event() # This is set when player no longer wants to play
         self.game_ended = Event() # This is set when opponent no longer wants to play
-        self.condition = Condition() # condition that waits for some event or other_client_disconnected event to be set
+        self.condition = Condition() # condition that is notified when one of some events is set
         self.main_game_started = Event()
         self.stop_flag = Event()
 
@@ -281,7 +281,7 @@ class Client:
                         self.board.print_board() #  Print board to show player their opponent's move
 
                     # At this point, the opponent has won so we want to break to end this loop and 
-                    # so that we do not collect this user's input anymore.
+                    # to end this paricular game.
                     if self.round_over_event.wait(0.1):
                         self.round_over_event.clear()
                         if self.round_over_json['round_over']:
@@ -299,7 +299,7 @@ class Client:
                         self.main_game_thread_complete.set()
                         return
 
-
+                    # End this thread here if one of these conditions is set so that it does not try to send the board at all and fail
                     if self.other_client_disconnected.wait(0.1) or self.end_thread_event.wait(0.1) or self.keyboard_interrupt_event.wait(0.1):
                         self.main_game_thread_complete.set()
                         return
@@ -361,7 +361,6 @@ class Client:
                     return
 
                 if play_again == 'y':
-                    # Shuffle the players again before starting next round.
                     if not self.other_client_disconnected.is_set() and not self.end_thread_event.is_set():
                         try:
                             self.send_data({'play_again':True})
@@ -385,6 +384,7 @@ class Client:
                     if self.play_again_reply:
                         self.level.current_level += 1 
 
+                        # Shuffle the players again before starting next round.
                         if not self.ID:
                             first_player = connect4game._shuffle_players([self.player, self.opponent])[0]
                             try:
@@ -411,12 +411,12 @@ class Client:
                             self.your_turn = False
                         break
                     else:
-                            # Opponent does not want to play another round
-                            self.game_ended.set()
-                            print(f"{self.opponent.name} has quit")
-                            self._print_result("game")
-                            playing = False
-                            break
+                        # Opponent does not want to play another round
+                        self.game_ended.set()
+                        print(f"{self.opponent.name} has quit")
+                        self._print_result("game")
+                        playing = False
+                        break
                 elif play_again == 'n':
                     self.game_over_event.set()
                     self._print_result("game")
@@ -425,7 +425,7 @@ class Client:
                             self.send_data({'play_again':False})
                             self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE})
                         except socket.error:
-                            # Unlike other places where this funciton is called, loop is not terminated immediately
+                            # Unlike other places where this function is called, loop is not terminated immediately
                             # because it will terminate anyway in the outer block, and so that it will end naturally like when client quits 
                             self.main_game_thread_complete.set()
                             self._set_up_to_terminate_program(general_error_msg)
@@ -473,7 +473,7 @@ class Client:
             full_msg += msg
 
 
-            if len(full_msg)-self.HEADERSIZE == msglen:
+            if len(full_msg) - self.HEADERSIZE == msglen:
                 
                 # -------------------------------------Use loaded json data here-------------------------------------
 
@@ -514,7 +514,6 @@ class Client:
                         break
                     elif "status" in self.loaded_json:                                                          
                         loading_msg = self.loaded_json['status'] 
-                        #  Unset value as game setup has begun again or as game is being set up for the first time                        
                         loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
                         self.loaded_json_lock.release()
                         loading_thread.daemon = True
@@ -634,7 +633,6 @@ class Client:
     def terminate_program(self):    
         self.connect_again.clear()
         self.keyboard_interrupt_event.set()
-        error_msg = colored(f"Keyboard Interrupt: Program ended", "red", attrs=['bold'])        
         self._set_up_to_terminate_program('')
         try:
             self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE, 'close_other_client':True})
@@ -643,6 +641,7 @@ class Client:
         self.client.close()
         if not self.play_game_thread_complete.is_set():
             self.play_game_thread_complete.wait()
+        error_msg = colored(f"Keyboard Interrupt: Program ended", "red", attrs=['bold'])        
         print(f"\n{error_msg}\n")
         
 
@@ -652,7 +651,7 @@ if __name__ == "__main__":
     try:
         while client.connect_again.is_set():
             client.connect_to_game()
-            while not client.stop_flag.is_set():  # simulate work to keep main thread alive while other threads work
+            while not client.stop_flag.is_set():  #  simulate work to keep main thread alive while other threads work
                 time.sleep(0.1)
         
             if not client.spinner_thread_complete.is_set():
