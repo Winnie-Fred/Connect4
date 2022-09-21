@@ -47,7 +47,7 @@ class Board:
     def play_at_position(self, player):
         choice = self._get_position(player)
         if choice is None:
-            return
+            return False
         for i, row in reversed(list(enumerate(self.grid))):
             if row[choice] == '':
                 row[choice] = player.marker
@@ -56,7 +56,8 @@ class Board:
                 if i == 0:
                     print("That column is full")
                     self.play_at_position(player) #  Call function again to take in another input
-                continue 
+                continue
+        return True 
 
     def _check_horizontal_win(self, player_marker):
         win_pattern = [player_marker] * 4
