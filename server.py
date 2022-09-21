@@ -19,6 +19,8 @@ class Server:
         self.FORMAT = 'utf-8'
         self.DISCONNECT_MESSAGE = "!DISCONNECT"
 
+        self.TIMEOUT_FOR_RECV = 30
+
         self.clients: List = []
         self.clients_lock = threading.RLock()
 
@@ -37,7 +39,7 @@ class Server:
            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         except socket.error as e:
             print(f"Error creating socket: {e}")
-            self.server = None
+            sys.exit(1)
 
         self.TIMEOUT_FOR_CLIENT = 20
         
@@ -49,7 +51,7 @@ class Server:
                         f"to use {self.SERVER}\nTip - If you are having trouble with this, or you do not wish to use this IP, "
                         "copy the IPv4 address of this machine and paste it here: ").strip()
         except EOFError:
-            self.server = None
+            pass
         else:
             if ip:
                 self.SERVER = ip
@@ -197,7 +199,7 @@ class Server:
             try:
                 self.clients.remove((conn, addr))
             except ValueError:
-                print("Client already removed from list")
+                pass
             else:
                 print(f"[DISCONNECTION] {addr} disconnected.")
 
@@ -263,10 +265,14 @@ class Server:
                 
             while True:
                 try:
+                    conn.settimeout(self.TIMEOUT_FOR_RECV) #  Timeout for recv
                     msg = conn.recv(16)                                  
                 except ConnectionAbortedError as e:
                     print(f"Connection Aborted: {e}") 
-                    break                
+                    break
+                except socket.timeout as e:
+                    print(f"recv timed out. Connection is half-open or client took too long to respond: {e}")               
+                    break
 
                 if not msg:
                     break
@@ -281,6 +287,7 @@ class Server:
                 if len(full_msg)-self.HEADERSIZE == msglen:
                     # ----------------Use loaded json data here----------------
 
+                    conn.settimeout(None) #  Reset timer for next msg
                     loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])
                     # print("loaded_json: ",  loaded_json)
                     new_msg = True
@@ -349,8 +356,8 @@ class Server:
             else:
                 self.send_data(conn1, {"other_client_disconnected":"Other client disconnected unexpectedly"})
         except (socket.error, Exception) as e:
-            print(f"Some Error occured: {e}")
-            print("Closing both clients...")
+            if e != 'timed out':
+                print(f"Some Error occured: {e}")
 
         # Close other and current client
         if conn == conn1:
