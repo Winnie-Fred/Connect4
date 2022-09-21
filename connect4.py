@@ -28,7 +28,11 @@ class Connect4Game:
             "Points from each round will be added up at the end of the game.\n"
             "The overall winner of the game is the player with the most points at the end of the game.\n"
             "That's it. You are all set!\n")
-        input("Press Enter key to continue . . . ")
+        try:
+            input("Press Enter key to continue . . . ")
+        except EOFError:
+            return False
+        return True
 
 
     def _get_player_name(self):

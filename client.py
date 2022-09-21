@@ -30,36 +30,44 @@ class Client:
         self.port = 5050
         self.addr = (self.server, self.port)
 
+        self.loaded_json = {}
+        self.loaded_json_lock = RLock()
+
         self.spinner_thread_complete = Event()
         self.main_game_thread_complete = Event()
+        self.play_game_thread_complete = Event()
+
         self.keyboard_interrupt_event = Event()
-        self.stop_flag = Event()
+        self.connect_again = Event()
+        self.eof_error = Event()
     
-        self.spinner_thread_complete.set()
-        self.main_game_thread_complete.set()
-        self._reset_session()
+        self.connect_again.set()
+
         self._reset_game()        
 
     def connect_to_game(self):
-        # ! self.client must be initialized first before collecting input so that client.send in Keyboard Interrupt handler does not 
-        # ! raise Exception in client.terminate_program
+        # ! self.client must be initialized first before collecting input so that client.send() in Keyboard Interrupt handler does not 
+        # ! raise Exception in client.terminate_program()
 
         try:
             self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         except socket.error as e:
             print(colored(f"Error creating socket: {e}", "red", attrs=['bold']))
-            self.client = None
+            self.stop_flag.set()
+            self.connect_again.clear()
+            return
+               
 
         try:
             connect = input("\nReady to play Connect4?\nPress Enter to join a game or Q to quit: ").strip().lower()
         except EOFError:
-            self.stop_flag.set()
-            return
+            connect = ''
         
         print("\n")
         if connect == "q":
             print(f"Goodbye\n")
             self.stop_flag.set()
+            self.connect_again.clear()
             return
 
         try:
@@ -68,8 +76,7 @@ class Client:
                         "\nTip - If you are having trouble with this, or this IP is wrong, "
                         "copy the IPv4 address of the server host machine and paste it here: ").strip()
         except EOFError:
-            self.stop_flag.set()
-            return
+            ip = ''
 
         print("\n")
 
@@ -83,22 +90,18 @@ class Client:
             print(colored(f"Address-related error connecting to server: {e}", "red", attrs=['bold']))
             self.client.close()
             self.stop_flag.set()
+            self.connect_again.clear()
         except socket.error as e:
             print(colored(f"Connection error: {e}", "red", attrs=['bold']))
             self.client.close()
             self.stop_flag.set()
+            self.connect_again.clear()
         else:
-            if self.client is None:
-                print(colored(f"Could not open socket", "red", attrs=['bold']))                
-                self.stop_flag.set()
-                return
-
-            self._reset_session()
             self._reset_game()
             
-            self.play_game_thread = Thread(target=self.play_game)
-            self.play_game_thread.daemon = True
-            self.play_game_thread.start()
+            play_game_thread = Thread(target=self.play_game)
+            play_game_thread.daemon = True
+            play_game_thread.start()
             
     def send_data(self, data):
         data = pickle.dumps(data)
@@ -203,8 +206,9 @@ class Client:
             with self.condition:
                 self.condition.notify()           
 
-            if not self.main_game_thread_complete.is_set():
-                self.main_game_thread_complete.wait() #  Wait for main_game_thread thread to complete
+            if not self.eof_error.is_set(): #  Wait for main_game_thread only if self.eof_error is unset
+                if not self.main_game_thread_complete.is_set():
+                    self.main_game_thread_complete.wait() #  Wait for main_game_thread thread to complete
 
             if not self.game_ended.is_set() and not self.game_over_event.is_set():
                 # If one of the conditions is satisfied, player objects have non-empty values and can be safely accessed 
@@ -219,15 +223,7 @@ class Client:
                 if self.main_game_started.is_set():                                         
                     self._print_result("round")
                     self._print_result("game")              
-
-    def _reset_session(self):
-        self.loaded_json = {}
-        self.loaded_json_lock = RLock()
-
-        self.play_game_thread = Thread()
-        self.play_game_thread.daemon = True
-        self.play_game_thread.start()
-
+               
     def _reset_for_new_round(self):
         self.board = Board()
         self.play_again_reply = False
@@ -253,12 +249,18 @@ class Client:
         self.game_ended = Event() # This is set when opponent no longer wants to play
         self.condition = Condition() # condition that waits for some event or other_client_disconnected event to be set
         self.main_game_started = Event()
+        self.stop_flag = Event()
+
+        self.spinner_thread_complete.set()
+        self.main_game_thread_complete.set()
+        self.play_game_thread_complete.set()
 
         self._reset_for_new_round()
 
     def main_game_thread(self):
-        general_error_msg = colored(f"An error occured with the server or other client may have disconnected", "red", attrs=['bold'])
         self.main_game_thread_complete.clear()
+        general_error_msg = colored(f"Server closed the connection or other client may have disconnected", "red", attrs=['bold'])
+        something_went_wrong_msg = colored(f"Oops! Something went wrong", "red", attrs=['bold'])
         playing = True
 
         while playing:            
@@ -289,7 +291,14 @@ class Client:
                                 self.opponent.points = self.round_over_json['winner'].points
                             break
 
-                    self.board.play_at_position(self.player)
+                    if not self.board.play_at_position(self.player): #  if EOFError
+                        self.eof_error.set()
+                        self._set_up_to_terminate_program(something_went_wrong_msg)
+                        self.eof_error.clear()
+                        self.client.close()
+                        self.main_game_thread_complete.set()
+                        return
+
 
                     if self.other_client_disconnected.wait(0.1) or self.end_thread_event.wait(0.1) or self.keyboard_interrupt_event.wait(0.1):
                         self.main_game_thread_complete.set()
@@ -344,6 +353,10 @@ class Client:
                 try:
                     play_again = input("Want to play another round?\nEnter 'Y' for 'yes' and 'N' for 'no': ").lower().strip()
                 except EOFError:
+                    self.eof_error.set()
+                    self._set_up_to_terminate_program(something_went_wrong_msg)
+                    self.eof_error.clear()
+                    self.client.close()
                     self.main_game_thread_complete.set()
                     return
 
@@ -425,7 +438,9 @@ class Client:
 
     def play_game(self):
 
-        general_error_msg = colored(f"An error occured with the server or other client may have disconnected", "red", attrs=['bold'])
+        self.play_game_thread_complete.clear()
+        general_error_msg = colored(f"Server closed the connection or other client may have disconnected", "red", attrs=['bold'])
+        something_went_wrong_msg = colored(f"Oops! Something went wrong", "red", attrs=['bold'])
         full_msg = b''
         new_msg = True
 
@@ -433,7 +448,7 @@ class Client:
             try:
                 msg = self.client.recv(16)
             except ConnectionResetError: #  This exception is caught when the client tries to receive a msg from a disconnected server
-                error_msg = colored(f"Connection Reset: An error occured with the server or other client may have disconnected", "red", attrs=['bold'])
+                error_msg = colored(f"Connection Reset: Server closed the connection or other client may have disconnected", "red", attrs=['bold'])
                 self._set_up_to_terminate_program(error_msg)
                 break
             except socket.error:
@@ -511,12 +526,17 @@ class Client:
                         loading_thread.daemon = True
                         loading_thread.start()
                     elif "get_first_player_name" in self.loaded_json:                                                               
-                        connect4game._about_game()                        
+                        if not connect4game._about_game():
+                            self._set_up_to_terminate_program(something_went_wrong_msg)
+                            break
                         loading_msg = "Waiting for other player to enter their name"
                         loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
                         self.loaded_json_lock.release()
                         loading_thread.daemon = True
                         self.you = connect4game._get_player_name()
+                        if self.you is None:
+                            self._set_up_to_terminate_program(something_went_wrong_msg)
+                            break
                         self.send_data({'you':self.you})
                         loading_thread.start()                        
                     elif "opponent" in self.loaded_json:                                                             
@@ -525,6 +545,9 @@ class Client:
                         if not self.you:
                             connect4game._about_game()
                             self.you = self._get_other_player_name(self.opponent)
+                            if self.you is None:
+                                self._set_up_to_terminate_program(something_went_wrong_msg)
+                                break
                             self.send_data({'you':self.you})                        
                         print("You are up against: ", self.opponent)                        
                         # Shuffling player names
@@ -541,7 +564,10 @@ class Client:
                             print("Randomly choosing who to go first . . .")                
                             print(f"{first} goes first")
                         if first == self.you:
-                            colors = connect4game._get_players_colors(self.you)                               
+                            colors = connect4game._get_players_colors(self.you)
+                            if colors is None:
+                                self._set_up_to_terminate_program(something_went_wrong_msg)
+                                break                               
                             self.send_data({'colors':colors})
                         else:
                             loading_thread.start()                            
@@ -589,24 +615,24 @@ class Client:
                         print(colored(self.loaded_json['timeout'], "red", attrs=['bold']))
                         self.loaded_json_lock.release()
                         break                
-                except (socket.error, Exception):
+                except socket.error:
                     if not self.keyboard_interrupt_event.is_set():
                         self._set_up_to_terminate_program(general_error_msg)
+                    break                    
+                except Exception:
+                    if not self.keyboard_interrupt_event.is_set():
+                        self._set_up_to_terminate_program(something_went_wrong_msg)
                     break        
                 # -------------------------------------Use loaded json data here-------------------------------------
 
-        if not self.spinner_thread_complete.is_set():
-            self.spinner_thread_complete.wait() #  Wait for simulate_loading_with_spinner thread to complete
-
-        if not self.main_game_thread_complete.is_set():
-            self.main_game_thread_complete.wait() #  Wait for main_game_thread thread to complete
-
+        self.stop_flag.set()
         if self.keyboard_interrupt_event.is_set():
-            self.stop_flag.set()
-        else:
-            self.connect_to_game()
+            self.connect_again.clear()
+        
+        self.play_game_thread_complete.set()
 
-    def terminate_program(self):
+    def terminate_program(self):    
+        self.connect_again.clear()
         self.keyboard_interrupt_event.set()
         error_msg = colored(f"Keyboard Interrupt: Program ended", "red", attrs=['bold'])        
         self._set_up_to_terminate_program('')
@@ -615,7 +641,8 @@ class Client:
         except socket.error:
             pass
         self.client.close()
-        self.play_game_thread.join()
+        if not self.play_game_thread_complete.is_set():
+            self.play_game_thread_complete.wait()
         print(f"\n{error_msg}\n")
         
 
@@ -623,8 +650,18 @@ if __name__ == "__main__":
     connect4game = Connect4Game()
     client = Client()
     try:
-        client.connect_to_game()
-        while not client.stop_flag.is_set():  # simulate work to keep main thread alive while other threads work
-            time.sleep(0.1)
+        while client.connect_again.is_set():
+            client.connect_to_game()
+            while not client.stop_flag.is_set():  # simulate work to keep main thread alive while other threads work
+                time.sleep(0.1)
+        
+            if not client.spinner_thread_complete.is_set():
+                client.spinner_thread_complete.wait() #  Wait for simulate_loading_with_spinner thread to complete
+
+            if not client.main_game_thread_complete.is_set():
+                client.main_game_thread_complete.wait() #  Wait for main_game_thread thread to complete
+
+            if not client.play_game_thread_complete.is_set():
+                client.play_game_thread_complete.wait() #  Wait for play_game_thread thread to complete
     except KeyboardInterrupt:
         client.terminate_program()
