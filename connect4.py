@@ -1,4 +1,5 @@
 import os
+import sys
 from random import shuffle
 
 from termcolor import colored  # type: ignore
@@ -28,19 +29,14 @@ class Connect4Game:
             "Points from each round will be added up at the end of the game.\n"
             "The overall winner of the game is the player with the most points at the end of the game.\n"
             "That's it. You are all set!\n")
-        try:
-            input("Press Enter key to continue . . . ")
-        except EOFError:
-            return False
-        return True
+        input("Press Enter key to continue . . . ")
+        
 
 
     def _get_player_name(self):
         while True:
-            try:
-                one_player = input("Enter your name: ").strip()
-            except EOFError:
-                return
+            one_player = input("Enter your name: ").strip()
+            
             if one_player:
                 break
             print("You must enter a name")
@@ -49,10 +45,7 @@ class Connect4Game:
     def _get_other_player_name(self, player):
 
         while True:
-            try:
-                other_player = input("Enter other player's name: ").strip()
-            except EOFError:
-                return                
+            other_player = input("Enter other player's name: ").strip()                           
             if other_player.lower() == player.lower():
                 print("A player already exists with that name. Choose another name")
                 continue
@@ -74,10 +67,8 @@ class Connect4Game:
 
     def _get_players_colors(self, player):
         while True:
-            try:
-                color = input(f"{player}, Choose a color for your token between Red and Blue. Enter 'R' for Red or 'B' for Blue: ")
-            except EOFError:
-                return
+            color = input(f"{player}, Choose a color for your token between Red and Blue. Enter 'R' for Red or 'B' for Blue: ")
+            
             if color.lower() == 'r':
                 return ('red', 'blue')
             if color.lower() == 'b':
@@ -146,10 +137,8 @@ class Connect4Game:
             print(f"{player_two.name} has {player_two.points} points\n\n")
 
             while True:
-                try:
-                    play_again = input("Want to play another round? Enter 'Y' for 'yes' and 'N' for 'no': ").lower().strip()
-                except EOFError:
-                    return
+                play_again = input("Want to play another round? Enter 'Y' for 'yes' and 'N' for 'no': ").lower().strip()
+                
                 if play_again == 'y':
                     # Shuffle the players again before starting next round.
                     self.level.current_level += 1
@@ -167,4 +156,11 @@ class Connect4Game:
         
 if __name__ == "__main__":
     connect4game = Connect4Game()
-    connect4game.play_game()
+    try:
+        connect4game.play_game()
+    except EOFError:
+        print("An EOFError occured. Closing program")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("Keyboard Interrupt detected. Closing program")
+        sys.exit(1)

@@ -114,10 +114,8 @@ class Client:
     def _get_other_player_name(self, player):
 
         while True:
-            try:
-                other_player = input("Enter your name: ").strip()
-            except EOFError:
-                return
+            other_player = input("Enter your name: ").strip()
+            
             if other_player.lower() == player.lower():
                 print("A player already exists with that name. Choose another name")
                 continue
@@ -290,8 +288,9 @@ class Client:
                                 print("Better luck next time!\n")
                                 self.opponent.points = self.round_over_json['winner'].points
                             break
-
-                    if not self.board.play_at_position(self.player): #  if EOFError
+                    try:
+                        self.board.play_at_position(self.player)
+                    except EOFError:                 
                         self.eof_error.set()
                         self._set_up_to_terminate_program(something_went_wrong_msg)
                         self.eof_error.clear()
@@ -525,17 +524,12 @@ class Client:
                         loading_thread.daemon = True
                         loading_thread.start()
                     elif "get_first_player_name" in self.loaded_json:                                                               
-                        if not connect4game._about_game():
-                            self._set_up_to_terminate_program(something_went_wrong_msg)
-                            break
+                        connect4game._about_game()
                         loading_msg = "Waiting for other player to enter their name"
                         loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
                         self.loaded_json_lock.release()
                         loading_thread.daemon = True
                         self.you = connect4game._get_player_name()
-                        if self.you is None:
-                            self._set_up_to_terminate_program(something_went_wrong_msg)
-                            break
                         self.send_data({'you':self.you})
                         loading_thread.start()                        
                     elif "opponent" in self.loaded_json:                                                             
@@ -544,9 +538,6 @@ class Client:
                         if not self.you:
                             connect4game._about_game()
                             self.you = self._get_other_player_name(self.opponent)
-                            if self.you is None:
-                                self._set_up_to_terminate_program(something_went_wrong_msg)
-                                break
                             self.send_data({'you':self.you})                        
                         print("You are up against: ", self.opponent)                        
                         # Shuffling player names
@@ -564,9 +555,6 @@ class Client:
                             print(f"{first} goes first")
                         if first == self.you:
                             colors = connect4game._get_players_colors(self.you)
-                            if colors is None:
-                                self._set_up_to_terminate_program(something_went_wrong_msg)
-                                break                               
                             self.send_data({'colors':colors})
                         else:
                             loading_thread.start()                            
@@ -618,10 +606,11 @@ class Client:
                     if not self.keyboard_interrupt_event.is_set():
                         self._set_up_to_terminate_program(general_error_msg)
                     break                    
-                except Exception:
+                except Exception: # Catch EOFError and other exceptions
+                    # NOTE: EOFError can also be raised when input() is interrupted with a Keyboard Interrupt
                     if not self.keyboard_interrupt_event.is_set():
                         self._set_up_to_terminate_program(something_went_wrong_msg)
-                    break        
+                    break
                 # -------------------------------------Use loaded json data here-------------------------------------
 
         self.stop_flag.set()
@@ -630,20 +619,30 @@ class Client:
         
         self.play_game_thread_complete.set()
 
-    def terminate_program(self):    
-        self.connect_again.clear()
+    def terminate_program(self):
         self.keyboard_interrupt_event.set()
-        self._set_up_to_terminate_program('')
         try:
             self.send_data({'DISCONNECT':self.DISCONNECT_MESSAGE, 'close_other_client':True})
         except socket.error:
             pass
-        self.client.close()
-        if not self.play_game_thread_complete.is_set():
-            self.play_game_thread_complete.wait()
+        self.client.close()    
+        self.end_thread_event.set() # Set event to terminate simulate_loading_with_spinner thread if it is running at the time of Keyboard Interrupt 
+        with self.condition:
+            self.condition.notify()
+        self.connect_again.clear()
+        self.wait_for_threads()
         error_msg = colored(f"Keyboard Interrupt: Program ended", "red", attrs=['bold'])        
         print(f"\n{error_msg}\n")
-        
+
+    def wait_for_threads(self):
+        if not self.spinner_thread_complete.is_set():
+            self.spinner_thread_complete.wait() #  Wait for simulate_loading_with_spinner thread to complete
+
+        if not self.main_game_thread_complete.is_set():
+            self.main_game_thread_complete.wait() #  Wait for main_game_thread thread to complete
+
+        if not self.play_game_thread_complete.is_set():
+            self.play_game_thread_complete.wait() #  Wait for play_game_thread thread to complete
 
 if __name__ == "__main__":
     connect4game = Connect4Game()
@@ -653,14 +652,6 @@ if __name__ == "__main__":
             client.connect_to_game()
             while not client.stop_flag.is_set():  #  simulate work to keep main thread alive while other threads work
                 time.sleep(0.1)
-        
-            if not client.spinner_thread_complete.is_set():
-                client.spinner_thread_complete.wait() #  Wait for simulate_loading_with_spinner thread to complete
-
-            if not client.main_game_thread_complete.is_set():
-                client.main_game_thread_complete.wait() #  Wait for main_game_thread thread to complete
-
-            if not client.play_game_thread_complete.is_set():
-                client.play_game_thread_complete.wait() #  Wait for play_game_thread thread to complete
+            client.wait_for_threads()  
     except KeyboardInterrupt:
         client.terminate_program()
