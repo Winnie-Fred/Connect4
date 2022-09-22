@@ -48,7 +48,7 @@ class Server:
 
         try:
             ip = input("Enter the IP address of this machine or press Enter "
-                        f"to use {self.SERVER}\nTip - If you are having trouble with this, or you do not wish to use this IP, "
+                        f"to use {self.SERVER}\nTip - Visit https://github.com/Winnie-Fred/Connect4/blob/main/README.md#finding-your-internal-ipv4-address for help on how to find your internal IP address. If you are having trouble with this, or you do not wish to use this IP, "
                         "copy the IPv4 address of this machine and paste it here: ").strip()
         except EOFError:
             pass

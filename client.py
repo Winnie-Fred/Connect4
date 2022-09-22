@@ -73,7 +73,7 @@ class Client:
         try:
             ip = input("Enter the IP address of the machine the server is running on or press Enter if this machine is hosting the server"
                         f" to use {self.server}"
-                        "\nTip - If you are having trouble with this, or you do not wish to use this IP, "
+                        "\nTip - Visit https://github.com/Winnie-Fred/Connect4/blob/main/README.md#finding-your-internal-ipv4-address for help on how to find your internal IP address. If you are having trouble with this, or you do not wish to use this IP, "
                         "copy the IPv4 address of the server host machine and paste it here: ").strip()
         except EOFError:
             ip = ''
