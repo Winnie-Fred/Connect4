@@ -8,10 +8,10 @@ from threading import Thread, Event, Condition, RLock
 
 from termcolor import colored  # type: ignore
 
-from connect4 import Connect4Game
-from player import Player
-from level import Level
-from board import Board
+from basic_version.connect4 import Connect4Game
+from core.player import Player
+from core.level import Level
+from core.board import Board
 
 os.system('') # To ensure that escape sequences work, and coloured text is displayed normally and not as weird characters
 

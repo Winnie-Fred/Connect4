@@ -6,7 +6,7 @@ import copy
 
 from typing import List
 
-from exceptions import SendingDataError
+from core.exceptions import SendingDataError
 
 
 class Server:
