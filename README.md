@@ -20,17 +20,23 @@ The second version is also complete. Unexpected disconnection of client or serve
 
 The third version is currently in progress. No work has begun on the fourth version.
 
-#### How to run the different versions of the project
+#### How to set up the project
 - Clone the project and cd into the project directory.
-- Create a virtual environment
+- Create a virtual environment.
 - Activate the virtual environment.
-- Install the dependencies by running `pip install -r requirements.txt`
-- To run the first version of the project, run `python connect4.py` to play.
-- To run the second version of the project (one server and one pair of two clients), you could use Wi-Fi to connect the computer or computers to one private network using a router or some other device like a mobile phone. This will work offline and you do not need internet access for this. 
-  - Make sure to start the server first by running `python server.py` in one terminal session. 
-  - Then run `python client.py` in two other terminal sessions. You can run the two clients on different computers also. One or both of the clients can be run on the same computer as the server host computer. 
-  - If the IP address found by server.py or client.py is not the one you wish to use, you can find it and copy and paste it yourself. More information on finding your internal IP address [here](#finding-your-internal-ipv4-address).
-  - To run the second version on one computer with localhost, make sure you are not connected to any private network. Press Enter when prompted for an IP address as it will use the localhost IP by default.
+- Make sure you are in the root of the project directory i.e connect4 and the virtual environment is activated. Then install the project (and its dependencies) with this one-liner: `pip install .`. Note that this also installs the project dependencies so there is no need to do that separately.
+- If you want to make changes to the code i.e. use it in development mode, what you want is an editable install. Use this command instead: `pip install -e .` or `pip install --editable .`. This will allow you to edit code and see those changes reflected in places where the project's modules are imported without re-installing each time. If you change the `pyproject.toml` file though, you would have to rerun the editable install command. 
+- To install [optional dependencies](https://github.com/Winnie-Fred/Connect4/blob/d5d4db3c0a965ef12b2bd5b72821a4a0b8d8a5c5/pyproject.toml#L26) the project uses, e.g. mypy for lint, use this command: `pip install .[lint]`
+
+#### How to run the different versions of the project
+- cd into the `src` directory.
+- To run the first version of the project, cd into `basic_version` and run `python connect4.py` to play.
+- To run the second version of the project (one server and one pair of two clients), you could use Wi-Fi to connect the computer or computers to one private network using a router or some other device like a mobile phone. This will work offline and you do not need internet access for this.
+    - cd into `one_pair_of_clients_version` package.
+    - Make sure to start the server first by running `python server.py` in one terminal session. 
+    - Then run `python client.py` in two other terminal sessions. You can run the two clients on different computers also. One or both of the clients can be run on the same computer as the server host computer. 
+    - If the IP address found by server.py or client.py is not the one you wish to use, you can find it and copy and paste it yourself. More information on finding your internal IP address [here](#finding-your-internal-ipv4-address).
+    - To run the second version on one computer with localhost, make sure you are not connected to any private network. Press Enter when prompted for an IP address as it will use the localhost IP by default.
 
 #### Finding your internal IPv4 address
 Connect to a private network first. To check your internal (private or local) IP address for [Windows](https://www.sas.upenn.edu/~jasonrw/HowTo-FindIP.htm#:~:text=From%20the%20desktop%2C%20navigate%20through%3B%20Logo%20%3E%20type%20%22cmd,by%20Windows%20will%20be%20displayed.), open cmd and type in the command `ipconfig` or `ipconfig /all`. For [Linux](https://constellix.com/news/what-is-my-ip-address#:~:text=Finding%20My%20IP%20for%20Linux%20Users&text=In%20the%20terminal%20enter%20one,is%20connected%20to%20the%20network.), enter `ip addr` in the terminal. For [Mac](https://www.macworld.com/article/673075/how-to-find-your-macs-ip-address.html), enter `ipconfig getifaddr en0` in the terminal.
