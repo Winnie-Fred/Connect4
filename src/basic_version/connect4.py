@@ -5,9 +5,9 @@ from random import shuffle
 from termcolor import colored  # type: ignore
 
 
-from player import Player
-from board import Board
-from level import Level
+from core.player import Player
+from core.board import Board
+from core.level import Level
 
 os.system('') # To ensure that escape sequences work, and coloured text is displayed normally and not as weird characters
 
@@ -159,8 +159,8 @@ if __name__ == "__main__":
     try:
         connect4game.play_game()
     except EOFError:
-        print("An EOFError occured. Closing program")
+        print("\nAn EOFError occured. Closing program\n")
         sys.exit(1)
     except KeyboardInterrupt:
-        print("Keyboard Interrupt detected. Closing program")
+        print("\nKeyboard Interrupt detected. Closing program\n")
         sys.exit(1)
