@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "connect4"
+version = "0.0.1"
+authors = [
+  { name="Igboama Winifred", email="winifredigboama@gmail.com" },
+]
+description = "A simple two-player Connect4 game in Python using PyGame and sockets. It can also be played in the terminal."
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3.9.7",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "tabulate==0.8.10",
+    "termcolor==1.1.0",
+    "tomli==2.0.1",
+    "typing_extensions==4.3.0",
+]
+[project.optional-dependencies]
+lint = [
+    "mypy==0.971",
+    "mypy-extensions==0.4.3"
+]
+[project.urls]
+"Homepage" = "https://github.com/Winnie-Fred/Connect4/"
+[tool.setuptools.packages.find]
+where = ["src"]  # list of folders that contain the packages (["."] by default)
+namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
