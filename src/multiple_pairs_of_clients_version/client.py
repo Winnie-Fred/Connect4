@@ -1,4 +1,5 @@
 import os
+import os
 import sys
 import time
 import itertools
@@ -7,6 +8,7 @@ import pickle
 from threading import Thread
 
 from termcolor import colored  # type: ignore
+from tabulate import tabulate  # type: ignore
 
 from basic_version.connect4 import Connect4Game
 from core.player import Player
@@ -27,10 +29,10 @@ class Client(BaseClient):
             self.stop_flag.set()
             self.connect_again.clear()
             return
-               
-        menu = ("1. Create a game - You can invite someone to play against you with a code\n"
-              "2. Join a game - You can join a particular game using a code or any existing game to play against anybody\n"
-              "3. Quit\n")
+        options = [['1.', 'Create a game', '-', 'You can invite someone to play against you with a code'], ['2.', 'Join a game', '-', 'You can join a particular game using a code or any existing game to play against anybody'], ['3.', 'Quit']]
+        menu = (f"{'GAME MENU'.center(100, '-')}\n"
+                f"{tabulate(options, tablefmt='plain', disable_numparse=True)}"
+                )
         while True:
             try:
                 choice = int(input(f"\n{menu}\nReady to play Connect4?\nChoose an option from the menu between 1 and 3: ").strip())

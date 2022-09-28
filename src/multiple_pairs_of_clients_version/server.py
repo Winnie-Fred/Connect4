@@ -4,14 +4,13 @@ import pickle
 import string
 import random
 import copy
-from threading import Thread, Event, RLock, Condition
-from typing import List, Dict
+import threading
+
+from typing import List
 
 from core.exceptions import SendingDataError
 from core.game import Game
-from one_pair_of_clients_version.server import Server as one_pair_of_clients_server
 
-base_server = one_pair_of_clients_server()
 
 class Server:
     def __init__(self):
@@ -26,15 +25,12 @@ class Server:
         self.TIMEOUT_FOR_RECV = 300
         self.TIMEOUT_FOR_OTHER_CLIENT_TO_JOIN = 300
 
-        self.games: List[Dict] = []
-        self.games_lock = RLock()
+        self.games: List[Game] = []
+        self.games_lock = threading.RLock()
 
-        self.all_created_threads: List = []
-        self.all_created_threads_lock = RLock()
-
-        self.stop_flag = Event()
-        self.wait_for_new_client_thread_complete = Event()
-        self.condition = Condition()
+        self.stop_flag = threading.Event()
+        self.wait_for_new_client_thread_complete = threading.Event()
+        self.condition = threading.Condition()
 
         try:
            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -68,7 +64,13 @@ class Server:
             self.start()
 
     def send_data(self, conn, data):
-        base_server.send_data(conn, data)
+        copy_data = copy.copy(data)
+        data = pickle.dumps(data)
+        data = bytes(f'{len(data):<{self.HEADERSIZE}}', self.FORMAT) + data
+        try:
+            conn.send(data)
+        except socket.error:
+            raise SendingDataError(copy_data)
 
     def start(self):
         print("[STARTING] server is starting...")
@@ -83,10 +85,8 @@ class Server:
             except socket.error as e:
                 break
 
-            create_or_join_game_thread = Thread(target=self.create_or_join_game, args=(conn, addr, ))
-            create_or_join_game_thread.daemon = True
-            with self.all_created_threads_lock:
-                self.all_created_threads.append(create_or_join_game_thread)
+            create_or_join_game_thread = threading.Thread(target=self.create_or_join_game, args=(conn, addr, ))
+            create_or_join_game_thread.daemon = True           
             create_or_join_game_thread.start()
 
         print("[CLOSED] server is closed")
@@ -161,7 +161,7 @@ class Server:
     def create_game(self, conn, addr, type='invite_only'):
         game_id = self.generate_unique_random_game_id()
         game = Game(game_id, [(conn, addr, )], type)
-        game_lock = RLock()
+        game_lock = threading.RLock()
 
         print(f"[GAME CREATED] {game} created.")
 
@@ -169,28 +169,32 @@ class Server:
             self.games.append(game)
             print(f"[NO OF GAMES] {len(self.games)}")
 
-        with game_lock:
-            second_client_has_joined = copy.copy(game.second_client_has_joined)
-
         if type == 'invite_only':
             self.send_data(conn, {'code':game_id})
 
         print("Game created. Waiting for another player to join the game. . .")
         self.send_data(conn, {"status":"Game created. Waiting for another player to join the game"})
 
-        if not second_client_has_joined.wait(self.TIMEOUT_FOR_OTHER_CLIENT_TO_JOIN):
-            print("Connection timed out: No other player joined the game. Try joining the connection again.")
-            self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try joining the connection again."})
-            self.destroy_game(game, game_lock)         
+        wait_for_new_client_thread_complete = threading.Event()
 
-        print("Both clients connected. Starting game. . .")
-        for client in game.clients:
-            conn, addr = client
-            play_game_thread = Thread(target=self.play_game, args=(conn, addr, game, game_lock, ))
-            play_game_thread.daemon = True
-            with self.all_created_threads_lock:
-                self.all_created_threads.append(play_game_thread)
-            play_game_thread.start()
+        with game_lock:
+            thread = threading.Thread(target=self.wait_for_new_client, args=(game.second_client_has_joined, wait_for_new_client_thread_complete, ))
+        thread.daemon = True
+        thread.start()
+
+        if self.wait_for_one_of_multiple_events(wait_for_new_client_thread_complete): #  Otherwise, stop_flag is set
+            with game_lock:
+                if game.second_client_has_joined.is_set():
+                    print("Both clients connected. Starting game. . .")
+                    for client in game.clients:
+                        conn, addr = client
+                        play_game_thread = threading.Thread(target=self.play_game, args=(conn, addr, game, game_lock, ))
+                        play_game_thread.daemon = True                        
+                        play_game_thread.start()
+                else:
+                    print("Connection timed out: No other player joined the game. Try joining the connection again.")
+                    self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try joining the connection again."})
+                    self.destroy_game(game, game_lock)        
 
     def join_game(self, conn, addr, type, game_id=''):
         game_found = False
@@ -376,11 +380,57 @@ class Server:
         with game_lock:
             self.destroy_game(game, game_lock)
 
+    def wait_for_one_of_multiple_events(self, some_event):
+
+        """Wait for some event or keyboard interrupt which sets self.stop_flag"""
+
+        while not (some_event.is_set() or self.stop_flag.is_set()):
+            with self.condition:
+                self.condition.wait()
+        if some_event.is_set():
+            return True
+        elif self.stop_flag.is_set():
+            return False
+
+    def wait_for_new_client(self, event, thread_complete):
+        thread_complete.clear()
+        if event.wait(self.TIMEOUT_FOR_OTHER_CLIENT_TO_JOIN):
+            thread_complete.set()
+            with self.condition:
+                self.condition.notify()
+            return True
+        thread_complete.set()
+        with self.condition:
+            self.condition.notify()
+        return False
+
+    def terminate_program(self):
+
+        """Wait for threads to complete and exit program"""
+
+        self.stop_flag.set()
+        with self.condition:
+            self.condition.notifyAll()
+
+        self.server.close()
+        with self.games_lock:
+            for game in self.games:
+                for client in game.clients:
+                    conn, _ = client
+                    conn.close()
+
+        main_thread = threading.main_thread()
+        for thread in threading.enumerate():
+            if thread is not main_thread:
+                thread.join()
+
+        print(f"\nKeyboard Interrupt detected")
+        print("[CLOSED] server is closed")
+        sys.exit(1)
+
 if __name__ == "__main__":
     server = Server()
     try:
         server.host_game()
     except KeyboardInterrupt:
-        # server.terminate_program()
-        print("Keyboard Interrupt detected")
-        sys.exit(1)
+        server.terminate_program()        
