@@ -322,13 +322,11 @@ class Server:
                             if conn == conn1:
                                 self.send_data(conn2, {'play_again':loaded_json['play_again']})
                                 if not loaded_json['play_again']:
-                                    self.remove_client(conn2, addr2)
                                     print("Player has quit the game")
                                     break
                             elif conn == conn2:
                                 self.send_data(conn1, {'play_again':loaded_json['play_again']})
                                 if not loaded_json['play_again']:
-                                    self.remove_client(conn1, addr1)
                                     print("Player has quit the game")
                                     break
                         elif 'first_player' in loaded_json:                        

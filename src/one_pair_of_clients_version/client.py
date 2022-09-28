@@ -16,6 +16,7 @@ from core.board import Board
 os.system('') # To ensure that escape sequences work, and coloured text is displayed normally and not as weird characters
 
 class Client:
+    connect4game = Connect4Game()
     FORMAT = 'utf-8'
     DISCONNECT_MESSAGE = "!DISCONNECT"
     POINTS_FOR_WINNING_ONE_ROUND = 10
@@ -126,6 +127,13 @@ class Client:
         return other_player
 
     def simulate_loading_with_spinner(self, loading_msg, loaded_json):
+
+        # In case this thread was started somewhere and is currently running, i.e there are two running threads with 
+        # this function as their target arguments, wait for the other one to complete before starting this one
+
+        if not self.spinner_thread_complete.is_set():
+            self.spinner_thread_complete.wait() 
+
         self.spinner_thread_complete.clear()
         NO_OF_CHARACTERS_AFTER_LOADING_MSG = 5
         spaces_to_replace_spinner = ' ' * NO_OF_CHARACTERS_AFTER_LOADING_MSG
@@ -178,7 +186,7 @@ class Client:
             else:
                 print(f"At the end of the game, after {self.level.current_level} rounds,")
                 
-            connect4game._calculate_and_display_final_result([self.player, self.opponent])
+            self.connect4game._calculate_and_display_final_result([self.player, self.opponent])
             print("Thanks for playing\n")
 
     def _wait_for_one_of_multiple_events(self, some_event):
@@ -385,7 +393,7 @@ class Client:
 
                         # Shuffle the players again before starting next round.
                         if not self.ID:
-                            first_player = connect4game._shuffle_players([self.player, self.opponent])[0]
+                            first_player = self.connect4game._shuffle_players([self.player, self.opponent])[0]
                             try:
                                 self.send_data({'first_player':first_player})
                             except socket.error as e:
@@ -524,25 +532,25 @@ class Client:
                         loading_thread.daemon = True
                         loading_thread.start()
                     elif "get_first_player_name" in self.loaded_json:                                                               
-                        connect4game._about_game()
+                        self.connect4game._about_game()
                         loading_msg = "Waiting for other player to enter their name"
                         loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
                         self.loaded_json_lock.release()
                         loading_thread.daemon = True
-                        self.you = connect4game._get_player_name()
+                        self.you = self.connect4game._get_player_name()
                         self.send_data({'you':self.you})
                         loading_thread.start()                        
                     elif "opponent" in self.loaded_json:                                                             
                         self.opponent = self.loaded_json['opponent']
                         self.loaded_json_lock.release()
                         if not self.you:
-                            connect4game._about_game()
+                            self.connect4game._about_game()
                             self.you = self._get_other_player_name(self.opponent)
                             self.send_data({'you':self.you})                        
                         print("You are up against: ", self.opponent)                        
                         # Shuffling player names
                         if not self.ID:
-                            first_player = connect4game._shuffle_players([self.you, self.opponent])
+                            first_player = self.connect4game._shuffle_players([self.you, self.opponent])
                             self.send_data({'first':first_player})                      
                     elif "first" in self.loaded_json:
                         first = self.loaded_json['first'][0]
@@ -554,7 +562,7 @@ class Client:
                             print("Randomly choosing who to go first . . .")                
                             print(f"{first} goes first")
                         if first == self.you:
-                            colors = connect4game._get_players_colors(self.you)
+                            colors = self.connect4game._get_players_colors(self.you)
                             self.send_data({'colors':colors})
                         else:
                             loading_thread.start()                            
@@ -645,7 +653,6 @@ class Client:
             self.play_game_thread_complete.wait() #  Wait for play_game_thread thread to complete
 
 if __name__ == "__main__":
-    connect4game = Connect4Game()
     client = Client()
     try:
         while client.connect_again.is_set():
