@@ -128,9 +128,8 @@ class Client:
 
     def simulate_loading_with_spinner(self, loading_msg, loaded_json):
 
-        # In case this thread was started somewhere and is currently running, i.e there are two running threads with 
-        # this function as their target arguments, wait for the other one to complete before starting this one
-
+        # The simulate_loading_with_spinner thread could have multiple instances running at once, 
+        # this makes sure that subsequent instance waits for preceding instance to finish before continuing
         if not self.spinner_thread_complete.is_set():
             self.spinner_thread_complete.wait() 
 
