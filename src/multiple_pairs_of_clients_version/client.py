@@ -5,7 +5,7 @@ import time
 import itertools
 import socket
 import pickle
-from threading import Thread
+from threading import Thread, Event
 
 from termcolor import colored  # type: ignore
 from tabulate import tabulate  # type: ignore
@@ -17,8 +17,14 @@ from one_pair_of_clients_version.client import Client as BaseClient
 os.system('') # To ensure that escape sequences work, and coloured text is displayed normally and not as weird characters
 
 class Client(BaseClient):
+    def __init__(self):
+        super().__init__()
+        self.connect_complete = Event()
+
+
     connect4game = Connect4Game()
     def connect_to_game(self):
+        self.connect_complete.clear()
         # ! self.client must be initialized first before collecting input so that client.send() in Keyboard Interrupt handler does not 
         # ! raise Exception in client.terminate_program()
 
@@ -115,6 +121,7 @@ class Client(BaseClient):
                     loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
                 loading_thread.daemon = True
                 loading_thread.start()
+        self.connect_complete.set()
             
 
     def simulate_loading_with_spinner(self, loading_msg, loaded_json):
@@ -217,6 +224,8 @@ class Client(BaseClient):
                 if not self.spinner_thread_complete.is_set():
                     self.spinner_thread_complete.wait() #  Wait for simulate_loading_with_spinner thread to complete
 
+                if not self.connect_complete.is_set():
+                    self.connect_complete.wait()
 
                 new_msg = True
                 full_msg = b''

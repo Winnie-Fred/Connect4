@@ -410,7 +410,7 @@ class Server:
 
         self.stop_flag.set()
         with self.condition:
-            self.condition.notifyAll()
+            self.condition.notify_all()
 
         self.server.close()
         with self.games_lock:
