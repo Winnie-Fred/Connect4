@@ -9,23 +9,23 @@ Two players take turns to drop their tokens in a grid with 6 rows and 7 columns.
 I chose this project to get hands-on experience with sockets and how online multiplayer games work. I have also learned a lot about threading and concurrency.
 
 #### About the project
-You can run four versions of the project. The first one runs in a single terminal session where players can take turns on the same computer. The second version also runs in the terminal but uses sockets so that players can connect and play from different computers or different terminal sessions. The seond version supports one server and only one pair of clients at a time. The third version runs in the terminal but supports one server and multiple pairs of clients at a time. In this version, a client can choose to create a game (and they can invite another client to that particular game) or they can join any game. The fourth version will be based off of the third but will use pygame (and obviously sockets) to create a nicer interface to play the game.
+You can run four versions of the project. The first one runs in a single terminal session where players can take turns on the same computer. The second version also runs in the terminal but uses sockets so that players can connect and play from different computers or different terminal sessions. The second version supports one server and only one pair of clients at a time. The third version runs in the terminal but supports one server and multiple pairs of clients at a time. In this version, a client can choose to create a game (and they can invite another client to that particular game) or they can join any game. The fourth version will be based off of the third but will use pygame (and obviously sockets) to create a nicer interface to play the game.
 
 For the versions that use sockets, the game logic is actually kept client-side. While this allows for cheating because the client cannot be trusted, preventing cheating is not really a priority of this simple project but minimizing network traffic is.
 
-#### Status of the project and possible future features
+#### Status of the project
 The first version of the project is complete. 
 
-The second version is also complete. Unexpected disconnection of client or server is handled on both client and server. The server and client can now both be stopped at any time with a Keyboard Interrupt.
+The second and third versions are also complete. Unexpected disconnection of client or server is handled on both client and server. The server and client can both be stopped at any time with a Keyboard Interrupt.
 
-The third version is currently in progress. No work has begun on the fourth version.
+The fourth version is currently in progress.
 
 #### How to set up the project
 - Clone the project and cd into the project directory.
 - Create a virtual environment.
 - Activate the virtual environment.
 - Make sure you are in the root of the project directory i.e connect4 and the virtual environment is activated. Then install the project (and its dependencies) with this one-liner: `pip install .`. Note that this also installs the project dependencies so there is no need to do that separately.
-- If you want to make changes to the code i.e. use it in development mode, what you want is an editable install. Use this command instead: `pip install -e .` or `pip install --editable .`. This will allow you to edit code and see those changes reflected in places where the project's modules are imported without re-installing each time. If you change the `pyproject.toml` file though, you would have to rerun the editable install command. 
+- If you want to make changes to the code i.e. use it in development mode, what you want is an editable install. Make sure you are in the root of the project directory i.e connect4 and the virtual environment is activated and use this command instead: `pip install -e .` or `pip install --editable .`. This will allow you to edit code and see those changes reflected in places where the project's modules are imported without re-installing each time. If you change the `pyproject.toml` file, or add to or delete from the src directory, you would have to rerun the editable install command to see those changes. 
 - To install [optional dependencies](https://github.com/Winnie-Fred/Connect4/blob/d5d4db3c0a965ef12b2bd5b72821a4a0b8d8a5c5/pyproject.toml#L26) the project uses, e.g. mypy for lint, use this command: `pip install .[lint]`
 
 #### How to run the different versions of the project
