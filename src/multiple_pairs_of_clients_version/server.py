@@ -150,7 +150,7 @@ class Server:
         # Create random unique id of length 16 without letters I and O and without the digit 0
         # This is because letter I and digit 1 can be mistaken for each other, same with letter O and digit 0
         base_alphabets_for_game_id = string.ascii_letters + string.digits
-        base_alphabets_for_game_id.replace("i", '').replace("I", '').replace("O", '').replace("o", '').replace("0", '').replace("1", '')
+        base_alphabets_for_game_id = base_alphabets_for_game_id.replace("i", '').replace("I", '').replace("O", '').replace("o", '').replace("0", '').replace("1", '')
         game_id = ''.join(random.choices(base_alphabets_for_game_id, k=16))
         with self.games_lock:
             for game in self.games:
