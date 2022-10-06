@@ -42,10 +42,14 @@ The fourth version is currently in progress.
         - Then run `python client.py` in two other terminal sessions.
     - You can run the two clients on different computers also. One or both of the clients can be run on the same computer as the server host computer. 
     - If the IP address found by server.py or client.py is not the one you wish to use, you can find it and copy and paste it yourself. More information on finding your internal IP address [here](#finding-your-internal-ipv4-address).
-    - To run on one computer with localhost, make sure you are not connected to any private network. Press Enter when prompted for an IP address as it will use the localhost IP by default.
+    - To run on one computer with localhost, make sure you are not connected to any private network. Press Enter when prompted for an IP address as it will use the localhost IP by default. However, if you are connected to a private network but still want to test on localhost, type in `localhost` or `127.0.0.1` when prompted for an IP.
 
 #### Finding your internal IPv4 address
 Connect to a private network first. To check your internal (private or local) IP address for [Windows](https://www.sas.upenn.edu/~jasonrw/HowTo-FindIP.htm#:~:text=From%20the%20desktop%2C%20navigate%20through%3B%20Logo%20%3E%20type%20%22cmd,by%20Windows%20will%20be%20displayed.), open cmd and type in the command `ipconfig` or `ipconfig /all`. For [Linux](https://constellix.com/news/what-is-my-ip-address#:~:text=Finding%20My%20IP%20for%20Linux%20Users&text=In%20the%20terminal%20enter%20one,is%20connected%20to%20the%20network.), enter `ip addr` in the terminal. For [Mac](https://www.macworld.com/article/673075/how-to-find-your-macs-ip-address.html), enter `ipconfig getifaddr en0` in the terminal.
+
+#### Note
+- If you have successfully installed the project and are having problems running the program, this may be because your firewall is blocking python.exe from running (especially if this is your first time running a program that uses sockets). If this is the case, make sure you allow python through the firewall by changing your security settings.
+- To avoid troubles during installation, ensure you are using an up-to-date version of pip (preferably pip ≥ 21.3) especially if you are doing an editable install.
 
 #### Credits and Inspiration
 This project is inspired by the Connect4 project on Crio at crio.do [here](https://www.crio.do/projects/python-multiplayer-game-connect4/)
