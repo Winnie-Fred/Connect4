@@ -17,14 +17,12 @@ from one_pair_of_clients_version.client import Client as BaseClient
 os.system('') # To ensure that escape sequences work, and coloured text is displayed normally and not as weird characters
 
 class Client(BaseClient):
-    def __init__(self):
-        super().__init__()
-        self.connect_complete = Event()
-
+    # Uncomment this out if there is need to overwrite __init__ method of parent
+    # def __init__(self):
+    #     super().__init__()
 
     connect4game = Connect4Game()
     def connect_to_game(self):
-        self.connect_complete.clear()
         # ! self.client must be initialized first before collecting input so that client.send() in Keyboard Interrupt handler does not 
         # ! raise Exception in client.terminate_program()
 
@@ -99,15 +97,11 @@ class Client(BaseClient):
         else:
             self._reset_game()
 
-            play_game_thread = Thread(target=self.play_game)
-            play_game_thread.daemon = True
-            play_game_thread.start()
-
             if choice == 1:
                 self.send_data({'create_game':'True'})
                 loading_msg = "Creating game"
-                with self.loaded_json_lock:
-                    loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
+                with self.unpickled_json_lock:
+                    loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.unpickled_json, ))
                 loading_thread.daemon = True
                 loading_thread.start()
             elif choice == 2:
@@ -117,28 +111,30 @@ class Client(BaseClient):
                     self.send_data({'join_any_game':'True'})
 
                 loading_msg = "Searching for game to join"
-                with self.loaded_json_lock:
-                    loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
+                with self.unpickled_json_lock:
+                    loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.unpickled_json, ))
                 loading_thread.daemon = True
                 loading_thread.start()
-        self.connect_complete.set()
+
+            play_game_thread = Thread(target=self.play_game)
+            play_game_thread.daemon = True
+            play_game_thread.start()
             
 
-    def simulate_loading_with_spinner(self, loading_msg, loaded_json):
+    def simulate_loading_with_spinner(self, loading_msg, unpickled_json):
 
         # The simulate_loading_with_spinner thread could have multiple instances running at once, 
         # this makes sure that subsequent instance waits for preceding instance to finish before continuing
-        if not self.spinner_thread_complete.is_set():
-            self.spinner_thread_complete.wait() 
+        self.spinner_thread_complete.wait() 
 
         self.spinner_thread_complete.clear()
         NO_OF_CHARACTERS_AFTER_LOADING_MSG = 5
         spaces_to_replace_spinner = ' ' * NO_OF_CHARACTERS_AFTER_LOADING_MSG
 
         def color_final_loading_msg():
-            condition_for_red_msg = ('other_client_disconnected' in self.loaded_json \
-                                    or 'timeout' in self.loaded_json or 'no_games_found' in self.loaded_json \
-                                    or 'game_full' in self.loaded_json)
+            condition_for_red_msg = ('other_client_disconnected' in self.unpickled_json \
+                                    or 'timeout' in self.unpickled_json or 'no_games_found' in self.unpickled_json \
+                                    or 'game_full' in self.unpickled_json)
             if type(loading_msg) == list:                
                 if condition_for_red_msg or self.end_thread_event.is_set():
                     red_first_part = colored(loading_msg[0], "red", attrs=['bold'])
@@ -164,8 +160,8 @@ class Client(BaseClient):
             
                 
         for c in itertools.cycle(['|', '/', '-', '\\']):
-            with self.loaded_json_lock:         
-                if loaded_json != self.loaded_json or self.end_thread_event.is_set():
+            with self.unpickled_json_lock:         
+                if unpickled_json != self.unpickled_json or self.end_thread_event.is_set():
                     sys.stdout.write(f'\r{color_final_loading_msg()}{spaces_to_replace_spinner}')
                     print("\n")
                     break
@@ -182,7 +178,8 @@ class Client(BaseClient):
         full_msg = b''
         new_msg = True
 
-        while True:            
+
+        while True:
             try:
                 msg = self.client.recv(16)
             except ConnectionResetError: #  This exception is caught when the client tries to receive a msg from a disconnected server
@@ -204,88 +201,88 @@ class Client(BaseClient):
                 break
             
             if new_msg:
-                msglen = int(msg[:self.HEADERSIZE])                
+                msglen = int(msg[:self.HEADERSIZE])  
                 new_msg = False
 
 
             full_msg += msg
 
-
-            if len(full_msg) - self.HEADERSIZE == msglen:
+            if len(full_msg) - self.HEADERSIZE >= msglen:
                 
-                # -------------------------------------Use loaded json data here-------------------------------------
+                # -------------------------------------Use unpickled json data here-------------------------------------
 
-                with self.loaded_json_lock:
-                    self.loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])                  
+                with self.unpickled_json_lock:
+                    self.unpickled_json = pickle.loads(full_msg[self.HEADERSIZE:self.HEADERSIZE+msglen]) 
+
+
+                if len(full_msg) - self.HEADERSIZE > msglen: #  Multiple messages were received together
+                    full_msg = full_msg[self.HEADERSIZE+msglen:] #  Get the part of the next msg that was recieved with the previous one
+                    msglen = int(full_msg[:self.HEADERSIZE])      
+                else:
+                    new_msg = True
+                    full_msg = b''
                 
                 # ! Wait for simulate_loading_with_spinner thread to complete only after unpickled full_msg 
-                # ! is assigned to self.loaded_json. Otherwise, condition for termination of spinner thread may not be met
+                # ! is assigned to self.unpickled_json. Otherwise, condition for termination of spinner thread may not be met
 
-                if not self.spinner_thread_complete.is_set():
-                    self.spinner_thread_complete.wait() #  Wait for simulate_loading_with_spinner thread to complete
-
-                if not self.connect_complete.is_set():
-                    self.connect_complete.wait()
-
-                new_msg = True
-                full_msg = b''
+                self.spinner_thread_complete.wait() #  Wait for simulate_loading_with_spinner thread to complete
 
                 try:
-                    self.loaded_json_lock.acquire()
-                    # print("Loaded_json", self.loaded_json)
-                    if "code" in self.loaded_json:
-                        print(f"This is your special code: {self.loaded_json['code']}\nSend it to someone you wish to join this game.")
-                        self.loaded_json_lock.release()
-                    elif "no_games_found" in self.loaded_json:
-                        print(colored(self.loaded_json['no_games_found'], "red", attrs=['bold']))
-                        self.loaded_json_lock.release()
+                    self.unpickled_json_lock.acquire()
+                    # print("unpickled_json", self.unpickled_json)
+                    if "code" in self.unpickled_json:
+                        print(f"This is your special code: {self.unpickled_json['code']}\nSend it to someone you wish to join this game.")
+                        self.unpickled_json_lock.release()
+                    elif "no_games_found" in self.unpickled_json:
+                        print(colored(self.unpickled_json['no_games_found'], "red", attrs=['bold']))
+                        self.unpickled_json_lock.release()
                         break
-                    elif "game_full" in self.loaded_json:
-                        print(colored(self.loaded_json['game_full'], "red", attrs=['bold']))
-                        self.loaded_json_lock.release()
+                    elif "game_full" in self.unpickled_json:
+                        print(colored(self.unpickled_json['game_full'], "red", attrs=['bold']))
+                        self.unpickled_json_lock.release()
                         break
-                    elif "join_successful" in self.loaded_json:
-                        print(colored(self.loaded_json['join_successful'], "green", attrs=['bold']))
-                        self.loaded_json_lock.release()
-                    elif "id" in self.loaded_json:
-                        self.ID = self.loaded_json["id"]
+                    elif "join_successful" in self.unpickled_json:
+                        print(colored(self.unpickled_json['join_successful'], "green", attrs=['bold']))
+                        self.unpickled_json_lock.release()
+                    elif "id" in self.unpickled_json:
+                        self.ID = self.unpickled_json["id"]
                         loading_msg = "Both clients connected. Starting game"
-                        loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
-                        self.loaded_json_lock.release()
+                        loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.unpickled_json, ))
+                        self.unpickled_json_lock.release()
                         loading_thread.daemon = True
                         loading_thread.start()                                                                        
-                    elif "other_client_disconnected" in self.loaded_json:
+                    elif "other_client_disconnected" in self.unpickled_json:
                         self.other_client_disconnected.set()
-                        disconnect_msg = colored(self.loaded_json['other_client_disconnected'], "red", attrs=['bold'])
-                        self.loaded_json_lock.release()
+                        disconnect_msg = colored(self.unpickled_json['other_client_disconnected'], "red", attrs=['bold'])
+                        self.unpickled_json_lock.release()
                         with self.condition:
                             self.condition.notify()                        
                         self._set_up_to_terminate_program(disconnect_msg)
                         break
-                    elif "status" in self.loaded_json:                                                          
-                        loading_msg = self.loaded_json['status'] 
-                        loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
-                        self.loaded_json_lock.release()
+                    elif "status" in self.unpickled_json:                                                          
+                        loading_msg = self.unpickled_json['status'] 
+                        loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.unpickled_json, ))
+                        self.unpickled_json_lock.release()
                         loading_thread.daemon = True
                         loading_thread.start()               
-                    elif "waiting_for_name" in self.loaded_json:
-                        loading_msg = self.loaded_json['waiting_for_name']                                        
-                        loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
-                        self.loaded_json_lock.release()
+                    elif "waiting_for_name" in self.unpickled_json:
+                        loading_msg = self.unpickled_json['waiting_for_name']                                        
+                        loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.unpickled_json, ))
+                        self.unpickled_json_lock.release()
                         loading_thread.daemon = True
                         loading_thread.start()
-                    elif "get_first_player_name" in self.loaded_json:                                                               
+                    elif "get_first_player_name" in self.unpickled_json:                                                               
                         self.connect4game._about_game()
                         loading_msg = "Waiting for other player to enter their name"
-                        loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
-                        self.loaded_json_lock.release()
+                        loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.unpickled_json, ))
+                        self.unpickled_json_lock.release()
                         loading_thread.daemon = True
                         self.you = self.connect4game._get_player_name()
                         self.send_data({'you':self.you})
                         loading_thread.start()                        
-                    elif "opponent" in self.loaded_json:                                                             
-                        self.opponent = self.loaded_json['opponent']
-                        self.loaded_json_lock.release()
+                    elif "opponent" in self.unpickled_json:                                                             
+                        self.opponent = self.unpickled_json['opponent']
+                        self.unpickled_json_lock.release()
                         if not self.you:
                             self.connect4game._about_game()
                             self.you = self._get_other_player_name(self.opponent)
@@ -295,11 +292,11 @@ class Client(BaseClient):
                         if not self.ID:
                             first_player = self.connect4game._shuffle_players([self.you, self.opponent])
                             self.send_data({'first':first_player})                      
-                    elif "first" in self.loaded_json:
-                        first = self.loaded_json['first'][0]
+                    elif "first" in self.unpickled_json:
+                        first = self.unpickled_json['first'][0]
                         loading_msg = f"Waiting for {self.opponent} to choose their color"
-                        loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.loaded_json, ))
-                        self.loaded_json_lock.release()
+                        loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.unpickled_json, ))
+                        self.unpickled_json_lock.release()
                         loading_thread.daemon = True
                         if self.ID:
                             print("Randomly choosing who to go first . . .")                
@@ -309,9 +306,9 @@ class Client(BaseClient):
                             self.send_data({'colors':colors})
                         else:
                             loading_thread.start()                            
-                    elif "colors" in self.loaded_json:                                                                                     
-                        colors = self.loaded_json['colors']                        
-                        self.loaded_json_lock.release()
+                    elif "colors" in self.unpickled_json:                                                                                     
+                        colors = self.unpickled_json['colors']                        
+                        self.unpickled_json_lock.release()
                         if first == self.you:
                             self.your_turn = True
                             self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))                            
@@ -319,39 +316,39 @@ class Client(BaseClient):
                             self.your_turn = False
                             self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
                         self.send_data({'opponent_player_object':self.player})
-                    elif "opponent_player_object" in self.loaded_json:
-                        self.opponent = self.loaded_json['opponent_player_object']                        
-                        self.loaded_json_lock.release()
+                    elif "opponent_player_object" in self.unpickled_json:
+                        self.opponent = self.unpickled_json['opponent_player_object']                        
+                        self.unpickled_json_lock.release()
                         main_game_thread = Thread(target=self.main_game_thread)
                         main_game_thread.daemon = True
                         with self.condition:
                             main_game_thread.start()
                         self.main_game_started.set()
-                    elif "board" in self.loaded_json:
-                        self.board = self.loaded_json['board']
-                        self.loaded_json_lock.release()
+                    elif "board" in self.unpickled_json:
+                        self.board = self.unpickled_json['board']
+                        self.unpickled_json_lock.release()
                         self.board_updated_event.set() 
                         with self.condition:
                             self.condition.notify()
-                    elif "round_over" in self.loaded_json and "winner" in self.loaded_json:
-                        self.round_over_json = self.loaded_json
-                        self.loaded_json_lock.release()
+                    elif "round_over" in self.unpickled_json and "winner" in self.unpickled_json:
+                        self.round_over_json = self.unpickled_json
+                        self.unpickled_json_lock.release()
                         self.round_over_event.set()
-                    elif 'play_again' in self.loaded_json:
-                        self.play_again_reply = self.loaded_json['play_again']
-                        self.loaded_json_lock.release()
+                    elif 'play_again' in self.unpickled_json:
+                        self.play_again_reply = self.unpickled_json['play_again']
+                        self.unpickled_json_lock.release()
                         self.play_again_reply_received.set()                        
                         with self.condition:
                             self.condition.notify()
-                    elif 'first_player' in self.loaded_json:
-                        self.first_player_for_next_round = self.loaded_json['first_player']
-                        self.loaded_json_lock.release()
+                    elif 'first_player' in self.unpickled_json:
+                        self.first_player_for_next_round = self.unpickled_json['first_player']
+                        self.unpickled_json_lock.release()
                         self.first_player_received.set()
                         with self.condition:
                             self.condition.notify()
-                    elif 'timeout' in self.loaded_json:
-                        print(colored(self.loaded_json['timeout'], "red", attrs=['bold']))
-                        self.loaded_json_lock.release()
+                    elif 'timeout' in self.unpickled_json:
+                        print(colored(self.unpickled_json['timeout'], "red", attrs=['bold']))
+                        self.unpickled_json_lock.release()
                         break                
                 except socket.error:
                     if not self.keyboard_interrupt_event.is_set():
@@ -362,7 +359,7 @@ class Client(BaseClient):
                     if not self.keyboard_interrupt_event.is_set():
                         self._set_up_to_terminate_program(something_went_wrong_msg)
                     break
-                # -------------------------------------Use loaded json data here-------------------------------------
+                # -------------------------------------Use unpickled json data here-------------------------------------
 
         self.stop_flag.set()
         if self.keyboard_interrupt_event.is_set():

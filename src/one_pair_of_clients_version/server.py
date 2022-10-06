@@ -23,16 +23,11 @@ class Server:
         self.TIMEOUT_FOR_OTHER_CLIENT_TO_JOIN = 300
 
         self.clients: List = []
-        self.clients_lock = threading.RLock()
-
-        self.play_game_threads: List = []
-        self.play_game_threads_lock = threading.RLock()
+        self.clients_lock = threading.RLock()       
 
         self.new_client_event = threading.Event()
         self.stop_flag = threading.Event()
         self.wait_for_new_client_thread_complete = threading.Event()
-        self.start_game_when_two_clients_thread_complete = threading.Event()
-        self.start_game_when_two_clients_thread_complete.set()
         self.condition = threading.Condition()
 
 
@@ -114,7 +109,6 @@ class Server:
         print("[CLOSED] server is closed")
                  
     def start_game_when_two_clients(self):
-        self.start_game_when_two_clients_thread_complete.clear()
         while True:
             if self.stop_flag.is_set():
                 break
@@ -147,27 +141,20 @@ class Server:
                         self.remove_client(conn, addr)
                         break
                 else:
+                    self.new_client_event.set() #  Set event anyway even though KeyboardInterrupt occured so that wait_for_new_client thread ends on its own instead of terminating forcefully
                     break
             elif len(self.clients) == 2:                         
                 self.new_client_event.clear()
-                print("Both clients connected. Starting game. . .")
-
-                with self.play_game_threads_lock:
-                    self.play_game_threads = [] #  Clear old threads stored in list
+                print("Both clients connected. Starting game. . .")                
 
                 for client in self.clients:
                     conn, addr = client
 
                     thread = threading.Thread(target=self.play_game, args=(conn, addr))
                     thread.daemon = True
-
-                    with self.play_game_threads_lock:
-                        self.play_game_threads.append(thread)
-
                     thread.start()                   
                 self.clients_lock.release()
                 break
-        self.start_game_when_two_clients_thread_complete.set()
 
     def wait_for_one_of_multiple_events(self, some_event):
 
@@ -196,11 +183,8 @@ class Server:
     def remove_client(self, conn, addr):
         with self.clients_lock:
             conn.close()
-            try:
+            if (conn, addr) in self.clients:
                 self.clients.remove((conn, addr))
-            except ValueError:
-                pass
-            else:
                 print(f"[DISCONNECTION] {addr} disconnected.")
 
     def terminate_program(self):
@@ -211,27 +195,22 @@ class Server:
         with self.condition:
             self.condition.notify()
 
-        if not self.start_game_when_two_clients_thread_complete.is_set():
-            self.start_game_when_two_clients_thread_complete.wait()
-
         self.server.close()
         with self.clients_lock:
             for client in self.clients:
                 conn, _ = client
                 conn.close()
 
-        with self.play_game_threads_lock:
-            for thread in self.play_game_threads:
-                if thread.is_alive():
-                    thread.join()
+        main_thread = threading.main_thread()
+        for thread in threading.enumerate():
+            if thread is not main_thread:
+                thread.join()
 
         print(f"\nKeyboard Interrupt detected")
         print("[CLOSED] server is closed")
         sys.exit(1)
 
-    def play_game(self, conn, addr):
-        if not self.start_game_when_two_clients_thread_complete.is_set():
-            self.start_game_when_two_clients_thread_complete.wait()
+    def play_game(self, conn, addr):        
 
         print(f"[NEW CONNECTION] {addr} connected.")
 
@@ -285,57 +264,57 @@ class Server:
                 full_msg += msg
 
                 if len(full_msg)-self.HEADERSIZE == msglen:
-                    # ----------------Use loaded json data here----------------
+                    # ----------------Use unpickled json data here----------------
 
                     conn.settimeout(None) #  Reset timer for next msg
-                    loaded_json = pickle.loads(full_msg[self.HEADERSIZE:])
-                    # print("loaded_json: ",  loaded_json)
+                    unpickled_json = pickle.loads(full_msg[self.HEADERSIZE:])
+                    # print("unpickled_json: ",  unpickled_json)
                     new_msg = True
                     full_msg = b''     
                     try:
-                        if 'you' in loaded_json:
-                            you = loaded_json['you']
+                        if 'you' in unpickled_json:
+                            you = unpickled_json['you']
                             if conn == conn1:
                                 self.send_data(conn2, {'opponent':you})
                             elif conn == conn2:
                                 self.send_data(conn1, {'opponent':you})                        
-                        elif 'first' in loaded_json:
-                            self.send_data(conn1, {'first':loaded_json['first']})                        
-                            self.send_data(conn2, {'first':loaded_json['first']})
-                        elif 'colors' in loaded_json:
-                            self.send_data(conn1, {'colors':loaded_json['colors']})
-                            self.send_data(conn2, {'colors':loaded_json['colors']})
-                        elif 'opponent_player_object' in loaded_json:
+                        elif 'first' in unpickled_json:
+                            self.send_data(conn1, {'first':unpickled_json['first']})                        
+                            self.send_data(conn2, {'first':unpickled_json['first']})
+                        elif 'colors' in unpickled_json:
+                            self.send_data(conn1, {'colors':unpickled_json['colors']})
+                            self.send_data(conn2, {'colors':unpickled_json['colors']})
+                        elif 'opponent_player_object' in unpickled_json:
                             if conn == conn1:
-                                self.send_data(conn2, {'opponent_player_object':loaded_json['opponent_player_object']})
+                                self.send_data(conn2, {'opponent_player_object':unpickled_json['opponent_player_object']})
                             elif conn == conn2:
-                                self.send_data(conn1, {'opponent_player_object':loaded_json['opponent_player_object']})                                            
-                        elif 'board' in loaded_json:
+                                self.send_data(conn1, {'opponent_player_object':unpickled_json['opponent_player_object']})                                            
+                        elif 'board' in unpickled_json:
                             if conn == conn1:
-                                self.send_data(conn2, {'board':loaded_json['board']})                            
+                                self.send_data(conn2, {'board':unpickled_json['board']})                            
                             elif conn == conn2:
-                                self.send_data(conn1, {'board':loaded_json['board']})  
-                        elif 'round_over' in loaded_json:
-                            self.send_data(conn1, loaded_json)
-                            self.send_data(conn2, loaded_json)
-                        elif 'play_again' in loaded_json:
+                                self.send_data(conn1, {'board':unpickled_json['board']})  
+                        elif 'round_over' in unpickled_json:
+                            self.send_data(conn1, unpickled_json)
+                            self.send_data(conn2, unpickled_json)
+                        elif 'play_again' in unpickled_json:
                             if conn == conn1:
-                                self.send_data(conn2, {'play_again':loaded_json['play_again']})
-                                if not loaded_json['play_again']:
+                                self.send_data(conn2, {'play_again':unpickled_json['play_again']})
+                                if not unpickled_json['play_again']:
                                     print("Player has quit the game")
                                     break
                             elif conn == conn2:
-                                self.send_data(conn1, {'play_again':loaded_json['play_again']})
-                                if not loaded_json['play_again']:
+                                self.send_data(conn1, {'play_again':unpickled_json['play_again']})
+                                if not unpickled_json['play_again']:
                                     print("Player has quit the game")
                                     break
-                        elif 'first_player' in loaded_json:                        
-                            self.send_data(conn1, {'first_player':loaded_json['first_player']})                        
-                            self.send_data(conn2, {'first_player':loaded_json['first_player']})                                                
-                        elif 'DISCONNECT' in loaded_json:
-                            if loaded_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:
-                                if 'close_other_client' in loaded_json:
-                                    if loaded_json['close_other_client']:
+                        elif 'first_player' in unpickled_json:                        
+                            self.send_data(conn1, {'first_player':unpickled_json['first_player']})                        
+                            self.send_data(conn2, {'first_player':unpickled_json['first_player']})                                                
+                        elif 'DISCONNECT' in unpickled_json:
+                            if unpickled_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:
+                                if 'close_other_client' in unpickled_json:
+                                    if unpickled_json['close_other_client']:
                                         if conn == conn1:
                                             self.send_data(conn2, {"other_client_disconnected":"Other client disconnected unexpectedly"})
                                         else:
@@ -343,7 +322,7 @@ class Server:
                                 break
                     except KeyError:
                         break               
-                            # ----------------Use loaded json data here----------------
+                            # ----------------Use unpickled json data here----------------
         
         except SendingDataError as data:
             print(f"Error sending '{data}'")            
