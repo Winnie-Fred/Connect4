@@ -263,14 +263,20 @@ class Server:
 
                 full_msg += msg
 
-                if len(full_msg)-self.HEADERSIZE == msglen:
+                if len(full_msg)-self.HEADERSIZE >= msglen:
                     # ----------------Use unpickled json data here----------------
 
                     conn.settimeout(None) #  Reset timer for next msg
-                    unpickled_json = pickle.loads(full_msg[self.HEADERSIZE:])
+                    unpickled_json = pickle.loads(full_msg[self.HEADERSIZE:self.HEADERSIZE+msglen])
                     # print("unpickled_json: ",  unpickled_json)
-                    new_msg = True
-                    full_msg = b''     
+
+                    if len(full_msg) - self.HEADERSIZE > msglen: #  Multiple messages were received together
+                        full_msg = full_msg[self.HEADERSIZE+msglen:] #  Get the part of the next msg that was recieved with the previous one
+                        msglen = int(full_msg[:self.HEADERSIZE])      
+                    else:
+                        new_msg = True
+                        full_msg = b''    
+
                     try:
                         if 'you' in unpickled_json:
                             you = unpickled_json['you']

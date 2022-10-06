@@ -476,7 +476,7 @@ class Client:
 
             full_msg += msg
 
-            if len(full_msg) - self.HEADERSIZE == msglen:
+            if len(full_msg) - self.HEADERSIZE >= msglen:
                 
                 # -------------------------------------Use unpickled json data here-------------------------------------
 
