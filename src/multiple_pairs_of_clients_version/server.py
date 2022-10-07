@@ -66,7 +66,7 @@ class Server:
         data = pickle.dumps(data)
         data = bytes(f'{len(data):<{self.HEADERSIZE}}', self.FORMAT) + data
         try:
-            conn.send(data)
+            conn.sendall(data)
         except socket.error:
             raise SendingDataError(copy_data)
 

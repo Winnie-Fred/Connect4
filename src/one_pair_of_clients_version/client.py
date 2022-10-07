@@ -108,7 +108,7 @@ class Client:
         data = pickle.dumps(data)
         data = bytes(f'{len(data):<{self.HEADERSIZE}}', self.FORMAT) + data
         try:
-            self.client.send(data)
+            self.client.sendall(data)
         except socket.error:
             raise
 
