@@ -29,8 +29,6 @@ class Server:
         self.games_lock = threading.RLock()
 
         self.stop_flag = threading.Event()
-        self.wait_for_new_client_thread_complete = threading.Event()
-        self.condition = threading.Condition()
 
         try:
            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -181,15 +179,11 @@ class Server:
         print("Game created. Waiting for another player to join the game. . .")
         self.send_data(conn, {"status":"Game created. Waiting for another player to join the game"})
 
-        wait_for_new_client_thread_complete = threading.Event()
-
+        # Wait for other client to join or wait for keyboard interrupt which sets self.stop_flag and game.second_client_has_joined
         with game_lock:
-            thread = threading.Thread(target=self.wait_for_new_client, args=(game.second_client_has_joined, wait_for_new_client_thread_complete, ))
-        thread.daemon = True
-        thread.start()
-
-        if self.wait_for_one_of_multiple_events(wait_for_new_client_thread_complete): #  Otherwise, stop_flag is set
-            with game_lock:
+            if game.second_client_has_joined.wait(self.TIMEOUT_FOR_OTHER_CLIENT_TO_JOIN):       
+                if self.stop_flag.is_set():
+                    return
                 if game.second_client_has_joined.is_set():
                     print("Both clients connected. Starting game. . .")
                     for client in game.clients:
@@ -197,13 +191,11 @@ class Server:
                         play_game_thread = threading.Thread(target=self.play_game, args=(conn, addr, game, game_lock, ))
                         play_game_thread.daemon = True                        
                         play_game_thread.start()
-                else:
-                    print("Connection timed out: No other player joined the game. Try joining the connection again.")
-                    self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try joining the connection again."})
-                    self.destroy_game(game, game_lock)
-        else:
-            with game_lock:
-                game.second_client_has_joined.set() #  Set event anyway even though KeyboardInterrupt occured so that wait_for_new_client thread ends on its own instead of terminating forcefully    
+            else:
+                print("Connection timed out: No other player joined the game. Try joining the connection again.")
+                self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try joining the connection again."})
+                self.destroy_game(game, game_lock)
+
 
     def join_game(self, conn, addr, type, game_id=''):
         game_found = False
@@ -242,7 +234,7 @@ class Server:
             with self.games_lock:
                 found_game.clients.append((conn, addr, ))
                 found_game.second_client_has_joined.set()
-
+       
     def destroy_game(self, game, game_lock):
         with game_lock:
             for client in game.clients:
@@ -388,51 +380,29 @@ class Server:
                 self.send_data(conn2, {"other_client_disconnected":"Other client disconnected unexpectedly"})
             else:
                 self.send_data(conn1, {"other_client_disconnected":"Other client disconnected unexpectedly"})
-        except (socket.error, Exception) as e:
+        except socket.error as e:
             if e != 'timed out':
-                print(f"Some Error occured: {e}")
+                print(f"Some error occured: Socket may have been closed")
+        except Exception:
+            print(f"An error occured: {e}")
         
         with game_lock:
             self.destroy_game(game, game_lock)
-
-    def wait_for_one_of_multiple_events(self, some_event):
-
-        """Wait for some event or keyboard interrupt which sets self.stop_flag"""
-
-        while not (some_event.is_set() or self.stop_flag.is_set()):
-            with self.condition:
-                self.condition.wait()
-        if some_event.is_set():
-            return True
-        elif self.stop_flag.is_set():
-            return False
-
-    def wait_for_new_client(self, event, thread_complete):
-        thread_complete.clear()
-        if event.wait(self.TIMEOUT_FOR_OTHER_CLIENT_TO_JOIN):
-            thread_complete.set()
-            with self.condition:
-                self.condition.notify()
-            return True
-        thread_complete.set()
-        with self.condition:
-            self.condition.notify()
-        return False
 
     def terminate_program(self):
 
         """Wait for threads to complete and exit program"""
 
         self.stop_flag.set()
-        with self.condition:
-            self.condition.notify_all()
 
-        self.server.close()
         with self.games_lock:
             for game in self.games:
+                game.second_client_has_joined.set() #  Set this so that threads waiting for other client to join stop blocking
                 for client in game.clients:
                     conn, _ = client
                     conn.close()
+
+        self.server.close()
 
         main_thread = threading.main_thread()
         for thread in threading.enumerate():

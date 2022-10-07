@@ -27,9 +27,6 @@ class Server:
 
         self.new_client_event = threading.Event()
         self.stop_flag = threading.Event()
-        self.wait_for_new_client_thread_complete = threading.Event()
-        self.condition = threading.Condition()
-
 
         try:
            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -84,7 +81,7 @@ class Server:
                 conn, addr = self.server.accept()
             except socket.timeout:
                 continue
-            except socket.error as e:
+            except socket.error:
                 break
 
             with self.clients_lock:
@@ -123,26 +120,21 @@ class Server:
                 try:
                     self.send_data(conn, {"status":"Waiting for other player to join the connection"})
                 except SendingDataError:
-                    self.remove_client(conn, addr)
+                    self.remove_client(conn, addr)                
 
-                thread = threading.Thread(target=self.wait_for_new_client)
-                thread.daemon = True
-                thread.start()
-
-                if self.wait_for_one_of_multiple_events(self.wait_for_new_client_thread_complete):
+                if self.new_client_event.wait(self.TIMEOUT_FOR_OTHER_CLIENT_TO_JOIN):
+                    if self.stop_flag.is_set():
+                        break
                     if self.new_client_event.is_set():
                         continue                    
-                    else:
-                        print("Connection timed out: No other player joined the game. Try joining the connection again.")
-                        try:
-                            self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try joining the connection again."})
-                        except SendingDataError:
-                            pass
-                        self.remove_client(conn, addr)
-                        break
                 else:
-                    self.new_client_event.set() #  Set event anyway even though KeyboardInterrupt occured so that wait_for_new_client thread ends on its own instead of terminating forcefully
-                    break
+                    print("Connection timed out: No other player joined the game. Try joining the connection again.")
+                    try:
+                        self.send_data(conn, {"timeout":"Connection timed out: No other player joined the game. Try joining the connection again."})
+                    except SendingDataError:
+                        pass
+                    self.remove_client(conn, addr)
+                    break                    
             elif len(self.clients) == 2:                         
                 self.new_client_event.clear()
                 print("Both clients connected. Starting game. . .")                
@@ -156,30 +148,6 @@ class Server:
                 self.clients_lock.release()
                 break
 
-    def wait_for_one_of_multiple_events(self, some_event):
-
-        """Wait for some event or keyboard interrupt which sets self.stop_flag"""
-
-        while not (some_event.is_set() or self.stop_flag.is_set()):
-            with self.condition:
-                self.condition.wait()
-        if some_event.is_set():
-            return True
-        elif self.stop_flag.is_set():
-            return False
-
-    def wait_for_new_client(self):
-        self.wait_for_new_client_thread_complete.clear()
-        if self.new_client_event.wait(self.TIMEOUT_FOR_OTHER_CLIENT_TO_JOIN):
-            self.wait_for_new_client_thread_complete.set()
-            with self.condition:
-                self.condition.notify()
-            return True
-        self.wait_for_new_client_thread_complete.set()
-        with self.condition:
-            self.condition.notify()
-        return False
-
     def remove_client(self, conn, addr):
         with self.clients_lock:
             conn.close()
@@ -192,8 +160,7 @@ class Server:
         """Wait for threads to complete and exit program"""
 
         self.stop_flag.set()
-        with self.condition:
-            self.condition.notify()
+        self.new_client_event.set() #  Set this so that thread waiting for other client to join stops blocking
 
         self.server.close()
         with self.clients_lock:
@@ -338,9 +305,11 @@ class Server:
                 self.send_data(conn2, {"other_client_disconnected":"Other client disconnected unexpectedly"})
             else:
                 self.send_data(conn1, {"other_client_disconnected":"Other client disconnected unexpectedly"})
-        except (socket.error, Exception) as e:
+        except socket.error as e:
             if e != 'timed out':
-                print(f"Some Error occured: {e}")
+                print(f"Some error occured: Socket may have been closed")
+        except Exception:
+            print(f"An error occured: {e}")
 
         # Close other and current client
         if conn == conn1:
