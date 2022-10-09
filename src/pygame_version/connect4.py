@@ -15,7 +15,7 @@ from pygame.sprite import RenderUpdates
 from pygame_version.client import Client
 from pygame_version.choice import Choice
 from pygame_version.gamestate import GameState
-from pygame_version.pygame_util import UIElement, CopyButtonElement, create_text_to_draw
+from pygame_version.ui_tools import UIElement, CopyButtonElement, InputBox, create_text_to_draw
 
 from termcolor import colored  # type: ignore
 
@@ -105,7 +105,7 @@ class Connect4:
 
     def join_game_with_code_screen(self, screen):
         join_game_btn = UIElement(
-            center_position=(400, 500),
+            center_position=(400, 400),
             font_size=20,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -122,7 +122,13 @@ class Connect4:
             action=GameState.MENU,
         )
         
-        input_box = None
+        input_box = InputBox(
+            center_position = (400, 200),
+            placeholder_text='Enter code here',
+            font_size=20,
+            bg_rgb=BLUE,
+            text_rgb=WHITE
+        )
 
         buttons = RenderUpdates(join_game_btn, return_btn)
 
@@ -136,12 +142,24 @@ class Connect4:
 
         while True:
             mouse_up = False
+            key_down = False
+            backspace = False
+            pressed_key = None
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     mouse_up = True
+                
+                if event.type == pygame.KEYDOWN:
+                    key_down = True
+                    if event.key == pygame.K_BACKSPACE:
+                        backspace = True
+                    else:
+                        pressed_key = event.unicode
+                
+
             screen.fill(BLUE)
 
             if menu_header:
@@ -154,6 +172,11 @@ class Connect4:
                         return ui_action
 
                 buttons.draw(screen)                        
+
+            if input_box is not None:
+                color = input_box.update(pygame.mouse.get_pos(), mouse_up, key_down, pressed_key, backspace)                   
+                input_box.draw(screen)
+                pygame.draw.rect(screen, color, (input_box.rect.left-3, input_box.rect.top-5, input_box.rect.w+10, input_box.rect.h*2), 2)
 
             pygame.display.flip()
 
