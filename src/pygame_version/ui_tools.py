@@ -70,6 +70,78 @@ class UIElement(Sprite):
         """ Draws element onto a surface """
         surface.blit(self.image, self.rect)
 
+
+class InputBox(Sprite):
+    def __init__(self, center_position, placeholder_text, font_size, bg_rgb, text_rgb):
+        super().__init__()
+        self.active = False
+        self.center_position = center_position
+        self.input = ''
+        self.color_active = pygame.Color('lightskyblue3')
+        self.color_inactive = (128, 128, 128)
+        self.color = self.color_inactive
+        self.placeholder_text = placeholder_text
+        self.font_size = font_size
+        self.bg_rgb = bg_rgb
+        self.text_rgb = text_rgb
+        self.text_surface = create_surface_with_text(
+            text=self.placeholder_text, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
+        )
+        self.old_input = self.text_surface
+        self.input_box = self.text_surface.get_rect(center=center_position)
+        self.old_input_box = self.old_input.get_rect(center=center_position)
+        self.active = False
+        self.key_down = False       
+        
+
+    @property
+    def image(self):
+        return self.text_surface if self.key_down else self.old_input
+            
+
+    @property
+    def rect(self):
+        return self.input_box if self.key_down else self.old_input_box
+
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+
+    def update(self, mouse_pos, mouse_up, key_down, pressed_key, backspace):
+        """ Updates the mouse_over variable and returns the button's
+            action value when clicked.
+        """
+        self.old_input = self.text_surface
+        self.old_input_box = self.old_input.get_rect(center=self.center_position)
+        if mouse_up:
+            if self.rect.collidepoint(mouse_pos):
+                self.color = self.color_active
+                self.active = True
+            else:
+                self.active = False
+                self.color = self.color_inactive
+
+        if key_down:
+            self.key_down = True
+            if self.active:
+                if backspace:
+                    self.input = self.input[:-1]
+                else:
+                    self.input += pressed_key
+                self.text_surface = create_surface_with_text(
+                    text=self.input, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
+                )
+        else:
+            self.key_down = False
+
+        if not self.input:
+            self.text_surface = create_surface_with_text(
+                text=self.placeholder_text, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
+            )
+            self.input_box = self.text_surface.get_rect(center=self.center_position)
+
+        return self.color
+
 class CopyButtonElement(UIElement):
     def __init__(self, center_position, text, font_size, bg_rgb, text_rgb, text_after_mouse_up_event, action=None):
         super().__init__(center_position, text, font_size, bg_rgb, text_rgb, action)
