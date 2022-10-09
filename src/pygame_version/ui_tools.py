@@ -140,7 +140,7 @@ class InputBox(Sprite):
         self.active = False
         self.center_position = center_position
         self.max_input_length = max_input_length
-        self.input = ''
+        self.user_input = ''
         self.color_active = pygame.Color('lightskyblue3')
         self.color_inactive = (128, 128, 128)
         self.color = self.color_inactive
@@ -169,11 +169,21 @@ class InputBox(Sprite):
     def draw(self, surface):
         surface.blit(self.image, self.rect)
 
-    def update(self, mouse_pos, mouse_up, key_down, pressed_key, backspace):
-        """ Updates the "key_down" variable and returns the "color" of the input border
-            and if the btn to submit the input is "clickable" depending on whether or 
-            not the max_input_length has been reached.
+    def update(self, mouse_pos, mouse_up, key_down, pressed_key, backspace, pasted_input):
+        """ Updates the "key_down" variable and returns "after_input" that contains the "color" 
+            of the input border, the input itself and returns whether the btn to submit the 
+            input is "clickable" depending on whether or not the max_input_length has been reached.
         """
+        if pasted_input is not None:
+            pasted_input = pasted_input.strip()
+            if len(pasted_input) > self.max_input_length:
+                self.user_input = pasted_input[:self.max_input_length]
+            else:
+                self.user_input = pasted_input
+            self.text_surface = create_surface_with_text(
+                text=self.user_input, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
+            )
+
         self.old_input = self.text_surface
         self.old_input_box = self.old_input.get_rect(center=self.center_position)
         if mouse_up:
@@ -188,24 +198,24 @@ class InputBox(Sprite):
             self.key_down = True
             if self.active:
                 if backspace:
-                    self.input = self.input[:-1]
+                    self.user_input = self.user_input[:-1]
                 else:
-                    if len(self.input) < self.max_input_length:
-                        self.input += pressed_key
+                    if len(self.user_input) < self.max_input_length:
+                        self.user_input += pressed_key
                 self.text_surface = create_surface_with_text(
-                    text=self.input, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
+                    text=self.user_input, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
                 )
         else:
             self.key_down = False
 
-        if not self.input:
+        if not self.user_input:
             self.text_surface = create_surface_with_text(
                 text=self.placeholder_text, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
             )
             self.input_box = self.text_surface.get_rect(center=self.center_position)
-        states_after_input =  namedtuple("states_after_input", "color, submit_btn_clickable")
-        submit_btn_clickable = len(self.input)==self.max_input_length
-        return states_after_input(self.color, submit_btn_clickable)
+        after_input =  namedtuple("after_input", "color, submit_btn_clickable, returned_input")
+        submit_btn_clickable = len(self.user_input)==self.max_input_length
+        return after_input(self.color, submit_btn_clickable, self.user_input)
 
 class CopyButtonElement(UIElement):
     def __init__(self, center_position, text, font_size, bg_rgb, text_rgb, text_after_mouse_up_event, action=None):

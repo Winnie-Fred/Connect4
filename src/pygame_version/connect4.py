@@ -1,9 +1,11 @@
 from cgitb import text
+from collections import namedtuple
 import sys
 import time
 import socket
 import pickle
 import select
+import string
 
 import pygame
 import pygame.freetype
@@ -125,6 +127,15 @@ class Connect4:
             action=GameState.MENU,
         )
         
+        paste_btn = UIElement(
+            center_position=(600, 200),
+            font_size=15,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            text="Paste",
+            action=GameState.PASTE,
+        )
+
         input_box = InputBox(
             center_position = (400, 200),
             placeholder_text='Enter code here',
@@ -134,7 +145,7 @@ class Connect4:
             max_input_length=MAX_GAME_CODE_LENGTH,
         )
 
-        buttons = RenderUpdates(return_btn)
+        buttons = RenderUpdates(return_btn, paste_btn)
 
         return self.game_menu_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box)
 
@@ -145,7 +156,11 @@ class Connect4:
         """
 
         submit_btn_clickable = False
+        error = ''
+        returned_input = ''
+
         while True:
+            pasted_input = None
             mouse_up = False
             key_down = False
             backspace = False
@@ -167,29 +182,47 @@ class Connect4:
 
             screen.fill(BLUE)
 
+            if error:
+                # TODO: Make error fade out after some time, possibly display error when they have entered max characters
+                error_text = create_text_to_draw(error, 15, RED, BLUE, (400, 300))
+                error_text.draw(screen)
+
             if menu_header:
                 menu_header.draw(screen)
 
             if buttons is not None:
                 for button in buttons:
                     ui_action = button.update(pygame.mouse.get_pos(), mouse_up)
-                    if ui_action != GameState.NO_ACTION:                                                    
-                        return ui_action
+                    if ui_action != GameState.NO_ACTION:
+                        if ui_action == GameState.PASTE:
+                            pasted_input = pyperclip.paste()
+                        else:                                              
+                            return ui_action
 
                 buttons.draw(screen)
 
             if submit_input_btn is not None:
                 ui_action = submit_input_btn.update(pygame.mouse.get_pos(), mouse_up, submit_btn_clickable)
-                if ui_action != GameState.NO_ACTION:                                                    
-                    return ui_action
+                if ui_action != GameState.NO_ACTION:
+                    if ui_action == GameState.JOIN_GAME_WITH_ENTERED_CODE:
+                        validation = self.validate_game_code(returned_input)
+                        if validation.passed_validation:
+                            self.code = validation.code_or_error
+                            return ui_action
+                        else:
+                            # Validation failed
+                            error = validation.code_or_error
+                    else:
+                        return ui_action
                 submit_input_btn.draw(screen)
 
 
             if input_box is not None:
-                states_after_input = input_box.update(pygame.mouse.get_pos(), mouse_up, key_down, pressed_key, backspace)                   
+                after_input = input_box.update(pygame.mouse.get_pos(), mouse_up, key_down, pressed_key, backspace, pasted_input)                   
                 input_box.draw(screen)
-                pygame.draw.rect(screen, states_after_input.color, (input_box.rect.left-3, input_box.rect.top-5, input_box.rect.w+10, input_box.rect.h*2), 2)
-                submit_btn_clickable = states_after_input.submit_btn_clickable
+                pygame.draw.rect(screen, after_input.color, (input_box.rect.left-3, input_box.rect.top-5, input_box.rect.w+10, input_box.rect.h*2), 2)
+                submit_btn_clickable = after_input.submit_btn_clickable
+                returned_input = after_input.returned_input
 
             pygame.display.flip()
 
@@ -223,6 +256,13 @@ class Connect4:
 
     def color_error_msg_red(self, msg):
         return colored(msg, "red", attrs=['bold'])
+
+    def validate_game_code(self, returned_input):
+        validation = namedtuple("validation", "passed_validation, code_or_error")
+        if returned_input.isalnum():
+            return validation(True, returned_input)
+        return validation(False, "Code can only contain letters and digits")
+
 
     def play_game(self, screen, buttons, copy_btn, choice, frames):
 
