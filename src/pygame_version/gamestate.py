@@ -9,3 +9,4 @@ class GameState(Enum):
     JOIN_GAME_WITH_CODE = 3
     JOIN_GAME_WITH_ENTERED_CODE = 4
     COPY = 5
+    PASTE = 6
