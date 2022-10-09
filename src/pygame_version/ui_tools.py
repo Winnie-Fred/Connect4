@@ -1,3 +1,5 @@
+from collections import namedtuple
+
 import pygame
 from pygame.sprite import Sprite
 
@@ -55,7 +57,7 @@ class UIElement(Sprite):
         return self.rects[1] if self.mouse_over else self.rects[0]
 
     def update(self, mouse_pos, mouse_up):
-        """ Updates the mouse_over variable and returns the button's
+        """ Updates the "mouse_over" variable and returns the button's
             action value when clicked.
         """
         if self.rect.collidepoint(mouse_pos):
@@ -70,12 +72,74 @@ class UIElement(Sprite):
         """ Draws element onto a surface """
         surface.blit(self.image, self.rect)
 
+class ClickableOrUnclickableBtn(UIElement):
+    def __init__(self, center_position, text, font_size, bg_rgb, text_rgb, grayed_out_text_rgb, action=None):
+        """
+        Args:
+            center_position - tuple (x, y)
+            text - string of text to write
+            font_size - int
+            bg_rgb (background colour) - tuple (r, g, b)
+            text_rgb (text colour) - tuple (r, g, b)
+            grayed_out_text_rgb (colour to make text appear grayed out) - tuple (r, g, b)
+            action - the gamestate change associated with this button
+        """
+        super().__init__(center_position, text, font_size, bg_rgb, text_rgb, action)
+        self.clickable = False
+        unclickable_btn_image = create_surface_with_text(
+            text=text, font_size=font_size, text_rgb=grayed_out_text_rgb, bg_rgb=bg_rgb)
+        self.images.append(unclickable_btn_image)
+        self.rects.append(unclickable_btn_image.get_rect(center=center_position),)
+
+    @property
+    def image(self):
+        if not self.clickable:
+            return self.images[2]
+        if self.mouse_over:
+            return self.images[1]
+        if not self.mouse_over: 
+            return self.images[0]
+
+    @property
+    def rect(self):
+        if not self.clickable:
+            return self.rects[2]
+        if self.mouse_over:
+            return self.rects[1]
+        if not self.mouse_over: 
+            return self.rects[0]
+
+    def update(self, mouse_pos, mouse_up, clickable):
+        """ Updates the "mouse_over" and "clickable" variables and returns the button's
+            action value when clicked.
+        """
+        if clickable:
+            self.clickable = True
+            if self.rect.collidepoint(mouse_pos):
+                self.mouse_over = True
+                if mouse_up:
+                    return self.action
+            else:
+                self.mouse_over = False
+        else:
+            self.clickable = False
+        return GameState.NO_ACTION
 
 class InputBox(Sprite):
-    def __init__(self, center_position, placeholder_text, font_size, bg_rgb, text_rgb):
+    def __init__(self, center_position, placeholder_text, font_size, bg_rgb, text_rgb, max_input_length):
+        """
+        Args:
+            center_position - tuple (x, y)
+            placeholder_text - string of text to use as placeholder
+            font_size - int
+            bg_rgb (background colour) - tuple (r, g, b)
+            text_rgb (text colour) - tuple (r, g, b)
+            max_input_length - int
+        """
         super().__init__()
         self.active = False
         self.center_position = center_position
+        self.max_input_length = max_input_length
         self.input = ''
         self.color_active = pygame.Color('lightskyblue3')
         self.color_inactive = (128, 128, 128)
@@ -98,18 +162,17 @@ class InputBox(Sprite):
     def image(self):
         return self.text_surface if self.key_down else self.old_input
             
-
     @property
     def rect(self):
         return self.input_box if self.key_down else self.old_input_box
-
 
     def draw(self, surface):
         surface.blit(self.image, self.rect)
 
     def update(self, mouse_pos, mouse_up, key_down, pressed_key, backspace):
-        """ Updates the mouse_over variable and returns the button's
-            action value when clicked.
+        """ Updates the "key_down" variable and returns the "color" of the input border
+            and if the btn to submit the input is "clickable" depending on whether or 
+            not the max_input_length has been reached.
         """
         self.old_input = self.text_surface
         self.old_input_box = self.old_input.get_rect(center=self.center_position)
@@ -127,7 +190,8 @@ class InputBox(Sprite):
                 if backspace:
                     self.input = self.input[:-1]
                 else:
-                    self.input += pressed_key
+                    if len(self.input) < self.max_input_length:
+                        self.input += pressed_key
                 self.text_surface = create_surface_with_text(
                     text=self.input, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
                 )
@@ -139,8 +203,9 @@ class InputBox(Sprite):
                 text=self.placeholder_text, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
             )
             self.input_box = self.text_surface.get_rect(center=self.center_position)
-
-        return self.color
+        states_after_input =  namedtuple("states_after_input", "color, submit_btn_clickable")
+        submit_btn_clickable = len(self.input)==self.max_input_length
+        return states_after_input(self.color, submit_btn_clickable)
 
 class CopyButtonElement(UIElement):
     def __init__(self, center_position, text, font_size, bg_rgb, text_rgb, text_after_mouse_up_event, action=None):

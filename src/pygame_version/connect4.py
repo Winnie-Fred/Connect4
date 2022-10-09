@@ -15,13 +15,15 @@ from pygame.sprite import RenderUpdates
 from pygame_version.client import Client
 from pygame_version.choice import Choice
 from pygame_version.gamestate import GameState
-from pygame_version.ui_tools import UIElement, CopyButtonElement, InputBox, create_text_to_draw
+from pygame_version.ui_tools import UIElement, CopyButtonElement, ClickableOrUnclickableBtn, InputBox, create_text_to_draw
 
 from termcolor import colored  # type: ignore
 
 BLUE = (106, 159, 181)
 RED = (204, 0, 0)
 WHITE = (255, 255, 255)
+GRAY = (128, 128, 128)
+MAX_GAME_CODE_LENGTH = 16
 
         
 
@@ -104,11 +106,12 @@ class Connect4:
         return self.play_game(screen, buttons, copy_btn, choice, frames)
 
     def join_game_with_code_screen(self, screen):
-        join_game_btn = UIElement(
+        join_game_btn = ClickableOrUnclickableBtn(
             center_position=(400, 400),
             font_size=20,
             bg_rgb=BLUE,
             text_rgb=WHITE,
+            grayed_out_text_rgb=GRAY,
             text="Join game",
             action=GameState.JOIN_GAME_WITH_ENTERED_CODE,
         )
@@ -127,19 +130,21 @@ class Connect4:
             placeholder_text='Enter code here',
             font_size=20,
             bg_rgb=BLUE,
-            text_rgb=WHITE
+            text_rgb=WHITE,
+            max_input_length=MAX_GAME_CODE_LENGTH,
         )
 
-        buttons = RenderUpdates(join_game_btn, return_btn)
+        buttons = RenderUpdates(return_btn)
 
-        return self.game_menu_loop(screen, buttons=buttons, input_box=input_box)
+        return self.game_menu_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box)
 
 
-    def game_menu_loop(self, screen, buttons=None, menu_header='', input_box=None):
+    def game_menu_loop(self, screen, buttons=None, menu_header='', input_box=None, submit_input_btn=None):
         """ Handles game menu loop until an action is return by a button in the
             buttons sprite renderer.
         """
 
+        submit_btn_clickable = False
         while True:
             mouse_up = False
             key_down = False
@@ -171,12 +176,20 @@ class Connect4:
                     if ui_action != GameState.NO_ACTION:                                                    
                         return ui_action
 
-                buttons.draw(screen)                        
+                buttons.draw(screen)
+
+            if submit_input_btn is not None:
+                ui_action = submit_input_btn.update(pygame.mouse.get_pos(), mouse_up, submit_btn_clickable)
+                if ui_action != GameState.NO_ACTION:                                                    
+                    return ui_action
+                submit_input_btn.draw(screen)
+
 
             if input_box is not None:
-                color = input_box.update(pygame.mouse.get_pos(), mouse_up, key_down, pressed_key, backspace)                   
+                states_after_input = input_box.update(pygame.mouse.get_pos(), mouse_up, key_down, pressed_key, backspace)                   
                 input_box.draw(screen)
-                pygame.draw.rect(screen, color, (input_box.rect.left-3, input_box.rect.top-5, input_box.rect.w+10, input_box.rect.h*2), 2)
+                pygame.draw.rect(screen, states_after_input.color, (input_box.rect.left-3, input_box.rect.top-5, input_box.rect.w+10, input_box.rect.h*2), 2)
+                submit_btn_clickable = states_after_input.submit_btn_clickable
 
             pygame.display.flip()
 
