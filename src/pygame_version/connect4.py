@@ -70,7 +70,7 @@ class Connect4:
 
         create_game_btn = UIElement(
             center_position=(400, 200),
-            font_size=30,
+            font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             text="Create a game",
@@ -78,7 +78,7 @@ class Connect4:
         )
         join_any_game_btn = UIElement(
             center_position=(400, 300),
-            font_size=30,
+            font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             text="Join any game",
@@ -86,7 +86,7 @@ class Connect4:
         )
         join_game_with_code_btn = UIElement(
             center_position=(400, 400),
-            font_size=30,
+            font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             text="Join game with code",
@@ -94,7 +94,7 @@ class Connect4:
         )
         quit_btn = UIElement(
             center_position=(400, 500),
-            font_size=30,
+            font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             text="Quit",
@@ -112,7 +112,7 @@ class Connect4:
 
         return_btn = UIElement(
             center_position=(140, 570),
-            font_size=20,
+            font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             text="Return to main menu",
@@ -147,7 +147,7 @@ class Connect4:
 
         return_btn = UIElement(
             center_position=(140, 570),
-            font_size=20,
+            font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             text="Return to main menu",
@@ -186,6 +186,10 @@ class Connect4:
         """ Handles game menu loop until an action is return by a button in the
             buttons sprite renderer.
         """
+
+        if self.client.client is not None:
+            self.client.client.close()
+
         while True:
             mouse_up = False
             for event in pygame.event.get():
@@ -208,7 +212,7 @@ class Connect4:
             pygame.display.flip()
 
     def join_game_with_code_loop(self, screen, buttons, input_box, submit_input_btn, fade_out_text):
-        """ Handles game menu loop until an action is return by a button in the
+        """ Handles join-game-with-code loop until an action is return by a button in the
             buttons sprite renderer.
         """
 
