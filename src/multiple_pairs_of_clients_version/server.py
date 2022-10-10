@@ -92,6 +92,7 @@ class Server:
     def create_or_join_game(self, conn, addr):
         full_msg = b''
         new_msg = True
+        unpickled_json = None
         try:
             while True:
                 try:
@@ -131,12 +132,13 @@ class Server:
                     if 'create_game' in unpickled_json or 'join_game_with_invite' in unpickled_json or 'join_any_game' in unpickled_json:
                         break
                     
-            if 'create_game' in unpickled_json:
-                self.create_game(conn, addr, 'invite_only')
-            elif 'join_game_with_invite' in unpickled_json:
-                self.join_game(conn, addr, 'invite_only', unpickled_json['join_game_with_invite'])
-            elif 'join_any_game' in unpickled_json:
-                self.join_game(conn, addr, 'open')
+            if unpickled_json is not None:       
+                if 'create_game' in unpickled_json:
+                    self.create_game(conn, addr, 'invite_only')
+                elif 'join_game_with_invite' in unpickled_json:
+                    self.join_game(conn, addr, 'invite_only', unpickled_json['join_game_with_invite'])
+                elif 'join_any_game' in unpickled_json:
+                    self.join_game(conn, addr, 'open')
 
 
         except SendingDataError as data:

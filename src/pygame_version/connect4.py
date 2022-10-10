@@ -35,7 +35,35 @@ class Connect4:
         self.client = Client()
         self.ID = None
         self.code = ''
+        self.keyboard_interrupt = False
+    
+    def run_game(self):
+        pygame.init()
+
+        screen = pygame.display.set_mode((800, 600))
+        pygame.display.set_caption("Connect4")
+        game_state = GameState.MENU
         
+        while True:          
+
+            if game_state == GameState.MENU:
+                game_state = self.menu_screen(screen)                
+
+            if game_state == GameState.CREATE_GAME:
+                game_state = self.main_game_screen(screen, Choice.CREATE_GAME)
+
+            if game_state == GameState.JOIN_ANY_GAME:
+                game_state = self.main_game_screen(screen, Choice.JOIN_ANY_GAME)
+
+            if game_state == GameState.JOIN_GAME_WITH_CODE:
+                game_state = self.join_game_with_code_screen(screen)
+
+            if game_state == GameState.JOIN_GAME_WITH_ENTERED_CODE:
+                game_state = self.main_game_screen(screen, self.code)
+
+            if game_state == GameState.QUIT:                
+                pygame.quit()
+                return
 
     def menu_screen(self, screen):
         menu_header = create_text_to_draw("Ready to play Connect4?", 30, WHITE, BLUE, (400, 100))
@@ -76,7 +104,6 @@ class Connect4:
         buttons = RenderUpdates(create_game_btn, join_any_game_btn, join_game_with_code_btn, quit_btn)
 
         return self.game_menu_loop(screen, buttons, menu_header)
-
 
     def main_game_screen(self, screen, choice, code=''):
         frames = []
@@ -153,10 +180,34 @@ class Connect4:
 
         buttons = RenderUpdates(return_btn, paste_btn)
 
-        return self.game_menu_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box, fade_out_text=fade_out_text)
+        return self.join_game_with_code_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box, fade_out_text=fade_out_text)
 
+    def game_menu_loop(self, screen, buttons, menu_header):
+        """ Handles game menu loop until an action is return by a button in the
+            buttons sprite renderer.
+        """
+        while True:
+            mouse_up = False
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    mouse_up = True            
+                
+            screen.fill(BLUE)
 
-    def game_menu_loop(self, screen, buttons=None, menu_header='', input_box=None, submit_input_btn=None, fade_out_text=None):
+            menu_header.draw(screen)
+
+            for button in buttons:
+                ui_action = button.update(pygame.mouse.get_pos(), mouse_up)
+                if ui_action != GameState.NO_ACTION:                                                               
+                    return ui_action
+
+            buttons.draw(screen)
+            pygame.display.flip()
+
+    def join_game_with_code_loop(self, screen, buttons, input_box, submit_input_btn, fade_out_text):
         """ Handles game menu loop until an action is return by a button in the
             buttons sprite renderer.
         """
@@ -195,98 +246,53 @@ class Connect4:
             if error:
                 # TODO: Make error fade out after some time, possibly display error when they have entered max characters              
 
-                if fade_out_text:
-                    fade_out_text.text = error
+                fade_out_text.text = error
+                
+                current_time = pygame.time.get_ticks()
+                if current_time - time_of_error >= time_until_fade:
+                    if alpha > 0:
+                        # Reduce alpha each frame, but make sure it doesn't get below 0.
+                        alpha = max(alpha-4, 0)
+
+                if not fade_out_text.update(alpha):
+                    error = ''
+                    alpha = 255
                     
-                    current_time = pygame.time.get_ticks()
-                    if current_time - time_of_error >= time_until_fade:
-                        if alpha > 0:
-                            # Reduce alpha each frame, but make sure it doesn't get below 0.
-                            alpha = max(alpha-4, 0)
+                fade_out_text.draw(screen)                    
+            
 
-                    if not fade_out_text.update(alpha):
-                        error = ''
-                        alpha = 255
-                        
-                    fade_out_text.draw(screen)                    
-
-            if menu_header:
-                menu_header.draw(screen)
-
-            if buttons is not None:
-                for button in buttons:
-                    ui_action = button.update(pygame.mouse.get_pos(), mouse_up)
-                    if ui_action != GameState.NO_ACTION:
-                        if ui_action == GameState.PASTE:
-                            pasted_input = pyperclip.paste()
-                        else:                                              
-                            return ui_action
-
-                buttons.draw(screen)
-
-            if submit_input_btn is not None:
-                ui_action = submit_input_btn.update(pygame.mouse.get_pos(), mouse_up, submit_btn_clickable)
+            for button in buttons:
+                ui_action = button.update(pygame.mouse.get_pos(), mouse_up)
                 if ui_action != GameState.NO_ACTION:
-                    if ui_action == GameState.JOIN_GAME_WITH_ENTERED_CODE:
-                        validation = self.validate_game_code(returned_input)
-                        if validation.passed_validation:
-                            self.code = validation.code_or_error
-                            return ui_action
-                        else:
-                            # Validation failed
-                            time_of_error = pygame.time.get_ticks()
-                            error = validation.code_or_error
-                    else:
+                    if ui_action == GameState.PASTE:
+                        pasted_input = pyperclip.paste()
+                    else:                                              
                         return ui_action
-                submit_input_btn.draw(screen)
 
+            buttons.draw(screen)
 
-            if input_box is not None:
-                after_input = input_box.update(pygame.mouse.get_pos(), mouse_up, key_down, pressed_key, backspace, pasted_input)                   
-                input_box.draw(screen)
-                pygame.draw.rect(screen, after_input.color, (input_box.rect.left-3, input_box.rect.top-5, input_box.rect.w+10, input_box.rect.h*2), 2)
-                submit_btn_clickable = after_input.submit_btn_clickable
-                returned_input = after_input.returned_input
+            ui_action = submit_input_btn.update(pygame.mouse.get_pos(), mouse_up, submit_btn_clickable)
+            if ui_action != GameState.NO_ACTION:
+                if ui_action == GameState.JOIN_GAME_WITH_ENTERED_CODE:
+                    validation = self.validate_game_code(returned_input)
+                    if validation.passed_validation:
+                        self.code = validation.code_or_error
+                        return ui_action
+                    else:
+                        # Validation failed
+                        time_of_error = pygame.time.get_ticks()
+                        error = validation.code_or_error
+                else:
+                    return ui_action
+            submit_input_btn.draw(screen)
+
+            after_input = input_box.update(pygame.mouse.get_pos(), mouse_up, key_down, pressed_key, backspace, pasted_input)                   
+            input_box.draw(screen)
+            pygame.draw.rect(screen, after_input.color, (input_box.rect.left-3, input_box.rect.top-5, input_box.rect.w+10, input_box.rect.h*2), 2)
+            submit_btn_clickable = after_input.submit_btn_clickable
+            returned_input = after_input.returned_input
 
             pygame.display.flip()
-
-    def run_game(self):
-        pygame.init()
-
-        screen = pygame.display.set_mode((800, 600))
-        pygame.display.set_caption("Connect4")
-        game_state = GameState.MENU
-        
-        while True:          
-
-            if game_state == GameState.MENU:
-                game_state = self.menu_screen(screen)                
-
-            if game_state == GameState.CREATE_GAME:
-                game_state = self.main_game_screen(screen, Choice.CREATE_GAME)
-
-            if game_state == GameState.JOIN_ANY_GAME:
-                game_state = self.main_game_screen(screen, Choice.JOIN_ANY_GAME)
-
-            if game_state == GameState.JOIN_GAME_WITH_CODE:
-                game_state = self.join_game_with_code_screen(screen)
-
-            if game_state == GameState.JOIN_GAME_WITH_ENTERED_CODE:
-                game_state = self.main_game_screen(screen, self.code)
-
-            if game_state == GameState.QUIT:                
-                pygame.quit()
-                return
-
-    def color_error_msg_red(self, msg):
-        return colored(msg, "red", attrs=['bold'])
-
-    def validate_game_code(self, returned_input):
-        validation = namedtuple("validation", "passed_validation, code_or_error")
-        if returned_input.isalnum():
-            return validation(True, returned_input)
-        return validation(False, "Code can only contain letters and digits")
-
 
     def play_game(self, screen, buttons, copy_btn, choice, frames):
 
@@ -392,7 +398,7 @@ class Connect4:
                         if not msg: #  This breaks out of the loop when disconnect msg has been sent to server and/or client conn has been closed server-side
                             error_msg = ''
                             
-                            if not self.client.keyboard_interrupt_event.is_set() and not self.client.game_ended.is_set() and not self.client.game_over_event.is_set(): 
+                            if not self.keyboard_interrupt: 
                                 # Connection was forcibly closed by server
                                 error_msg = general_error_msg
 
@@ -533,24 +539,41 @@ class Connect4:
                     #     print(colored(unpickled_json['timeout'], "red", attrs=['bold']))
                     #     break                 
                 except socket.error:
-                    if not self.client.keyboard_interrupt_event.is_set():
+                    if not self.keyboard_interrupt:
                         print(self.color_error_msg_red(general_error_msg))
                         error = general_error_msg
                 except Exception as e: # Catch EOFError and other exceptions
                     # NOTE: EOFError can also be raised when input() is interrupted with a Keyboard Interrupt
                     print(e)
-                    if not self.client.keyboard_interrupt_event.is_set():
+                    if not self.keyboard_interrupt:
                         # print(self.color_error_msg_red(something_went_wrong_msg))
                         error = something_went_wrong_msg            
 
             pygame.display.flip()
             
-                
+    def color_error_msg_red(self, msg):
+        return colored(msg, "red", attrs=['bold'])
+
+    def validate_game_code(self, returned_input):
+        validation = namedtuple("validation", "passed_validation, code_or_error")
+        if returned_input.isalnum():
+            return validation(True, returned_input)
+        return validation(False, "Code can only contain letters and digits")
+
+    def terminate_program(self):
+        self.keyboard_interrupt = True
+        if self.client.client is not None:
+            try:
+                self.client.send_data({'DISCONNECT':self.client.DISCONNECT_MESSAGE, 'close_other_client':True})
+            except socket.error:
+                pass
+            self.client.client.close()   
+        error_msg = colored(f"Keyboard Interrupt: Program ended", "red", attrs=['bold'])        
+        print(f"\n{error_msg}\n")           
 
 if __name__ == "__main__":
     connect4 = Connect4()
     try:
         connect4.run_game()        
-        connect4.client.wait_for_threads()  
     except KeyboardInterrupt:
-        connect4.client.terminate_program()
+        connect4.terminate_program()
