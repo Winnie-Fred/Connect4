@@ -17,7 +17,7 @@ from pygame.sprite import RenderUpdates
 from pygame_version.client import Client
 from pygame_version.choice import Choice
 from pygame_version.gamestate import GameState
-from pygame_version.ui_tools import UIElement, CopyButtonElement, ClickableOrUnclickableBtn, InputBox, create_text_to_draw
+from pygame_version.ui_tools import UIElement, CopyButtonElement, ClickableOrUnclickableBtn, InputBox, FadeOutText, create_text_to_draw
 
 from termcolor import colored  # type: ignore
 
@@ -145,12 +145,18 @@ class Connect4:
             max_input_length=MAX_GAME_CODE_LENGTH,
         )
 
+        fade_out_text = FadeOutText(
+            font_size=15,
+            text_rgb=RED,
+            bg_rgb=BLUE,
+            center_position=(400, 300))
+
         buttons = RenderUpdates(return_btn, paste_btn)
 
-        return self.game_menu_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box)
+        return self.game_menu_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box, fade_out_text=fade_out_text)
 
 
-    def game_menu_loop(self, screen, buttons=None, menu_header='', input_box=None, submit_input_btn=None):
+    def game_menu_loop(self, screen, buttons=None, menu_header='', input_box=None, submit_input_btn=None, fade_out_text=None):
         """ Handles game menu loop until an action is return by a button in the
             buttons sprite renderer.
         """
@@ -158,6 +164,11 @@ class Connect4:
         submit_btn_clickable = False
         error = ''
         returned_input = ''
+        alpha = 255  # The current alpha value of the text surface.
+
+        time_until_fade = 4000
+        time_of_error = None       
+        
 
         while True:
             pasted_input = None
@@ -179,13 +190,25 @@ class Connect4:
                     else:
                         pressed_key = event.unicode
                 
-
             screen.fill(BLUE)
 
             if error:
-                # TODO: Make error fade out after some time, possibly display error when they have entered max characters
-                error_text = create_text_to_draw(error, 15, RED, BLUE, (400, 300))
-                error_text.draw(screen)
+                # TODO: Make error fade out after some time, possibly display error when they have entered max characters              
+
+                if fade_out_text:
+                    fade_out_text.text = error
+                    
+                    current_time = pygame.time.get_ticks()
+                    if current_time - time_of_error >= time_until_fade:
+                        if alpha > 0:
+                            # Reduce alpha each frame, but make sure it doesn't get below 0.
+                            alpha = max(alpha-4, 0)
+
+                    if not fade_out_text.update(alpha):
+                        error = ''
+                        alpha = 255
+                        
+                    fade_out_text.draw(screen)                    
 
             if menu_header:
                 menu_header.draw(screen)
@@ -211,6 +234,7 @@ class Connect4:
                             return ui_action
                         else:
                             # Validation failed
+                            time_of_error = pygame.time.get_ticks()
                             error = validation.code_or_error
                     else:
                         return ui_action

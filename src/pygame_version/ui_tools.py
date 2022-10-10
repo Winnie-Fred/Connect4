@@ -5,6 +5,7 @@ from pygame.sprite import Sprite
 
 from pygame_version.gamestate import GameState
 
+
 class TextToDIsplay:
     def __init__(self, image, center_position):
         self.image = image
@@ -152,8 +153,6 @@ class InputBox(Sprite):
             text=self.placeholder_text, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
         )
         self.old_input = self.text_surface
-        self.input_box = self.text_surface.get_rect(center=center_position)
-        self.old_input_box = self.old_input.get_rect(center=center_position)
         self.active = False
         self.key_down = False       
         
@@ -164,7 +163,7 @@ class InputBox(Sprite):
             
     @property
     def rect(self):
-        return self.input_box if self.key_down else self.old_input_box
+        return self.text_surface.get_rect(center=self.center_position) if self.key_down else self.old_input.get_rect(center=self.center_position)
 
     def draw(self, surface):
         surface.blit(self.image, self.rect)
@@ -174,6 +173,8 @@ class InputBox(Sprite):
             of the input border, the input itself and returns whether the btn to submit the 
             input is "clickable" depending on whether or not the max_input_length has been reached.
         """
+        self.old_input = self.text_surface
+
         if pasted_input is not None:
             pasted_input = pasted_input.strip()
             if len(pasted_input) > self.max_input_length:
@@ -184,8 +185,6 @@ class InputBox(Sprite):
                 text=self.user_input, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
             )
 
-        self.old_input = self.text_surface
-        self.old_input_box = self.old_input.get_rect(center=self.center_position)
         if mouse_up:
             if self.rect.collidepoint(mouse_pos):
                 self.color = self.color_active
@@ -212,7 +211,6 @@ class InputBox(Sprite):
             self.text_surface = create_surface_with_text(
                 text=self.placeholder_text, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
             )
-            self.input_box = self.text_surface.get_rect(center=self.center_position)
         after_input =  namedtuple("after_input", "color, submit_btn_clickable, returned_input")
         submit_btn_clickable = len(self.user_input)==self.max_input_length
         return after_input(self.color, submit_btn_clickable, self.user_input)
@@ -259,6 +257,47 @@ class CopyButtonElement(UIElement):
             self.mouse_up = False
         return GameState.NO_ACTION
 
+class FadeOutText(Sprite):
+    def __init__(self, font_size, text_rgb, bg_rgb, center_position, text=''):
+        self.font_size = font_size
+        self.text_rgb = text_rgb
+        self.bg_rgb = bg_rgb
+        self.center_position = center_position
+        self.text = text
+        self.original_surf = create_surface_with_text(
+            text=self.text, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
+        )
+        self.txt_surf = self.original_surf.copy()
+        self.original_surf_copy = self.original_surf.copy()
+        self.alpha = 255
+        self.alpha_changed = False
+
+    @property
+    def image(self):
+        return self.txt_surf if self.alpha_changed else self.original_surf_copy
+            
+    @property
+    def rect(self):
+        return self.txt_surf.get_rect(center=self.center_position) if self.alpha_changed else self.original_surf_copy.get_rect(center=self.center_position)
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+
+    def update(self, alpha):
+        self.original_surf = create_surface_with_text(
+            text=self.text, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
+        )
+        self.txt_surf = self.original_surf.copy()  # Don't modify the original text surf.
+        self.alpha = alpha
+        self.alpha_changed = (self.alpha == alpha)
+        if self.alpha_changed:
+            # Make text surface transparent with the alpha value and blit onto the screen
+            self.txt_surf.set_alpha(self.alpha)
+        else:
+            self.original_surf_copy = self.original_surf
+
+        return alpha # Return 0 or non-zero value corresponding to True or False
+        
 
 def create_surface_with_text(text, font_size, text_rgb, bg_rgb):
     """ Returns surface with text written on """
@@ -271,3 +310,4 @@ def create_text_to_draw(text, font_size, text_rgb, bg_rgb, center_position):
     font = pygame.freetype.SysFont("Courier", font_size, bold=True)
     surface, _ = font.render(text=text, fgcolor=text_rgb, bgcolor=bg_rgb)
     return TextToDIsplay(image=surface, center_position=center_position)
+
