@@ -73,7 +73,7 @@ class UIElement(Sprite):
         """ Draws element onto a surface """
         surface.blit(self.image, self.rect)
 
-class ClickableOrUnclickableBtn(UIElement):
+class DisabledOrEnabledBtn(UIElement):
     def __init__(self, center_position, text, font_size, bg_rgb, text_rgb, grayed_out_text_rgb, action=None):
         """
         Args:
@@ -86,7 +86,7 @@ class ClickableOrUnclickableBtn(UIElement):
             action - the gamestate change associated with this button
         """
         super().__init__(center_position, text, font_size, bg_rgb, text_rgb, action)
-        self.clickable = False
+        self.enabled = False
         unclickable_btn_image = create_surface_with_text(
             text=text, font_size=font_size, text_rgb=grayed_out_text_rgb, bg_rgb=bg_rgb)
         self.images.append(unclickable_btn_image)
@@ -94,7 +94,7 @@ class ClickableOrUnclickableBtn(UIElement):
 
     @property
     def image(self):
-        if not self.clickable:
+        if not self.enabled:
             return self.images[2]
         if self.mouse_over:
             return self.images[1]
@@ -103,19 +103,19 @@ class ClickableOrUnclickableBtn(UIElement):
 
     @property
     def rect(self):
-        if not self.clickable:
+        if not self.enabled:
             return self.rects[2]
         if self.mouse_over:
             return self.rects[1]
         if not self.mouse_over: 
             return self.rects[0]
 
-    def update(self, mouse_pos, mouse_up, clickable):
-        """ Updates the "mouse_over" and "clickable" variables and returns the button's
+    def update(self, mouse_pos, mouse_up, enabled):
+        """ Updates the "mouse_over" and "enabled" variables and returns the button's
             action value when clicked.
         """
-        if clickable:
-            self.clickable = True
+        if enabled:
+            self.enabled = True
             if self.rect.collidepoint(mouse_pos):
                 self.mouse_over = True
                 if mouse_up:
@@ -123,7 +123,7 @@ class ClickableOrUnclickableBtn(UIElement):
             else:
                 self.mouse_over = False
         else:
-            self.clickable = False
+            self.enabled = False
         return GameState.NO_ACTION
 
 class InputBox(Sprite):
@@ -172,7 +172,7 @@ class InputBox(Sprite):
     def update(self, mouse_pos, mouse_up, key_down, pressed_key, backspace, pasted_input):
         """ Updates the "key_down" variable and returns "after_input" that contains the "color" 
             of the input border, the input itself and returns whether the btn to submit the 
-            input is "clickable" depending on whether or not the min_input_length has been reached.
+            input is "enabled" depending on whether or not the min_input_length has been reached.
         """
         self.old_input = self.text_surface
 
@@ -212,9 +212,9 @@ class InputBox(Sprite):
             self.text_surface = create_surface_with_text(
                 text=self.placeholder_text, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
             )
-        after_input =  namedtuple("after_input", "color, submit_btn_clickable, returned_input")
-        submit_btn_clickable = len(self.user_input)>=self.min_input_length
-        return after_input(self.color, submit_btn_clickable, self.user_input)
+        after_input =  namedtuple("after_input", "color, submit_btn_enabled, returned_input")
+        submit_btn_enabled = len(self.user_input)>=self.min_input_length
+        return after_input(self.color, submit_btn_enabled, self.user_input)
 
 class CopyButtonElement(UIElement):
     def __init__(self, center_position, text, font_size, bg_rgb, text_rgb, text_after_mouse_up_event, action=None):

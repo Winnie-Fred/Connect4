@@ -17,7 +17,7 @@ from pygame.sprite import RenderUpdates
 from pygame_version.client import Client
 from pygame_version.choice import Choice
 from pygame_version.gamestate import GameState
-from pygame_version.ui_tools import UIElement, CopyButtonElement, ClickableOrUnclickableBtn, InputBox, FadeOutText, create_text_to_draw
+from pygame_version.ui_tools import UIElement, CopyButtonElement, DisabledOrEnabledBtn, InputBox, FadeOutText, create_text_to_draw
 
 from termcolor import colored  # type: ignore
 
@@ -136,7 +136,7 @@ class Connect4:
         return self.play_game(screen, buttons, copy_btn, choice, frames)
 
     def collect_ip_screen(self, screen, next_screen, **kwargs):
-        submit_ip_btn = ClickableOrUnclickableBtn(
+        submit_ip_btn = DisabledOrEnabledBtn(
             center_position=(400, 400),
             font_size=20,
             bg_rgb=BLUE,
@@ -191,7 +191,7 @@ class Connect4:
         return ui_action
 
     def join_game_with_code_screen(self, screen):
-        join_game_btn = ClickableOrUnclickableBtn(
+        join_game_btn = DisabledOrEnabledBtn(
             center_position=(400, 400),
             font_size=20,
             bg_rgb=BLUE,
@@ -273,7 +273,7 @@ class Connect4:
             buttons sprite renderer.
         """
         
-        submit_btn_clickable = False
+        submit_btn_enabled = False
         error = ''
         returned_input = ''
         alpha = 255  # The current alpha value of the text surface.
@@ -333,7 +333,7 @@ class Connect4:
 
             buttons.draw(screen)
 
-            ui_action = submit_input_btn.update(pygame.mouse.get_pos(), mouse_up, submit_btn_clickable)
+            ui_action = submit_input_btn.update(pygame.mouse.get_pos(), mouse_up, submit_btn_enabled)
             if ui_action != GameState.NO_ACTION:
                 if ui_action == GameState.JOIN_GAME_WITH_ENTERED_CODE:
                     validation = self.validate_game_code(returned_input)
@@ -354,7 +354,7 @@ class Connect4:
             after_input = input_box.update(pygame.mouse.get_pos(), mouse_up, key_down, pressed_key, backspace, pasted_input)                   
             input_box.draw(screen)
             pygame.draw.rect(screen, after_input.color, (input_box.rect.left-3, input_box.rect.top-5, input_box.rect.w+10, input_box.rect.h*2), 2)
-            submit_btn_clickable = after_input.submit_btn_clickable
+            submit_btn_enabled = after_input.submit_btn_enabled
             returned_input = after_input.returned_input
 
             pygame.display.flip()
