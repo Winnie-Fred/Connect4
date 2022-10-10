@@ -127,7 +127,7 @@ class ClickableOrUnclickableBtn(UIElement):
         return GameState.NO_ACTION
 
 class InputBox(Sprite):
-    def __init__(self, center_position, placeholder_text, font_size, bg_rgb, text_rgb, max_input_length):
+    def __init__(self, center_position, placeholder_text, font_size, bg_rgb, text_rgb, max_input_length, min_input_length):
         """
         Args:
             center_position - tuple (x, y)
@@ -141,6 +141,7 @@ class InputBox(Sprite):
         self.active = False
         self.center_position = center_position
         self.max_input_length = max_input_length
+        self.min_input_length = min_input_length
         self.user_input = ''
         self.color_active = pygame.Color('lightskyblue3')
         self.color_inactive = (128, 128, 128)
@@ -171,7 +172,7 @@ class InputBox(Sprite):
     def update(self, mouse_pos, mouse_up, key_down, pressed_key, backspace, pasted_input):
         """ Updates the "key_down" variable and returns "after_input" that contains the "color" 
             of the input border, the input itself and returns whether the btn to submit the 
-            input is "clickable" depending on whether or not the max_input_length has been reached.
+            input is "clickable" depending on whether or not the min_input_length has been reached.
         """
         self.old_input = self.text_surface
 
@@ -212,7 +213,7 @@ class InputBox(Sprite):
                 text=self.placeholder_text, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
             )
         after_input =  namedtuple("after_input", "color, submit_btn_clickable, returned_input")
-        submit_btn_clickable = len(self.user_input)==self.max_input_length
+        submit_btn_clickable = len(self.user_input)>=self.min_input_length
         return after_input(self.color, submit_btn_clickable, self.user_input)
 
 class CopyButtonElement(UIElement):
