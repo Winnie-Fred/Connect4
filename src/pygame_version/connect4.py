@@ -1,11 +1,11 @@
-from cgitb import text
-from collections import namedtuple
 import sys
 import time
 import socket
 import pickle
 import select
-import string
+import re
+from cgitb import text
+from collections import namedtuple
 
 import pygame
 import pygame.freetype
@@ -26,8 +26,9 @@ RED = (204, 0, 0)
 WHITE = (255, 255, 255)
 GRAY = (128, 128, 128)
 MAX_GAME_CODE_LENGTH = 16
+MAX_IP_ADDR_LENGTH = 15
+MIN_IP_ADDR_LENGTH = 7
 
-        
 
 class Connect4:
 
@@ -50,16 +51,16 @@ class Connect4:
                 game_state = self.menu_screen(screen)                
 
             if game_state == GameState.CREATE_GAME:
-                game_state = self.main_game_screen(screen, Choice.CREATE_GAME)
+                game_state = self.collect_ip_screen(screen, self.main_game_screen, choice=Choice.CREATE_GAME)
 
             if game_state == GameState.JOIN_ANY_GAME:
-                game_state = self.main_game_screen(screen, Choice.JOIN_ANY_GAME)
+                game_state = self.collect_ip_screen(screen, self.main_game_screen, choice=Choice.JOIN_ANY_GAME)
 
             if game_state == GameState.JOIN_GAME_WITH_CODE:
-                game_state = self.join_game_with_code_screen(screen)
+                game_state = self.collect_ip_screen(screen, self.join_game_with_code_screen)
 
             if game_state == GameState.JOIN_GAME_WITH_ENTERED_CODE:
-                game_state = self.main_game_screen(screen, self.code)
+                game_state = self.main_game_screen(screen, Choice.JOIN_GAME_WITH_CODE, code=self.code)
 
             if game_state == GameState.QUIT:                
                 pygame.quit()
@@ -70,7 +71,7 @@ class Connect4:
 
         create_game_btn = UIElement(
             center_position=(400, 200),
-            font_size=30,
+            font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             text="Create a game",
@@ -78,7 +79,7 @@ class Connect4:
         )
         join_any_game_btn = UIElement(
             center_position=(400, 300),
-            font_size=30,
+            font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             text="Join any game",
@@ -86,7 +87,7 @@ class Connect4:
         )
         join_game_with_code_btn = UIElement(
             center_position=(400, 400),
-            font_size=30,
+            font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             text="Join game with code",
@@ -94,7 +95,7 @@ class Connect4:
         )
         quit_btn = UIElement(
             center_position=(400, 500),
-            font_size=30,
+            font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             text="Quit",
@@ -112,7 +113,7 @@ class Connect4:
 
         return_btn = UIElement(
             center_position=(140, 570),
-            font_size=20,
+            font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             text="Return to main menu",
@@ -134,6 +135,61 @@ class Connect4:
         
         return self.play_game(screen, buttons, copy_btn, choice, frames)
 
+    def collect_ip_screen(self, screen, next_screen, **kwargs):
+        submit_ip_btn = ClickableOrUnclickableBtn(
+            center_position=(400, 400),
+            font_size=20,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            grayed_out_text_rgb=GRAY,
+            text="Continue",
+            action=GameState.CONTINUE,
+        )
+
+        return_btn = UIElement(
+            center_position=(140, 570),
+            font_size=15,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            text="Return to main menu",
+            action=GameState.MENU,
+        )
+        
+        paste_btn = UIElement(
+            center_position=(600, 200),
+            font_size=15,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            text="Paste",
+            action=GameState.PASTE,
+        )
+
+        input_box = InputBox(
+            center_position = (400, 200),
+            placeholder_text='Enter IP here',
+            font_size=20,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            max_input_length=MAX_IP_ADDR_LENGTH,
+            min_input_length=MIN_IP_ADDR_LENGTH,
+        )
+
+        fade_out_text = FadeOutText(
+            font_size=15,
+            text_rgb=RED,
+            bg_rgb=BLUE,
+            center_position=(400, 300))
+
+        buttons = RenderUpdates(return_btn, paste_btn)
+
+        ui_action = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=submit_ip_btn, input_box=input_box, fade_out_text=fade_out_text)
+        if ui_action != GameState.MENU:
+            if 'choice' in kwargs:
+                choice = kwargs['choice']
+                return next_screen(screen, choice=choice)
+            return next_screen(screen)
+        return ui_action
+
     def join_game_with_code_screen(self, screen):
         join_game_btn = ClickableOrUnclickableBtn(
             center_position=(400, 400),
@@ -147,7 +203,7 @@ class Connect4:
 
         return_btn = UIElement(
             center_position=(140, 570),
-            font_size=20,
+            font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             text="Return to main menu",
@@ -170,6 +226,7 @@ class Connect4:
             bg_rgb=BLUE,
             text_rgb=WHITE,
             max_input_length=MAX_GAME_CODE_LENGTH,
+            min_input_length=MAX_GAME_CODE_LENGTH,
         )
 
         fade_out_text = FadeOutText(
@@ -180,12 +237,16 @@ class Connect4:
 
         buttons = RenderUpdates(return_btn, paste_btn)
 
-        return self.join_game_with_code_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box, fade_out_text=fade_out_text)
+        return self.collect_input_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box, fade_out_text=fade_out_text)
 
     def game_menu_loop(self, screen, buttons, menu_header):
         """ Handles game menu loop until an action is return by a button in the
             buttons sprite renderer.
         """
+
+        if self.client.client is not None:
+            self.client.client.close()
+
         while True:
             mouse_up = False
             for event in pygame.event.get():
@@ -207,18 +268,18 @@ class Connect4:
             buttons.draw(screen)
             pygame.display.flip()
 
-    def join_game_with_code_loop(self, screen, buttons, input_box, submit_input_btn, fade_out_text):
-        """ Handles game menu loop until an action is return by a button in the
+    def collect_input_loop(self, screen, buttons, input_box, submit_input_btn, fade_out_text):
+        """ Collects input in loop until an action is return by a button in the
             buttons sprite renderer.
         """
-
+        
         submit_btn_clickable = False
         error = ''
         returned_input = ''
         alpha = 255  # The current alpha value of the text surface.
 
         time_until_fade = 4000
-        time_of_error = None       
+        time_of_error = None     
         
 
         while True:
@@ -227,6 +288,7 @@ class Connect4:
             key_down = False
             backspace = False
             pressed_key = None
+            validation = None
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -275,13 +337,16 @@ class Connect4:
             if ui_action != GameState.NO_ACTION:
                 if ui_action == GameState.JOIN_GAME_WITH_ENTERED_CODE:
                     validation = self.validate_game_code(returned_input)
+                elif ui_action == GameState.CONTINUE:
+                    validation = self.validate_ip_address(returned_input)
+                if validation is not None:
                     if validation.passed_validation:
                         self.code = validation.code_or_error
                         return ui_action
                     else:
                         # Validation failed
                         time_of_error = pygame.time.get_ticks()
-                        error = validation.code_or_error
+                        error = validation.code_or_error                    
                 else:
                     return ui_action
             submit_input_btn.draw(screen)
@@ -293,7 +358,7 @@ class Connect4:
             returned_input = after_input.returned_input
 
             pygame.display.flip()
-
+    
     def play_game(self, screen, buttons, copy_btn, choice, frames):
 
         def clear_screen():
@@ -559,6 +624,14 @@ class Connect4:
         if returned_input.isalnum():
             return validation(True, returned_input)
         return validation(False, "Code can only contain letters and digits")
+    
+    def validate_ip_address(self, returned_input):
+        pattern = re.compile(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+        match = pattern.search(returned_input)
+        validation = namedtuple("validation", "passed_validation, code_or_error")
+        if match:
+            return validation(True, returned_input)
+        return validation(False, "That IP address is invalid")
 
     def terminate_program(self):
         self.keyboard_interrupt = True
