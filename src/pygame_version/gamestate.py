@@ -7,7 +7,7 @@ class GameState(Enum):
     CREATE_GAME = 1
     JOIN_ANY_GAME = 2
     JOIN_GAME_WITH_CODE = 3
-    JOIN_GAME_WITH_ENTERED_CODE = 4
-    COPY = 5
-    PASTE = 6
-    CONTINUE = 7
+    COPY = 4
+    PASTE = 5
+    CONTINUE = 6
+    CONTINUE_WITH_DEFAULT_IP = 7

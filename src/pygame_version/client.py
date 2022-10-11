@@ -18,12 +18,18 @@ class Client:
         self.HEADERSIZE = 10
 
         self.client = None
-        self.server = socket.gethostbyname(socket.gethostname())
+        self.server = None
         # self.server = "127.0.0.1" #  Uncomment this line to test on localhost
         self.port = 5050
+        self.addr = None
+
+    def get_default_ip(self):
+        return socket.gethostbyname(socket.gethostname())
+
+    def connect_to_game(self, choice, ip, code):
+        self.server = ip
         self.addr = (self.server, self.port)
 
-    def connect_to_game(self, choice):
         try:
             self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         except socket.error as e:
