@@ -412,8 +412,6 @@ class Connect4:
         text_and_error = self.client.connect_to_game(choice, ip, code)
         if text_and_error['error']:
             error = text_and_error['text']
-        else:
-            loading_text = "Creating game"
 
         while True:
             mouse_up = False
