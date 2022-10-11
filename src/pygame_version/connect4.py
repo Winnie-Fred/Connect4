@@ -205,6 +205,15 @@ class Connect4:
             action=GameState.PASTE,
         )
 
+        clear_btn = UIElement(
+            center_position=(150, 200),
+            font_size=15,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            text="Clear",
+            action=GameState.CLEAR,
+        )
+
         input_box = InputBox(
             center_position = (350, 200),
             placeholder_text='Enter IP here',
@@ -221,7 +230,7 @@ class Connect4:
             bg_rgb=BLUE,
             center_position=(350, 300))
 
-        buttons = RenderUpdates(return_btn, paste_btn, default_ip_btn, help_btn)
+        buttons = RenderUpdates(return_btn, paste_btn, clear_btn, default_ip_btn, help_btn)
         game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=submit_ip_btn, input_box=input_box, fade_out_text=fade_out_text, default_ip=default_ip)
         ui_action = game_state_and_input.game_state
         if ui_action != GameState.MENU:
@@ -260,6 +269,15 @@ class Connect4:
             action=GameState.PASTE,
         )
 
+        clear_btn = UIElement(
+            center_position=(200, 200),
+            font_size=15,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            text="Clear",
+            action=GameState.CLEAR,
+        )
+
         input_box = InputBox(
             center_position = (400, 200),
             placeholder_text='Enter your name here',
@@ -276,7 +294,7 @@ class Connect4:
             bg_rgb=BLUE,
             center_position=(400, 300))
 
-        buttons = RenderUpdates(return_btn, paste_btn)
+        buttons = RenderUpdates(return_btn, paste_btn, clear_btn)
         return self.collect_input_loop(screen, buttons=buttons, submit_input_btn=continue_btn, input_box=input_box, fade_out_text=fade_out_text, name=name)       
 
     def join_game_with_code_screen(self, screen, ip):
@@ -308,6 +326,15 @@ class Connect4:
             action=GameState.PASTE,
         )
 
+        clear_btn = UIElement(
+            center_position=(200, 200),
+            font_size=15,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            text="Clear",
+            action=GameState.CLEAR,
+        )
+
         input_box = InputBox(
             center_position = (400, 200),
             placeholder_text='Enter code here',
@@ -324,7 +351,7 @@ class Connect4:
             bg_rgb=BLUE,
             center_position=(400, 300))
 
-        buttons = RenderUpdates(return_btn, paste_btn)
+        buttons = RenderUpdates(return_btn, paste_btn, clear_btn)
         game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box, fade_out_text=fade_out_text)
         ui_action = game_state_and_input.game_state
         if ui_action != GameState.MENU:
@@ -377,6 +404,7 @@ class Connect4:
 
         while True:
             pasted_input = None
+            clear = False
             mouse_up = False
             key_down = False
             backspace = False
@@ -421,6 +449,8 @@ class Connect4:
                 if ui_action != GameState.NO_ACTION:
                     if ui_action == GameState.PASTE:
                         pasted_input = pyperclip.paste()
+                    elif ui_action == GameState.CLEAR:
+                        clear = True
                     elif ui_action == GameState.CONTINUE_WITH_DEFAULT_IP:
                         return game_state_and_input(ui_action, default_ip)
                     elif ui_action == GameState.HELP:
@@ -449,7 +479,7 @@ class Connect4:
                     return game_state_and_input(ui_action, '')
             submit_input_btn.draw(screen)
 
-            after_input = input_box.update(pygame.mouse.get_pos(), mouse_up, key_down, pressed_key, backspace, pasted_input)                   
+            after_input = input_box.update(pygame.mouse.get_pos(), mouse_up, key_down, pressed_key, backspace, pasted_input, clear)                   
             input_box.draw(screen)
             pygame.draw.rect(screen, after_input.color, (input_box.rect.left-3, input_box.rect.top-5, input_box.rect.w+10, input_box.rect.h*2), 2)
             submit_btn_enabled = after_input.submit_btn_enabled

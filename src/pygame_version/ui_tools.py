@@ -169,12 +169,18 @@ class InputBox(Sprite):
     def draw(self, surface):
         surface.blit(self.image, self.rect)
 
-    def update(self, mouse_pos, mouse_up, key_down, pressed_key, backspace, pasted_input):
+    def update(self, mouse_pos, mouse_up, key_down, pressed_key, backspace, pasted_input, clear):
         """ Updates the "key_down" variable and returns "after_input" that contains the "color" 
             of the input border, the input itself and returns whether the btn to submit the 
             input is "enabled" depending on whether or not the min_input_length has been reached.
         """
         self.old_input = self.text_surface
+
+        if clear:
+            self.user_input = ''
+            self.text_surface = create_surface_with_text(
+                text=self.user_input, font_size=self.font_size, text_rgb=self.text_rgb, bg_rgb=self.bg_rgb
+            )
 
         if pasted_input is not None:
             pasted_input = pasted_input.strip()

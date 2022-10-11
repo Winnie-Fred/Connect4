@@ -10,7 +10,8 @@ class GameState(Enum):
     JOIN_GAME_WITH_ENTERED_CODE = 4
     COPY = 5
     PASTE = 6
-    CONTINUE = 7
-    CONTINUE_WITH_DEFAULT_IP = 8
-    HELP = 9
-    SUBMIT_NAME = 10
+    CLEAR = 7
+    CONTINUE = 8
+    CONTINUE_WITH_DEFAULT_IP = 9
+    HELP = 10
+    SUBMIT_NAME = 11
