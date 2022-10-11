@@ -11,3 +11,4 @@ class GameState(Enum):
     PASTE = 5
     CONTINUE = 6
     CONTINUE_WITH_DEFAULT_IP = 7
+    HELP = 8

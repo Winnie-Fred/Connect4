@@ -4,6 +4,7 @@ import socket
 import pickle
 import select
 import re
+import webbrowser
 from cgitb import text
 from collections import namedtuple
 
@@ -28,6 +29,7 @@ GRAY = (128, 128, 128)
 MAX_GAME_CODE_LENGTH = 16
 MAX_IP_ADDR_LENGTH = 15
 MIN_IP_ADDR_LENGTH = 7
+HELP_LINK = "https://github.com/Winnie-Fred/Connect4#finding-your-internal-ipv4-address"
 
 
 class Connect4:
@@ -143,6 +145,15 @@ class Connect4:
             action=GameState.CONTINUE,
         )
 
+        help_btn = UIElement(
+            center_position=(400, 500),
+            font_size=15,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            text="Help",
+            action=GameState.HELP,
+        )
+
         default_ip_btn = UIElement(
             center_position=(600, 400),
             font_size=15,
@@ -186,7 +197,7 @@ class Connect4:
             bg_rgb=BLUE,
             center_position=(400, 300))
 
-        buttons = RenderUpdates(return_btn, paste_btn, default_ip_btn)
+        buttons = RenderUpdates(return_btn, paste_btn, default_ip_btn, help_btn)
         game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=submit_ip_btn, input_box=input_box, fade_out_text=fade_out_text, default_ip=default_ip)
         ui_action = game_state_and_input.game_state
         if ui_action != GameState.MENU:
@@ -340,6 +351,8 @@ class Connect4:
                         pasted_input = pyperclip.paste()
                     elif ui_action == GameState.CONTINUE_WITH_DEFAULT_IP:
                         return game_state_and_input(ui_action, default_ip)
+                    elif ui_action == GameState.HELP:
+                        webbrowser.open(HELP_LINK, new=2)
                     else:                                              
                         return game_state_and_input(ui_action, '')
 
