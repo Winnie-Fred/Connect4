@@ -136,7 +136,7 @@ class Connect4:
     def collect_ip_screen(self, screen, next_screen, **kwargs):
         default_ip = self.client.get_default_ip()
         submit_ip_btn = DisabledOrEnabledBtn(
-            center_position=(200, 400),
+            center_position=(350, 400),
             font_size=20,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -146,7 +146,7 @@ class Connect4:
         )
 
         help_btn = UIElement(
-            center_position=(400, 500),
+            center_position=(150, 400),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -182,7 +182,7 @@ class Connect4:
         )
 
         input_box = InputBox(
-            center_position = (400, 200),
+            center_position = (350, 200),
             placeholder_text='Enter IP here',
             font_size=20,
             bg_rgb=BLUE,
