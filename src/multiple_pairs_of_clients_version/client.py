@@ -61,7 +61,7 @@ class Client(BaseClient):
             return
         elif choice == 2:
             try:
-                any_or_invite = input("\nType in the code for the game you want to join or press Enter to join any game: ").strip()
+                code = input("\nType in the code for the game you want to join or press Enter to join any game: ").strip()
             except EOFError:
                 print(colored(f"Oops! Something went wrong", "red", attrs=['bold']))
                 self.stop_flag.set()
@@ -105,8 +105,8 @@ class Client(BaseClient):
                 loading_thread.daemon = True
                 loading_thread.start()
             elif choice == 2:
-                if any_or_invite:
-                    self.send_data({'join_game_with_invite':any_or_invite})
+                if code:
+                    self.send_data({'join_game_with_invite':code})
                 else:
                     self.send_data({'join_any_game':'True'})
 
