@@ -214,7 +214,7 @@ class InputBox(Sprite):
             )
         after_input =  namedtuple("after_input", "color, submit_btn_enabled, returned_input")
         submit_btn_enabled = len(self.user_input)>=self.min_input_length
-        return after_input(self.color, submit_btn_enabled, self.user_input)
+        return after_input(self.color, submit_btn_enabled, self.user_input.strip())
 
 class CopyButtonElement(UIElement):
     def __init__(self, center_position, text, font_size, bg_rgb, text_rgb, text_after_mouse_up_event, action=None):

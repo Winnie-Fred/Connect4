@@ -35,7 +35,6 @@ class Connect4:
     def __init__(self):
         self.client = Client()
         self.ID = None
-        self.code = ''
         self.keyboard_interrupt = False
     
     def run_game(self):
@@ -57,10 +56,7 @@ class Connect4:
                 game_state = self.collect_ip_screen(screen, self.main_game_screen, choice=Choice.JOIN_ANY_GAME)
 
             if game_state == GameState.JOIN_GAME_WITH_CODE:
-                game_state = self.collect_ip_screen(screen, self.join_game_with_code_screen)
-
-            if game_state == GameState.JOIN_GAME_WITH_ENTERED_CODE:
-                game_state = self.main_game_screen(screen, Choice.JOIN_GAME_WITH_CODE, code=self.code)
+                game_state = self.collect_ip_screen(screen, self.join_game_with_code_screen)            
 
             if game_state == GameState.QUIT:                
                 pygame.quit()
@@ -106,7 +102,7 @@ class Connect4:
 
         return self.game_menu_loop(screen, buttons, menu_header)
 
-    def main_game_screen(self, screen, choice, code=''):
+    def main_game_screen(self, screen, choice, ip, code=''):
         frames = []
         for i in range(1, 50):
             frames.append(pygame.image.load(f'../../images/loading-animation-balls/frame-{i}.png').convert_alpha())
@@ -133,17 +129,27 @@ class Connect4:
         buttons = RenderUpdates(return_btn)
         copy_btn = RenderUpdates(copy_btn)
         
-        return self.play_game(screen, buttons, copy_btn, choice, frames)
+        return self.play_game(screen, buttons, copy_btn, frames, choice=choice, ip=ip, code=code)
 
     def collect_ip_screen(self, screen, next_screen, **kwargs):
+        default_ip = self.client.get_default_ip()
         submit_ip_btn = DisabledOrEnabledBtn(
-            center_position=(400, 400),
+            center_position=(200, 400),
             font_size=20,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             grayed_out_text_rgb=GRAY,
             text="Continue",
             action=GameState.CONTINUE,
+        )
+
+        default_ip_btn = UIElement(
+            center_position=(600, 400),
+            font_size=15,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            text=f"Continue with {default_ip}",
+            action=GameState.CONTINUE_WITH_DEFAULT_IP,
         )
 
         return_btn = UIElement(
@@ -180,17 +186,17 @@ class Connect4:
             bg_rgb=BLUE,
             center_position=(400, 300))
 
-        buttons = RenderUpdates(return_btn, paste_btn)
-
-        ui_action = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=submit_ip_btn, input_box=input_box, fade_out_text=fade_out_text)
+        buttons = RenderUpdates(return_btn, paste_btn, default_ip_btn)
+        game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=submit_ip_btn, input_box=input_box, fade_out_text=fade_out_text, default_ip=default_ip)
+        ui_action = game_state_and_input.game_state
         if ui_action != GameState.MENU:
             if 'choice' in kwargs:
                 choice = kwargs['choice']
-                return next_screen(screen, choice=choice)
-            return next_screen(screen)
+                return next_screen(screen, choice=choice, ip=game_state_and_input.input)
+            return next_screen(screen, ip=game_state_and_input.input)
         return ui_action
 
-    def join_game_with_code_screen(self, screen):
+    def join_game_with_code_screen(self, screen, ip):
         join_game_btn = DisabledOrEnabledBtn(
             center_position=(400, 400),
             font_size=20,
@@ -236,8 +242,11 @@ class Connect4:
             center_position=(400, 300))
 
         buttons = RenderUpdates(return_btn, paste_btn)
-
-        return self.collect_input_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box, fade_out_text=fade_out_text)
+        game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box, fade_out_text=fade_out_text)
+        ui_action = game_state_and_input.game_state
+        if ui_action != GameState.MENU:
+            return self.main_game_screen(screen, choice=Choice.JOIN_GAME_WITH_CODE, ip=ip, code=game_state_and_input.input)
+        return ui_action
 
     def game_menu_loop(self, screen, buttons, menu_header):
         """ Handles game menu loop until an action is return by a button in the
@@ -268,7 +277,7 @@ class Connect4:
             buttons.draw(screen)
             pygame.display.flip()
 
-    def collect_input_loop(self, screen, buttons, input_box, submit_input_btn, fade_out_text):
+    def collect_input_loop(self, screen, buttons, input_box, submit_input_btn, fade_out_text, default_ip=None):
         """ Collects input in loop until an action is return by a button in the
             buttons sprite renderer.
         """
@@ -279,8 +288,9 @@ class Connect4:
         alpha = 255  # The current alpha value of the text surface.
 
         time_until_fade = 4000
-        time_of_error = None     
+        time_of_error = None   
         
+        game_state_and_input = namedtuple("game_state_and_input", "game_state, input")
 
         while True:
             pasted_input = None
@@ -328,8 +338,10 @@ class Connect4:
                 if ui_action != GameState.NO_ACTION:
                     if ui_action == GameState.PASTE:
                         pasted_input = pyperclip.paste()
+                    elif ui_action == GameState.CONTINUE_WITH_DEFAULT_IP:
+                        return game_state_and_input(ui_action, default_ip)
                     else:                                              
-                        return ui_action
+                        return game_state_and_input(ui_action, '')
 
             buttons.draw(screen)
 
@@ -340,15 +352,14 @@ class Connect4:
                 elif ui_action == GameState.CONTINUE:
                     validation = self.validate_ip_address(returned_input)
                 if validation is not None:
-                    if validation.passed_validation:
-                        self.code = validation.code_or_error
-                        return ui_action
+                    if validation.passed_validation:                        
+                        return game_state_and_input(ui_action, validation.code_or_error)
                     else:
                         # Validation failed
                         time_of_error = pygame.time.get_ticks()
                         error = validation.code_or_error                    
                 else:
-                    return ui_action
+                    return game_state_and_input(ui_action, '')
             submit_input_btn.draw(screen)
 
             after_input = input_box.update(pygame.mouse.get_pos(), mouse_up, key_down, pressed_key, backspace, pasted_input)                   
@@ -359,7 +370,7 @@ class Connect4:
 
             pygame.display.flip()
     
-    def play_game(self, screen, buttons, copy_btn, choice, frames):
+    def play_game(self, screen, buttons, copy_btn, frames, choice, ip, code=''):        
 
         def clear_screen():
             nonlocal loading_text, texts
@@ -385,7 +396,7 @@ class Connect4:
         full_msg = b''
         new_msg = True
 
-        text_and_error = self.client.connect_to_game(choice)
+        text_and_error = self.client.connect_to_game(choice, ip, code)
         if text_and_error['error']:
             error = text_and_error['text']
         else:
@@ -406,7 +417,7 @@ class Connect4:
                 if ui_action != GameState.NO_ACTION:
                     return ui_action                    
                         
-                buttons.draw(screen)
+            buttons.draw(screen)
 
             if error:
                 clear_screen()
@@ -422,11 +433,11 @@ class Connect4:
                     enabled = True
                 for button in copy_btn:
                     ui_action = button.update(pygame.mouse.get_pos(), mouse_up, enabled)
-                if ui_action != GameState.NO_ACTION:
-                    if ui_action == GameState.COPY:                        
-                        last_click = current_time
-                        pyperclip.copy(code_to_copy)
-                        enabled = False                         
+                    if ui_action != GameState.NO_ACTION:
+                        if ui_action == GameState.COPY:                        
+                            last_click = current_time
+                            pyperclip.copy(code_to_copy)
+                            enabled = False                         
                 copy_btn.draw(screen)
 
 
@@ -629,6 +640,8 @@ class Connect4:
         pattern = re.compile(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
         match = pattern.search(returned_input)
         validation = namedtuple("validation", "passed_validation, code_or_error")
+        if returned_input.lower() == "localhost":
+            return validation(True, returned_input)
         if match:
             return validation(True, returned_input)
         return validation(False, "That IP address is invalid")
