@@ -15,6 +15,12 @@ import pyperclip # type: ignore
 from pygame.rect import Rect
 from pygame.sprite import RenderUpdates
 
+from basic_version.connect4 import Connect4Game
+
+from core.player import Player
+from core.level import Level
+from core.board import Board
+
 from pygame_version.client import Client
 from pygame_version.choice import Choice
 from pygame_version.gamestate import GameState
@@ -33,11 +39,29 @@ HELP_LINK = "https://github.com/Winnie-Fred/Connect4#finding-your-internal-ipv4-
 
 
 class Connect4:
+    POINTS_FOR_WINNING_ONE_ROUND = 10
+    connect4game = Connect4Game()
 
     def __init__(self):
         self.client = Client()
         self.ID = None
         self.keyboard_interrupt = False
+        self._reset_game()
+
+    def _reset_game(self):
+        self.ID = None
+        self.you = ""
+        self.opponent = Player(name='', marker='')
+        self.player = Player(name='', marker='')
+        self.your_turn = False
+        self.level = Level()
+        self._reset_for_new_round()
+
+    def _reset_for_new_round(self):
+        self.board = Board()
+        self.play_again_reply = False
+        self.first_player_for_next_round = Player(name='', marker='')
+        self.round_over_json = {}
     
     def run_game(self):
         pygame.init()
@@ -195,7 +219,7 @@ class Connect4:
             font_size=15,
             text_rgb=RED,
             bg_rgb=BLUE,
-            center_position=(400, 300))
+            center_position=(350, 300))
 
         buttons = RenderUpdates(return_btn, paste_btn, default_ip_btn, help_btn)
         game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=submit_ip_btn, input_box=input_box, fade_out_text=fade_out_text, default_ip=default_ip)
@@ -206,6 +230,54 @@ class Connect4:
                 return next_screen(screen, choice=choice, ip=game_state_and_input.input)
             return next_screen(screen, ip=game_state_and_input.input)
         return ui_action
+
+    def collect_name_screen(self, screen, name=''):
+        continue_btn = DisabledOrEnabledBtn(
+            center_position=(400, 400),
+            font_size=20,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            grayed_out_text_rgb=GRAY,
+            text="Continue",
+            action=GameState.SUBMIT_NAME,
+        )
+
+        return_btn = UIElement(
+            center_position=(140, 570),
+            font_size=15,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            text="Return to main menu",
+            action=GameState.MENU,
+        )
+        
+        paste_btn = UIElement(
+            center_position=(600, 200),
+            font_size=15,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            text="Paste",
+            action=GameState.PASTE,
+        )
+
+        input_box = InputBox(
+            center_position = (400, 200),
+            placeholder_text='Enter your name here',
+            font_size=20,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            max_input_length=15,
+            min_input_length=2,
+        )
+
+        fade_out_text = FadeOutText(
+            font_size=15,
+            text_rgb=RED,
+            bg_rgb=BLUE,
+            center_position=(400, 300))
+
+        buttons = RenderUpdates(return_btn, paste_btn)
+        return self.collect_input_loop(screen, buttons=buttons, submit_input_btn=continue_btn, input_box=input_box, fade_out_text=fade_out_text, name=name)       
 
     def join_game_with_code_screen(self, screen, ip):
         join_game_btn = DisabledOrEnabledBtn(
@@ -288,7 +360,7 @@ class Connect4:
             buttons.draw(screen)
             pygame.display.flip()
 
-    def collect_input_loop(self, screen, buttons, input_box, submit_input_btn, fade_out_text, default_ip=None):
+    def collect_input_loop(self, screen, buttons, input_box, submit_input_btn, fade_out_text, default_ip=None, name=''):
         """ Collects input in loop until an action is return by a button in the
             buttons sprite renderer.
         """
@@ -352,7 +424,7 @@ class Connect4:
                     elif ui_action == GameState.CONTINUE_WITH_DEFAULT_IP:
                         return game_state_and_input(ui_action, default_ip)
                     elif ui_action == GameState.HELP:
-                        webbrowser.open(HELP_LINK, new=2)
+                        webbrowser.open(HELP_LINK, new=2)                        
                     else:                                              
                         return game_state_and_input(ui_action, '')
 
@@ -364,13 +436,15 @@ class Connect4:
                     validation = self.validate_game_code(returned_input)
                 elif ui_action == GameState.CONTINUE:
                     validation = self.validate_ip_address(returned_input)
+                elif ui_action == GameState.SUBMIT_NAME:
+                    validation = self.validate_name(returned_input, name)
                 if validation is not None:
                     if validation.passed_validation:                        
-                        return game_state_and_input(ui_action, validation.code_or_error)
+                        return game_state_and_input(ui_action, validation.valid_input_or_error)
                     else:
                         # Validation failed
                         time_of_error = pygame.time.get_ticks()
-                        error = validation.code_or_error                    
+                        error = validation.valid_input_or_error                    
                 else:
                     return game_state_and_input(ui_action, '')
             submit_input_btn.draw(screen)
@@ -383,7 +457,7 @@ class Connect4:
 
             pygame.display.flip()
     
-    def play_game(self, screen, buttons, copy_btn, frames, choice, ip, code=''):        
+    def play_game(self, screen, buttons, copy_btn, frames, choice, ip, code=''):
 
         def clear_screen():
             nonlocal loading_text, texts
@@ -394,26 +468,39 @@ class Connect4:
         last_click = None
         enabled = False
         time_until_enable = 3000
+        time_of_status_msg_display = 1000
         animation_cooldown = 50
-        frame = 0
+        frame = 0  
 
-        error = ''
+        game_started = False      
+
+        errors = []
         loading_text = ''
+        status_msg = ''
+
         general_error_msg = "Server closed the connection or other client may have disconnected"
         something_went_wrong_msg = "Oops! Something went wrong"
         code_to_display = None
         code_to_copy = ''
         unpickled_json = {}
         texts = []
+        default_y_position_for_printing_error = 400
 
         full_msg = b''
         new_msg = True
 
+        self._reset_game()
         text_and_error = self.client.connect_to_game(choice, ip, code)
         if text_and_error['error']:
-            error = text_and_error['text']
+            errors.append(text_and_error['text'])
+        else: 
+            print(text_and_error['text'])
+            status_msg = text_and_error['text']
+            status_msg_end_time = pygame.time.get_ticks() + time_of_status_msg_display
+
 
         while True:
+            default_y_position_for_printing_error = 400
             mouse_up = False
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -430,10 +517,16 @@ class Connect4:
                         
             buttons.draw(screen)
 
-            if error:
-                clear_screen()
-                error_text = create_text_to_draw(error, 15, RED, BLUE, (400, 400))
-                error_text.draw(screen)
+            
+            for error in errors:
+                if game_started:
+                    pass
+                else:
+                    clear_screen()
+                    error_text = create_text_to_draw(error, 15, RED, BLUE, (400, default_y_position_for_printing_error))
+                    error_text.draw(screen)
+                    default_y_position_for_printing_error += 50
+                    
 
             for text in texts:
                 text.draw(screen)
@@ -448,11 +541,11 @@ class Connect4:
                         if ui_action == GameState.COPY:                        
                             last_click = current_time
                             pyperclip.copy(code_to_copy)
-                            enabled = False                         
+                            enabled = False                                                
                 copy_btn.draw(screen)
 
 
-            if loading_text:
+            if loading_text or status_msg:
                 current_time = pygame.time.get_ticks()
                 if current_time - last_update >= animation_cooldown:
                     frame += 1
@@ -461,10 +554,12 @@ class Connect4:
                         frame = 0
 
                 screen.blit(frames[frame], (300, 50))
-                loading_msg = create_text_to_draw(loading_text, 15, WHITE, BLUE, (400, 400))
-                loading_msg.draw(screen)
+                if loading_text:            
+                    loading_msg = create_text_to_draw(loading_text, 15, WHITE, BLUE, (400, 400))
+                    loading_msg.draw(screen)
+                    
 
-            if not error:
+            if not errors and not status_msg:
                 client = self.client.client
                 # Get the list of sockets which are readable
                 read_sockets, _, _ = select.select([client] , [], [], 0)
@@ -475,11 +570,10 @@ class Connect4:
                             msg = client.recv(16)
                         except ConnectionResetError: #  This exception is caught when the client tries to receive a msg from a disconnected server
                             error = "Connection Reset: Server closed the connection or other client may have disconnected"
-                            print(self.color_error_msg_red(error))
+                            errors.append(error)
                             continue
                         except socket.error:
-                            print(self.color_error_msg_red(general_error_msg))
-                            error = general_error_msg
+                            errors.append(general_error_msg)
                             continue
                         
                         if not msg: #  This breaks out of the loop when disconnect msg has been sent to server and/or client conn has been closed server-side
@@ -489,8 +583,7 @@ class Connect4:
                                 # Connection was forcibly closed by server
                                 error_msg = general_error_msg
 
-                            print(self.color_error_msg_red(error_msg))
-                            error = error_msg
+                            errors.append(error_msg)
                             continue
                         
                         if new_msg:
@@ -517,145 +610,156 @@ class Connect4:
                             print("unpickled_json", unpickled_json)
                             # -------------------------------------Use unpickled json data here-------------------------------------
                             loading_text = ''
+                    
 
-                     
+                            try:
+                                if "code" in unpickled_json:
+                                    code_to_copy = unpickled_json['code']
+                                    code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, BLUE, (400, 250))
+                                    texts.append(code_to_display)
+                                    msg = "This is your special code. Send it to someone you wish to join this game."
+                                    texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (400, 300)))
+                                elif "no_games_found" in unpickled_json:
+                                    # Result from unpickled_json is not used because it is too long and has to be broken 
+                                    # to be printed on multiple lines                                    
+                                    errors = ["No games exist with that code.", "Ask for an up-to-date code, "
+                                                "try creating your own game ", "or try joining a different game"]
+                                elif "game_full" in unpickled_json:
+                                    errors.append(unpickled_json['game_full'])
+                                elif "join_successful" in unpickled_json:
+                                    status_msg = unpickled_json['join_successful']
+                                    status_msg_end_time = pygame.time.get_ticks() + time_of_status_msg_display
+                                    print(status_msg)
+                                elif "id" in unpickled_json:
+                                    clear_screen()
+                                    self.ID = unpickled_json["id"]
+                                    status_msg = "Both clients connected. Starting game"                                                                                               
+                                    status_msg_end_time = pygame.time.get_ticks() + time_of_status_msg_display
+                                    print(status_msg)
+                                elif "other_client_disconnected" in unpickled_json:                       
+                                    errors.append(unpickled_json['other_client_disconnected'])
+                                elif "status" in unpickled_json:                                                                             
+                                    loading_text = unpickled_json['status']                                
+                                elif "waiting_for_name" in unpickled_json:
+                                    loading_text = unpickled_json['waiting_for_name']                        
+                                elif "get_first_player_name" in unpickled_json:                                                               
+                                    loading_text = "Waiting for other player to enter their name"
+                                    game_state_and_input = self.collect_name_screen(screen)
+                                    if game_state_and_input.game_state == GameState.MENU:
+                                        return game_state_and_input.game_state              
+                                    self.you = game_state_and_input.input
+                                    self.client.send_data({'you':self.you})
+                                elif "opponent" in unpickled_json:                                                             
+                                    self.opponent = unpickled_json['opponent']
+                                    if not self.you:
+                                        game_state_and_input = self.collect_name_screen(screen, name=self.opponent)
+                                        if game_state_and_input.game_state == GameState.MENU:
+                                            return game_state_and_input.game_state           
+                                        self.you = game_state_and_input.input
+                                        self.client.send_data({'you':self.you})                        
+                                    print("You are up against: ", self.opponent)                        
+                                    # Shuffling player names
+                                    if not self.ID:
+                                        first_player = self.connect4game._shuffle_players([self.you, self.opponent])
+                                        self.client.send_data({'first':first_player})                      
+                                # elif "first" in unpickled_json:
+                                #     first = unpickled_json['first'][0]
+                                #     loading_text = f"Waiting for {self.opponent} to choose their color"
+                                #     loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_text, unpickled_json, ))
+                                #     loading_thread.daemon = True
+                                #     if self.ID:
+                                #         print("Randomly choosing who to go first . . .")                
+                                #         print(f"{first} goes first")
+                                #     if first == self.you:
+                                #         colors = self.connect4game._get_players_colors(self.you)
+                                #         self.send_data({'colors':colors})
+                                #     else:
+                                #         loading_thread.start()                            
+                                # elif "colors" in unpickled_json:                                                                                     
+                                #     colors = unpickled_json['colors']                        
+                                #     if first == self.you:
+                                #         self.your_turn = True
+                                #         self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))                            
+                                #     else:
+                                #         self.your_turn = False
+                                #         self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
+                                #     self.send_data({'opponent_player_object':self.player})
+                                # elif "opponent_player_object" in unpickled_json:
+                                #       game_started = True 
+                                #     self.opponent = unpickled_json['opponent_player_object']                        
+                                #     main_game_thread = Thread(target=self.main_game_thread)
+                                #     main_game_thread.daemon = True
+                                #     with self.condition:
+                                #         main_game_thread.start()
+                                #     self.main_game_started.set()
+                                # elif "board" in unpickled_json:
+                                #     self.board = unpickled_json['board']
+                                #     self.board_updated_event.set() 
+                                #     with self.condition:
+                                #         self.condition.notify()
+                                # elif "round_over" in unpickled_json and "winner" in unpickled_json:
+                                #     self.round_over_json = unpickled_json
+                                #     self.round_over_event.set()
+                                # elif 'play_again' in unpickled_json:
+                                #     self.play_again_reply = unpickled_json['play_again']
+                                #     self.play_again_reply_received.set()                        
+                                #     with self.condition:
+                                #         self.condition.notify()
+                                # elif 'first_player' in unpickled_json:
+                                #     self.first_player_for_next_round = unpickled_json['first_player']
+                                #     self.first_player_received.set()
+                                #     with self.condition:
+                                #         self.condition.notify()
+                                # elif 'timeout' in unpickled_json:
+                                #     print(colored(unpickled_json['timeout'], "red", attrs=['bold']))
+                                #     break                 
+                            except socket.error:
+                                if not self.keyboard_interrupt:
+                                    print(self.color_error_msg_red(general_error_msg))
+                                    error = general_error_msg
+                            except Exception as e: # Catch EOFError and other exceptions
+                                # NOTE: EOFError can also be raised when input() is interrupted with a Keyboard Interrupt
+                                print(e)
+                                if not self.keyboard_interrupt:
+                                    # print(self.color_error_msg_red(something_went_wrong_msg))
+                                    error = something_went_wrong_msg            
 
-                try:
-                    if "code" in unpickled_json:
-                        code_to_copy = unpickled_json['code']
-                        code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, BLUE, (400, 250))
-                        texts = []
-                        texts.append(code_to_display)
-                        msg = "This is your special code. Send it to someone you wish to join this game."
-                        texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (400, 300)))
-                    # elif "no_games_found" in unpickled_json:
-                    #     print(colored(unpickled_json['no_games_found'], "red", attrs=['bold']))
-                    #     break
-                    # elif "game_full" in unpickled_json:
-                    #     print(colored(unpickled_json['game_full'], "red", attrs=['bold']))
-                    #     break
-                    # elif "join_successful" in unpickled_json:
-                    #     print(colored(unpickled_json['join_successful'], "green", attrs=['bold']))
-                    # elif "id" in unpickled_json:
-                    #     self.ID = unpickled_json["id"]
-                    #     loading_text = "Both clients connected. Starting game"
-                    #     loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_text, unpickled_json, ))
-                    #     loading_thread.daemon = True
-                    #     loading_thread.start()                                                                        
-                    # elif "other_client_disconnected" in unpickled_json:
-                    #     self.other_client_disconnected.set()
-                    #     disconnect_msg = colored(unpickled_json['other_client_disconnected'], "red", attrs=['bold'])
-                    #     with self.condition:
-                    #         self.condition.notify()                        
-                    #     self._set_up_to_terminate_program(disconnect_msg)
-                    #     break
-                    elif "status" in unpickled_json:                                                                             
-                        loading_text = unpickled_json['status']                                  
-                    # elif "waiting_for_name" in unpickled_json:
-                    #     loading_text = unpickled_json['waiting_for_name']                                        
-                    #     loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_text, unpickled_json, ))
-                    #     loading_thread.daemon = True
-                    #     loading_thread.start()
-                    # elif "get_first_player_name" in unpickled_json:                                                               
-                    #     self.connect4game._about_game()
-                    #     loading_text = "Waiting for other player to enter their name"
-                    #     loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_text, unpickled_json, ))
-                    #     loading_thread.daemon = True
-                    #     self.you = self.connect4game._get_player_name()
-                    #     self.send_data({'you':self.you})
-                    #     loading_thread.start()                        
-                    # elif "opponent" in unpickled_json:                                                             
-                    #     self.opponent = unpickled_json['opponent']
-                    #     if not self.you:
-                    #         self.connect4game._about_game()
-                    #         self.you = self._get_other_player_name(self.opponent)
-                    #         self.send_data({'you':self.you})                        
-                    #     print("You are up against: ", self.opponent)                        
-                    #     # Shuffling player names
-                    #     if not self.ID:
-                    #         first_player = self.connect4game._shuffle_players([self.you, self.opponent])
-                    #         self.send_data({'first':first_player})                      
-                    # elif "first" in unpickled_json:
-                    #     first = unpickled_json['first'][0]
-                    #     loading_text = f"Waiting for {self.opponent} to choose their color"
-                    #     loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_text, unpickled_json, ))
-                    #     loading_thread.daemon = True
-                    #     if self.ID:
-                    #         print("Randomly choosing who to go first . . .")                
-                    #         print(f"{first} goes first")
-                    #     if first == self.you:
-                    #         colors = self.connect4game._get_players_colors(self.you)
-                    #         self.send_data({'colors':colors})
-                    #     else:
-                    #         loading_thread.start()                            
-                    # elif "colors" in unpickled_json:                                                                                     
-                    #     colors = unpickled_json['colors']                        
-                    #     if first == self.you:
-                    #         self.your_turn = True
-                    #         self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))                            
-                    #     else:
-                    #         self.your_turn = False
-                    #         self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
-                    #     self.send_data({'opponent_player_object':self.player})
-                    # elif "opponent_player_object" in unpickled_json:
-                    #     self.opponent = unpickled_json['opponent_player_object']                        
-                    #     main_game_thread = Thread(target=self.main_game_thread)
-                    #     main_game_thread.daemon = True
-                    #     with self.condition:
-                    #         main_game_thread.start()
-                    #     self.main_game_started.set()
-                    # elif "board" in unpickled_json:
-                    #     self.board = unpickled_json['board']
-                    #     self.board_updated_event.set() 
-                    #     with self.condition:
-                    #         self.condition.notify()
-                    # elif "round_over" in unpickled_json and "winner" in unpickled_json:
-                    #     self.round_over_json = unpickled_json
-                    #     self.round_over_event.set()
-                    # elif 'play_again' in unpickled_json:
-                    #     self.play_again_reply = unpickled_json['play_again']
-                    #     self.play_again_reply_received.set()                        
-                    #     with self.condition:
-                    #         self.condition.notify()
-                    # elif 'first_player' in unpickled_json:
-                    #     self.first_player_for_next_round = unpickled_json['first_player']
-                    #     self.first_player_received.set()
-                    #     with self.condition:
-                    #         self.condition.notify()
-                    # elif 'timeout' in unpickled_json:
-                    #     print(colored(unpickled_json['timeout'], "red", attrs=['bold']))
-                    #     break                 
-                except socket.error:
-                    if not self.keyboard_interrupt:
-                        print(self.color_error_msg_red(general_error_msg))
-                        error = general_error_msg
-                except Exception as e: # Catch EOFError and other exceptions
-                    # NOTE: EOFError can also be raised when input() is interrupted with a Keyboard Interrupt
-                    print(e)
-                    if not self.keyboard_interrupt:
-                        # print(self.color_error_msg_red(something_went_wrong_msg))
-                        error = something_went_wrong_msg            
-
+            if status_msg:
+                current_time = pygame.time.get_ticks()
+                if current_time < status_msg_end_time:
+                    loading_msg = create_text_to_draw(status_msg, 15, WHITE, BLUE, (400, 400))
+                    loading_msg.draw(screen)
+                else:
+                    status_msg = ''
+            
             pygame.display.flip()
             
     def color_error_msg_red(self, msg):
         return colored(msg, "red", attrs=['bold'])
 
     def validate_game_code(self, returned_input):
-        validation = namedtuple("validation", "passed_validation, code_or_error")
+        validation = namedtuple("validation", "passed_validation, valid_input_or_error")        
         if returned_input.isalnum():
             return validation(True, returned_input)
-        return validation(False, "Code can only contain letters and digits")
+        return validation(False, "Code may only contain letters and digits")
     
     def validate_ip_address(self, returned_input):
         pattern = re.compile(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
         match = pattern.search(returned_input)
-        validation = namedtuple("validation", "passed_validation, code_or_error")
+        validation = namedtuple("validation", "passed_validation, valid_input_or_error")
         if returned_input.lower() == "localhost":
             return validation(True, returned_input)
         if match:
             return validation(True, returned_input)
         return validation(False, "That IP address is invalid")
+
+    def validate_name(self, returned_input, name):
+        validation = namedtuple("validation", "passed_validation, valid_input_or_error")
+        if returned_input.isalnum():            
+            if returned_input.lower() == name.lower():
+                return validation(False, "A player already exists with that name. Choose another name")
+            return validation(True, returned_input)
+        return validation(False, "Your name may only contain letters and digits")
 
     def terminate_program(self):
         self.keyboard_interrupt = True

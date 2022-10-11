@@ -4,7 +4,7 @@ import pickle
 
 from termcolor import colored  # type: ignore
 
-from .choice import Choice
+from pygame_version.choice import Choice
 
 os.system('') # To ensure that escape sequences work, and coloured text is displayed normally and not as weird characters
 
@@ -54,6 +54,15 @@ class Client:
                 self.send_data({'create_game':'True'})
                 text = "Creating game"
                 return {'text':text, 'error': False}
+            elif choice == Choice.JOIN_ANY_GAME:
+                self.send_data({'join_any_game':'True'})
+                text = "Searching for game to join"
+                return {'text':text, 'error': False}
+            elif choice == Choice.JOIN_GAME_WITH_CODE:
+                self.send_data({'join_game_with_invite':code})
+                text = "Searching for game to join"
+                return {'text':text, 'error': False}
+
         
     def send_data(self, data):
         data = pickle.dumps(data)

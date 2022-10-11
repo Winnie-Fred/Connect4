@@ -13,3 +13,4 @@ class GameState(Enum):
     CONTINUE = 7
     CONTINUE_WITH_DEFAULT_IP = 8
     HELP = 9
+    SUBMIT_NAME = 10
