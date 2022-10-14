@@ -73,6 +73,40 @@ class UIElement(Sprite):
         """ Draws element onto a surface """
         surface.blit(self.image, self.rect)
 
+class TokenButton(Sprite):
+    def __init__(self, button_img, mouse_over_btn_img, top_left_position, action):
+        super().__init__()
+        self.mouse_over = False
+        self.default_img = button_img
+        self.mouse_over_btn_img = mouse_over_btn_img
+        self.top_left_position = top_left_position
+        self.action = action
+
+    @property
+    def image(self):
+        return self.mouse_over_btn_img if self.mouse_over else self.default_img
+
+    @property
+    def rect(self):
+        return self.mouse_over_btn_img.get_rect(topleft=self.top_left_position) if self.mouse_over else self.default_img.get_rect(topleft=self.top_left_position)
+
+    def update(self, mouse_pos, mouse_up):
+        """ Updates the "mouse_over" variable and returns the button's
+            action value when clicked.
+        """
+        if self.rect.collidepoint(mouse_pos):
+            self.mouse_over = True
+            if mouse_up:
+                return self.action
+        else:
+            self.mouse_over = False
+        return GameState.NO_ACTION
+
+    def draw(self, surface):
+        """ Draws element onto a surface """
+        surface.blit(self.image, self.rect)
+
+
 class DisabledOrEnabledBtn(UIElement):
     def __init__(self, center_position, text, font_size, bg_rgb, text_rgb, grayed_out_text_rgb, action=None):
         """

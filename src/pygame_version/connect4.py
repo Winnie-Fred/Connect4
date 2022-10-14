@@ -24,7 +24,7 @@ from core.board import Board
 from pygame_version.client import Client
 from pygame_version.choice import Choice
 from pygame_version.gamestate import GameState
-from pygame_version.ui_tools import UIElement, CopyButtonElement, DisabledOrEnabledBtn, InputBox, FadeOutText, create_text_to_draw
+from pygame_version.ui_tools import UIElement, CopyButtonElement, DisabledOrEnabledBtn, TokenButton, InputBox, FadeOutText, create_text_to_draw
 
 from termcolor import colored  # type: ignore
 
@@ -296,6 +296,45 @@ class Connect4:
 
         buttons = RenderUpdates(return_btn, paste_btn, clear_btn)
         return self.collect_input_loop(screen, buttons=buttons, submit_input_btn=continue_btn, input_box=input_box, fade_out_text=fade_out_text, name=name)       
+    
+    def choose_token_screen(self, screen, name=''):
+        
+        texts = []
+        msg = "You go first"
+        texts.append(create_text_to_draw(msg, 20, WHITE, BLUE, (400, 100)))
+        msg = f"{name}, choose a token"
+        texts.append(create_text_to_draw(msg, 25, WHITE, BLUE, (400, 150)))
+
+        inactive_red_button_img = pygame.image.load('../../images/token buttons/inactive red token button.png').convert_alpha()
+        mouse_over_red_button_img = pygame.image.load('../../images/token buttons/mouse over red token button.png').convert_alpha()
+        inactive_yellow_button_img = pygame.image.load('../../images/token buttons/inactive yellow token button.png').convert_alpha()
+        mouse_over_yellow_button_img = pygame.image.load('../../images/token buttons/mouse over yellow token button.png').convert_alpha()
+        
+        red_token_btn = TokenButton(
+            button_img=inactive_red_button_img,
+            mouse_over_btn_img=mouse_over_red_button_img,
+            top_left_position=(150, 200),
+            action=GameState.SELECT_RED_TOKEN,
+        )
+
+        yellow_token_btn = TokenButton(
+            button_img=inactive_yellow_button_img,
+            mouse_over_btn_img=mouse_over_yellow_button_img,
+            top_left_position=(474, 200),
+            action=GameState.SELECT_YELLOW_TOKEN,
+        )
+       
+        return_btn = UIElement(
+            center_position=(140, 570),
+            font_size=15,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            text="Return to main menu",
+            action=GameState.MENU,
+        )
+
+        buttons = RenderUpdates(return_btn, red_token_btn, yellow_token_btn)
+        return self.choose_token_loop(screen, buttons=buttons, texts=texts)
 
     def join_game_with_code_screen(self, screen, ip):
         join_game_btn = DisabledOrEnabledBtn(
@@ -487,6 +526,33 @@ class Connect4:
 
             pygame.display.flip()
     
+    def choose_token_loop(self, screen, buttons, texts):
+        """ Collects player's token in loop until an action is return by a button in the
+            buttons sprite renderer.
+        """
+        
+        while True:
+            mouse_up = False
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    mouse_up = True                
+                
+            screen.fill(BLUE)
+
+            for text in texts:
+                text.draw(screen)
+
+            for button in buttons:
+                ui_action = button.update(pygame.mouse.get_pos(), mouse_up)
+                if ui_action != GameState.NO_ACTION:
+                    return ui_action
+
+            buttons.draw(screen)
+            pygame.display.flip()
+
     def play_game(self, screen, buttons, copy_btn, frames, choice, ip, code=''):
 
         def clear_screen():
@@ -691,29 +757,36 @@ class Connect4:
                                     # Shuffling player names
                                     if not self.ID:
                                         first_player = self.connect4game._shuffle_players([self.you, self.opponent])
-                                        self.client.send_data({'first':first_player})                      
-                                # elif "first" in unpickled_json:
-                                #     first = unpickled_json['first'][0]
-                                #     loading_text = f"Waiting for {self.opponent} to choose their color"
-                                #     loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_text, unpickled_json, ))
-                                #     loading_thread.daemon = True
-                                #     if self.ID:
-                                #         print("Randomly choosing who to go first . . .")                
-                                #         print(f"{first} goes first")
-                                #     if first == self.you:
-                                #         colors = self.connect4game._get_players_colors(self.you)
-                                #         self.send_data({'colors':colors})
-                                #     else:
-                                #         loading_thread.start()                            
-                                # elif "colors" in unpickled_json:                                                                                     
-                                #     colors = unpickled_json['colors']                        
-                                #     if first == self.you:
-                                #         self.your_turn = True
-                                #         self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))                            
-                                #     else:
-                                #         self.your_turn = False
-                                #         self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
-                                #     self.send_data({'opponent_player_object':self.player})
+                                        self.client.send_data({'first':first_player})
+                                    print("Randomly choosing who to go first . . .")                                                        
+                                elif "first" in unpickled_json:
+                                    first = unpickled_json['first'][0]                                                                        
+                                    if first == self.you:
+                                        msg = f"You go first"
+                                        ui_action = self.choose_token_screen(screen, name=self.you)
+                                        if ui_action == GameState.MENU:
+                                            return ui_action
+                                        if ui_action == GameState.SELECT_RED_TOKEN:
+                                            colors = ('red', 'yellow')
+                                        else:
+                                            colors = ('yellow', 'red')
+                                        self.client.send_data({'colors':colors})
+                                    else:
+                                        msg = f"{first} goes first"
+                                        texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (400, 250)))
+                                        loading_text = f"Waiting for {self.opponent} to choose their color"
+                                    print(msg)
+                                elif "colors" in unpickled_json:                                                                                     
+                                    colors = unpickled_json['colors']                        
+                                    if first == self.you:
+                                        self.your_turn = True
+                                        self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))                            
+                                    else:
+                                        self.your_turn = False
+                                        self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
+                                    self.client.send_data({'opponent_player_object':self.player})
+                                    print("Colors: ", colors)
+                                    print("Player Object: ", self.player)
                                 # elif "opponent_player_object" in unpickled_json:
                                 #       game_started = True 
                                 #     self.opponent = unpickled_json['opponent_player_object']                        
@@ -800,7 +873,8 @@ class Connect4:
                 pass
             self.client.client.close()   
         error_msg = colored(f"Keyboard Interrupt: Program ended", "red", attrs=['bold'])        
-        print(f"\n{error_msg}\n")           
+        print(f"\n{error_msg}\n")
+        pygame.quit()        
 
 if __name__ == "__main__":
     connect4 = Connect4()
