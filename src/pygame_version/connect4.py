@@ -32,8 +32,6 @@ BLUE = (106, 159, 181)
 RED = (204, 0, 0)
 WHITE = (255, 255, 255)
 GRAY = (128, 128, 128)
-LIGHT_GRAYISH_BLUE = (206, 229, 242)
-
 MAX_GAME_CODE_LENGTH = 16
 MAX_IP_ADDR_LENGTH = 15
 MIN_IP_ADDR_LENGTH = 7
@@ -67,8 +65,8 @@ class Connect4:
     
     def run_game(self):
         pygame.init()
-        
-        screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+
+        screen = pygame.display.set_mode((800, 600))
         pygame.display.set_caption("Connect4")
         game_state = GameState.MENU
         
@@ -91,11 +89,10 @@ class Connect4:
                 return
 
     def menu_screen(self, screen):
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
-        menu_header = create_text_to_draw("Ready to play Connect4?", 30, WHITE, BLUE, (screen_width*0.5, screen_height*0.17))
+        menu_header = create_text_to_draw("Ready to play Connect4?", 30, WHITE, BLUE, (400, 100))
 
         create_game_btn = UIElement(
-            center_position=(screen_width*0.5, screen_height*0.3333),
+            center_position=(400, 200),
             font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -103,7 +100,7 @@ class Connect4:
             action=GameState.CREATE_GAME,
         )
         join_any_game_btn = UIElement(
-            center_position=(screen_width*0.5, screen_height*0.5),
+            center_position=(400, 300),
             font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -111,7 +108,7 @@ class Connect4:
             action=GameState.JOIN_ANY_GAME,
         )
         join_game_with_code_btn = UIElement(
-            center_position=(screen_width*0.5, screen_height*0.6667),
+            center_position=(400, 400),
             font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -119,7 +116,7 @@ class Connect4:
             action=GameState.JOIN_GAME_WITH_CODE,
         )
         quit_btn = UIElement(
-            center_position=(screen_width*0.5, screen_height*0.83),
+            center_position=(400, 500),
             font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -132,13 +129,12 @@ class Connect4:
         return self.game_menu_loop(screen, buttons, menu_header)
 
     def main_game_screen(self, screen, choice, ip, code=''):
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
         frames = []
         for i in range(1, 50):
             frames.append(pygame.image.load(f'../../images/loading-animation-balls/frame-{i}.png').convert_alpha())
 
         return_btn = UIElement(
-            center_position=(screen_width*0.13, screen_height*0.95),
+            center_position=(140, 570),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -147,7 +143,7 @@ class Connect4:
         )
 
         copy_btn = CopyButtonElement(
-            center_position=(screen_width*0.75, screen_height*0.42),
+            center_position=(600, 250),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -158,16 +154,13 @@ class Connect4:
 
         buttons = RenderUpdates(return_btn)
         copy_btn = RenderUpdates(copy_btn)
-        background = pygame.image.load('../../images/playground.jpg')
-        board = pygame.image.load('../../images/Connect4 Giant set.png')
         
-        return self.play_game(screen, background, board, buttons, copy_btn, frames, choice=choice, ip=ip, code=code)
+        return self.play_game(screen, buttons, copy_btn, frames, choice=choice, ip=ip, code=code)
 
     def collect_ip_screen(self, screen, next_screen, **kwargs):
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
         default_ip = self.client.get_default_ip()
         submit_ip_btn = DisabledOrEnabledBtn(
-            center_position=(screen_width*0.4375, screen_height*0.6667),
+            center_position=(350, 400),
             font_size=20,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -177,7 +170,7 @@ class Connect4:
         )
 
         help_btn = UIElement(
-            center_position=(screen_width*0.1875, screen_height*0.6667),
+            center_position=(150, 400),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -186,7 +179,7 @@ class Connect4:
         )
 
         default_ip_btn = UIElement(
-            center_position=(screen_width*0.75, screen_height*0.6667),
+            center_position=(600, 400),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -195,7 +188,7 @@ class Connect4:
         )
 
         return_btn = UIElement(
-            center_position=(screen_width*0.13, screen_height*0.95),
+            center_position=(140, 570),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -204,7 +197,7 @@ class Connect4:
         )
         
         paste_btn = UIElement(
-            center_position=(screen_width*0.75, screen_height*0.3333),
+            center_position=(600, 200),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -213,7 +206,7 @@ class Connect4:
         )
 
         clear_btn = UIElement(
-            center_position=(screen_width*0.1875, screen_height*0.3333),
+            center_position=(150, 200),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -222,7 +215,7 @@ class Connect4:
         )
 
         input_box = InputBox(
-            center_position = (screen_width*0.4375, screen_height*0.3333),
+            center_position = (350, 200),
             placeholder_text='Enter IP here',
             font_size=20,
             bg_rgb=BLUE,
@@ -235,7 +228,7 @@ class Connect4:
             font_size=15,
             text_rgb=RED,
             bg_rgb=BLUE,
-            center_position=(screen_width*0.4375, screen_height*0.5))
+            center_position=(350, 300))
 
         buttons = RenderUpdates(return_btn, paste_btn, clear_btn, default_ip_btn, help_btn)
         game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=submit_ip_btn, input_box=input_box, fade_out_text=fade_out_text, default_ip=default_ip)
@@ -248,9 +241,8 @@ class Connect4:
         return ui_action
 
     def collect_name_screen(self, screen, name=''):
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
         continue_btn = DisabledOrEnabledBtn(
-            center_position=(screen_width*0.5, screen_height*0.6667),
+            center_position=(400, 400),
             font_size=20,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -260,7 +252,7 @@ class Connect4:
         )
 
         return_btn = UIElement(
-            center_position=(screen_width*0.13, screen_height*0.95),
+            center_position=(140, 570),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -269,7 +261,7 @@ class Connect4:
         )
         
         paste_btn = UIElement(
-            center_position=(screen_width*0.75, screen_height*0.3333),
+            center_position=(600, 200),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -278,7 +270,7 @@ class Connect4:
         )
 
         clear_btn = UIElement(
-            center_position=(screen_width*0.25, screen_height*0.3333),
+            center_position=(200, 200),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -287,7 +279,7 @@ class Connect4:
         )
 
         input_box = InputBox(
-            center_position = (screen_width*0.5, screen_height*0.3333),
+            center_position = (400, 200),
             placeholder_text='Enter your name here',
             font_size=20,
             bg_rgb=BLUE,
@@ -300,18 +292,18 @@ class Connect4:
             font_size=15,
             text_rgb=RED,
             bg_rgb=BLUE,
-            center_position=(screen_width*0.5, screen_height*0.5))
+            center_position=(400, 300))
 
         buttons = RenderUpdates(return_btn, paste_btn, clear_btn)
         return self.collect_input_loop(screen, buttons=buttons, submit_input_btn=continue_btn, input_box=input_box, fade_out_text=fade_out_text, name=name)       
     
     def choose_token_screen(self, screen, name=''):
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
+        
         texts = []
         msg = "You go first"
-        texts.append(create_text_to_draw(msg, 20, WHITE, BLUE, (screen_width*0.5, screen_height*0.1667)))
+        texts.append(create_text_to_draw(msg, 20, WHITE, BLUE, (400, 100)))
         msg = f"{name}, choose a token"
-        texts.append(create_text_to_draw(msg, 25, WHITE, BLUE, (screen_width*0.5, screen_height*0.25)))
+        texts.append(create_text_to_draw(msg, 25, WHITE, BLUE, (400, 150)))
 
         inactive_red_button_img = pygame.image.load('../../images/token buttons/inactive red token button.png').convert_alpha()
         mouse_over_red_button_img = pygame.image.load('../../images/token buttons/mouse over red token button.png').convert_alpha()
@@ -321,19 +313,19 @@ class Connect4:
         red_token_btn = TokenButton(
             button_img=inactive_red_button_img,
             mouse_over_btn_img=mouse_over_red_button_img,
-            top_left_position=(screen_width*0.3, screen_height*0.333333),
+            top_left_position=(150, 200),
             action=GameState.SELECT_RED_TOKEN,
         )
 
         yellow_token_btn = TokenButton(
             button_img=inactive_yellow_button_img,
             mouse_over_btn_img=mouse_over_yellow_button_img,
-            top_left_position=(screen_width*0.6, screen_height*0.333333),
+            top_left_position=(474, 200),
             action=GameState.SELECT_YELLOW_TOKEN,
         )
        
         return_btn = UIElement(
-            center_position=(screen_width*0.13, screen_height*0.9533),
+            center_position=(140, 570),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -345,9 +337,8 @@ class Connect4:
         return self.choose_token_loop(screen, buttons=buttons, texts=texts)
 
     def join_game_with_code_screen(self, screen, ip):
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
         join_game_btn = DisabledOrEnabledBtn(
-            center_position=(screen_width*0.5, screen_height*0.6667),
+            center_position=(400, 400),
             font_size=20,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -357,7 +348,7 @@ class Connect4:
         )
 
         return_btn = UIElement(
-            center_position=(screen_width*0.13, screen_height*0.95),
+            center_position=(140, 570),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -366,7 +357,7 @@ class Connect4:
         )
         
         paste_btn = UIElement(
-            center_position=(screen_width*0.75, screen_height*0.3333),
+            center_position=(600, 200),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -375,7 +366,7 @@ class Connect4:
         )
 
         clear_btn = UIElement(
-            center_position=(screen_width*0.25, screen_height*0.3333),
+            center_position=(200, 200),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -384,7 +375,7 @@ class Connect4:
         )
 
         input_box = InputBox(
-            center_position = (screen_width*0.5, screen_height*0.3333),
+            center_position = (400, 200),
             placeholder_text='Enter code here',
             font_size=20,
             bg_rgb=BLUE,
@@ -397,7 +388,7 @@ class Connect4:
             font_size=15,
             text_rgb=RED,
             bg_rgb=BLUE,
-            center_position=(screen_width*0.5, screen_height*0.5))
+            center_position=(400, 300))
 
         buttons = RenderUpdates(return_btn, paste_btn, clear_btn)
         game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box, fade_out_text=fade_out_text)
@@ -562,14 +553,13 @@ class Connect4:
             buttons.draw(screen)
             pygame.display.flip()
 
-    def play_game(self, screen, background, board, buttons, copy_btn, frames, choice, ip, code=''):
+    def play_game(self, screen, buttons, copy_btn, frames, choice, ip, code=''):
 
         def clear_screen():
             nonlocal loading_text, texts
             loading_text = ''
             texts = []
 
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
         last_update = pygame.time.get_ticks()
         last_click = None
         enabled = False
@@ -578,7 +568,7 @@ class Connect4:
         animation_cooldown = 50
         frame = 0  
 
-        round_started = False      
+        game_started = False      
 
         errors = []
         loading_text = ''
@@ -590,6 +580,7 @@ class Connect4:
         code_to_copy = ''
         unpickled_json = {}
         texts = []
+        default_y_position_for_printing_error = 400
 
         full_msg = b''
         new_msg = True
@@ -605,8 +596,7 @@ class Connect4:
 
 
         while True:
-            default_y_position_for_printing_error = screen_height*0.6667
-
+            default_y_position_for_printing_error = 400
             mouse_up = False
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -614,14 +604,7 @@ class Connect4:
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     mouse_up = True
-           
-            if not round_started:
-                screen.fill(BLUE)
-            else:
-                clear_screen()
-                # screen.blit(background, (0, 0))
-                screen.fill(LIGHT_GRAYISH_BLUE)
-                screen.blit(board, (123, screen_height*0.0833))
+            screen.fill(BLUE)
 
             for button in buttons:
                 ui_action = button.update(pygame.mouse.get_pos(), mouse_up)
@@ -632,13 +615,13 @@ class Connect4:
 
             
             for error in errors:
-                if round_started:
+                if game_started:
                     pass
                 else:
                     clear_screen()
-                    error_text = create_text_to_draw(error, 15, RED, BLUE, (screen_width*0.5, default_y_position_for_printing_error))
+                    error_text = create_text_to_draw(error, 15, RED, BLUE, (400, default_y_position_for_printing_error))
                     error_text.draw(screen)
-                    default_y_position_for_printing_error += screen_height*0.0833
+                    default_y_position_for_printing_error += 50
                     
 
             for text in texts:
@@ -666,9 +649,9 @@ class Connect4:
                     if frame >= len(frames):
                         frame = 0
 
-                screen.blit(frames[frame], (screen_width*0.43, screen_height*0.125))
+                screen.blit(frames[frame], (300, 50))
                 if loading_text:            
-                    loading_msg = create_text_to_draw(loading_text, 15, WHITE, BLUE, (screen_width*0.5, screen_height*0.6667))
+                    loading_msg = create_text_to_draw(loading_text, 15, WHITE, BLUE, (400, 400))
                     loading_msg.draw(screen)
                     
 
@@ -728,10 +711,10 @@ class Connect4:
                             try:
                                 if "code" in unpickled_json:
                                     code_to_copy = unpickled_json['code']
-                                    code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, BLUE, (screen_width*0.5, screen_height*0.4167))
+                                    code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, BLUE, (400, 250))
                                     texts.append(code_to_display)
                                     msg = "This is your special code. Send it to someone you wish to join this game."
-                                    texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (screen_width*0.5, screen_height*0.5)))
+                                    texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (400, 300)))
                                 elif "no_games_found" in unpickled_json:
                                     # Result from unpickled_json is not used because it is too long and has to be broken 
                                     # to be printed on multiple lines                                    
@@ -790,7 +773,7 @@ class Connect4:
                                         self.client.send_data({'colors':colors})
                                     else:
                                         msg = f"{first} goes first"
-                                        texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (screen_width*0.5, screen_height*0.4167)))
+                                        texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (400, 250)))
                                         loading_text = f"Waiting for {self.opponent} to choose their color"
                                     print(msg)
                                 elif "colors" in unpickled_json:                                                                                     
@@ -802,18 +785,21 @@ class Connect4:
                                         self.your_turn = False
                                         self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
                                     self.client.send_data({'opponent_player_object':self.player})
-                                elif "opponent_player_object" in unpickled_json:
-                                      round_started = True
-                                      self.opponent = unpickled_json['opponent_player_object']
-                                      self._reset_for_new_round()
-                                      self.client.send_data({'board':self.board})
-                                elif "board" in unpickled_json:
-                                    if self.your_turn:
-                                        self.board = unpickled_json['board']
-                                        if self.board.check_win(self.player):
-                                            self.player.points += self.POINTS_FOR_WINNING_ONE_ROUND
-                                            print(f"\n{self.player.name} {self.player.marker} wins this round!\n")
-                                            self.send_data({'round_over':True, 'winner':self.player})
+                                    print("Colors: ", colors)
+                                    print("Player Object: ", self.player)
+                                # elif "opponent_player_object" in unpickled_json:
+                                #       game_started = True 
+                                #     self.opponent = unpickled_json['opponent_player_object']                        
+                                #     main_game_thread = Thread(target=self.main_game_thread)
+                                #     main_game_thread.daemon = True
+                                #     with self.condition:
+                                #         main_game_thread.start()
+                                #     self.main_game_started.set()
+                                # elif "board" in unpickled_json:
+                                #     self.board = unpickled_json['board']
+                                #     self.board_updated_event.set() 
+                                #     with self.condition:
+                                #         self.condition.notify()
                                 # elif "round_over" in unpickled_json and "winner" in unpickled_json:
                                 #     self.round_over_json = unpickled_json
                                 #     self.round_over_event.set()
@@ -844,7 +830,7 @@ class Connect4:
             if status_msg:
                 current_time = pygame.time.get_ticks()
                 if current_time < status_msg_end_time:
-                    loading_msg = create_text_to_draw(status_msg, 15, WHITE, BLUE, (screen_width*0.5, screen_height*0.6667))
+                    loading_msg = create_text_to_draw(status_msg, 15, WHITE, BLUE, (400, 400))
                     loading_msg.draw(screen)
                 else:
                     status_msg = ''
