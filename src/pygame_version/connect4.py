@@ -133,9 +133,29 @@ class Connect4:
 
     def main_game_screen(self, screen, choice, ip, code=''):
         screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
-        frames = []
+
+        loading_simulation_frames = []
         for i in range(1, 50):
-            frames.append(pygame.image.load(f'../../images/loading-animation-balls/frame-{i}.png').convert_alpha())
+            loading_simulation_frames.append(pygame.image.load(f'../../images/loading-animation-balls/frame-{i}.png').convert_alpha())
+
+        red_bird_flying_frames = []
+        for i in range(1, 8):
+            red_bird_flying_frames.append(pygame.image.load(f'../../images/red bird frames/red-bird-{i}.png'))
+
+        blue_bird_flying_frames = []
+        for i in range(1, 5):
+            blue_bird_flying_frames.append(pygame.image.load(f'../../images/blue bird frames/blue-bird-{i}.png'))
+
+        girl_swinging_frames = []
+        for i in range(28):
+            girl_swinging_frames.append(pygame.image.load(f'../../images/girl-swinging frames/girl on swing frame ({i}).png'))
+
+        sun_rotating_frames = []
+        for i in range(41):
+            sun_rotating_frames.append(pygame.image.load(f'../../images/sun frames/Sun frame ({i}).png'))
+
+        frames = namedtuple("frames", "loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames")  
+        all_frames = frames(loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames)
 
         return_btn = UIElement(
             center_position=(screen_width*0.13, screen_height*0.95),
@@ -158,10 +178,11 @@ class Connect4:
 
         buttons = RenderUpdates(return_btn)
         copy_btn = RenderUpdates(copy_btn)
-        background = pygame.image.load('../../images/playground.jpg')
+        background = pygame.image.load('../../images/playground.png')
+        background = pygame.transform.scale(background, (screen.get_rect().width, screen.get_rect().height))
         board = pygame.image.load('../../images/Connect4 Giant set.png')
         
-        return self.play_game(screen, background, board, buttons, copy_btn, frames, choice=choice, ip=ip, code=code)
+        return self.play_game(screen, background, board, buttons, copy_btn, all_frames, choice=choice, ip=ip, code=code)
 
     def collect_ip_screen(self, screen, next_screen, **kwargs):
         screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
@@ -569,14 +590,42 @@ class Connect4:
             loading_text = ''
             texts = []
 
+        loading_simulaton_frames = frames.loading_simulation_frames
+        red_bird_flying_frames = frames.red_bird_flying_frames
+        blue_bird_flying_frames = frames.blue_bird_flying_frames
+        girl_swinging_frames = frames.girl_swinging_frames
+        sun_rotating_frames = frames.sun_rotating_frames
+
+
         screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
-        last_update = pygame.time.get_ticks()
+
+        last_update_of_loading_animation = pygame.time.get_ticks()
+        loading_animation_cooldown = 50
+        loading_animation_frame = 0  
+
+        last_update_of_red_bird_flying = pygame.time.get_ticks()
+        red_bird_flying_cooldown = 50
+        red_bird_flying_frame = 0 
+        red_bird_position = screen_width*-0.01 
+
+        last_update_of_blue_bird_flying = pygame.time.get_ticks()
+        blue_bird_flying_cooldown = 50
+        blue_bird_flying_frame = 0  
+        blue_bird_position = screen_width*-0.001 
+
+        last_update_of_girl_swinging = pygame.time.get_ticks()
+        girl_swinging_cooldown = 50
+        girl_swinging_frame = 0
+
+        last_update_of_sun_rotating = pygame.time.get_ticks()
+        sun_rotating_cooldown = 50
+        sun_rotating_frame = 0  
+
+
         last_click = None
         enabled = False
         time_until_enable = 3000
         time_of_status_msg_display = 1000
-        animation_cooldown = 50
-        frame = 0  
 
         round_started = False      
 
@@ -619,9 +668,59 @@ class Connect4:
                 screen.fill(BLUE)
             else:
                 clear_screen()
-                # screen.blit(background, (0, 0))
-                screen.fill(LIGHT_GRAYISH_BLUE)
-                screen.blit(board, (123, screen_height*0.0833))
+                screen.blit(background, (0, 0))                
+
+                #------------------------------------------------ Animations ------------------------------------------------#
+
+                current_time = pygame.time.get_ticks()
+                if current_time - last_update_of_sun_rotating >= sun_rotating_cooldown:
+                    sun_rotating_frame += 1
+                    last_update_of_sun_rotating = current_time
+                    if sun_rotating_frame >= len(sun_rotating_frames):
+                        sun_rotating_frame = 0
+
+                screen.blit(sun_rotating_frames[sun_rotating_frame], (screen_width*0.055, screen_height*0.06))
+                
+
+                current_time = pygame.time.get_ticks()
+                if current_time - last_update_of_blue_bird_flying >= blue_bird_flying_cooldown:
+                    blue_bird_flying_frame += 1
+                    last_update_of_blue_bird_flying = current_time
+                    if blue_bird_flying_frame >= len(blue_bird_flying_frames):
+                        blue_bird_flying_frame = 0
+
+                screen.blit(blue_bird_flying_frames[blue_bird_flying_frame], (blue_bird_position, screen_height*0.01))
+                blue_bird_position += screen_width*0.008
+                if blue_bird_position >= screen_width*1.1:
+                    blue_bird_position = screen_width*-0.01
+
+
+                current_time = pygame.time.get_ticks()
+                if current_time - last_update_of_red_bird_flying >= red_bird_flying_cooldown:
+                    red_bird_flying_frame += 1
+                    last_update_of_red_bird_flying = current_time
+                    if red_bird_flying_frame >= len(red_bird_flying_frames):
+                        red_bird_flying_frame = 0
+
+                screen.blit(red_bird_flying_frames[red_bird_flying_frame], (red_bird_position, screen_height*0.01))
+                red_bird_position += screen_width*0.01
+                if red_bird_position >= screen_width*1.1:
+                    red_bird_position = screen_width*-0.01
+
+
+                current_time = pygame.time.get_ticks()
+                if current_time - last_update_of_girl_swinging >= girl_swinging_cooldown:
+                    girl_swinging_frame += 1
+                    last_update_of_girl_swinging = current_time
+                    if girl_swinging_frame >= len(girl_swinging_frames):
+                        girl_swinging_frame = 0
+
+                screen.blit(girl_swinging_frames[girl_swinging_frame], (screen_width*0.79, screen_height*0.5))
+                
+
+                #------------------------------------------------ Animations ------------------------------------------------#
+                
+                screen.blit(board, (screen_width*0.2581, screen_height*0.195))
 
             for button in buttons:
                 ui_action = button.update(pygame.mouse.get_pos(), mouse_up)
@@ -660,13 +759,13 @@ class Connect4:
 
             if loading_text or status_msg:
                 current_time = pygame.time.get_ticks()
-                if current_time - last_update >= animation_cooldown:
-                    frame += 1
-                    last_update = current_time
-                    if frame >= len(frames):
-                        frame = 0
+                if current_time - last_update_of_loading_animation >= loading_animation_cooldown:
+                    loading_animation_frame += 1
+                    last_update_of_loading_animation = current_time
+                    if loading_animation_frame >= len(loading_simulaton_frames):
+                        loading_animation_frame = 0
 
-                screen.blit(frames[frame], (screen_width*0.43, screen_height*0.125))
+                screen.blit(loading_simulaton_frames[loading_animation_frame], (screen_width*0.43, screen_height*0.125))
                 if loading_text:            
                     loading_msg = create_text_to_draw(loading_text, 15, WHITE, BLUE, (screen_width*0.5, screen_height*0.6667))
                     loading_msg.draw(screen)
