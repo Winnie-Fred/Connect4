@@ -118,7 +118,7 @@ class Client:
             other_player = input("Enter your name: ").strip()
             
             if other_player.lower() == player.lower():
-                print("A player already exists with that name. Choose another name")
+                print("That name is already taken by the other player. Choose another name")
                 continue
             if other_player:
                 break
