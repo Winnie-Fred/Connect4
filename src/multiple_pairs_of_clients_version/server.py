@@ -95,15 +95,8 @@ class Server:
         unpickled_json = None
         try:
             while True:
-                try:
-                    conn.settimeout(self.TIMEOUT_FOR_RECV) #  Timeout for recv
-                    msg = conn.recv(16)                                  
-                except ConnectionAbortedError as e:
-                    print(f"Connection Aborted: {e}") 
-                    break
-                except socket.timeout as e:
-                    print(f"recv timed out. Connection is half-open or client took too long to respond. Ensure this machine is still connected to the network.")               
-                    break
+                conn.settimeout(self.TIMEOUT_FOR_RECV) #  Timeout for recv
+                msg = conn.recv(16)                                                  
 
                 if not msg:
                     break
@@ -140,7 +133,10 @@ class Server:
                 elif 'join_any_game' in unpickled_json:
                     self.join_game(conn, addr, 'open')
 
-
+        except ConnectionAbortedError as e:
+            print(f"Connection Aborted: {e}") 
+        except socket.timeout as e:
+            print(f"recv timed out. Connection is half-open or client took too long to respond. Ensure this machine is still connected to the network.")               
         except SendingDataError as data:
             print(f"Error sending '{data}'")
             self.close_client(conn, addr)
@@ -148,9 +144,8 @@ class Server:
             print(f"Connection Reset: {e}")
             self.close_client(conn, addr)       
         except (socket.error, Exception) as e:
-            if e != 'timed out':
-                print(f"Some Error occured: {e}")
-            self.close_client(conn, addr)                   
+            print(f"Some Error occured: {e}")
+            self.close_client(conn, addr)                
 
     def generate_unique_random_game_id(self):
         # Create random unique id of length 16 without letters I and O and without the digit 0
@@ -287,15 +282,9 @@ class Server:
             new_msg = True
             
             while True:
-                try:
-                    conn.settimeout(self.TIMEOUT_FOR_RECV) #  Timeout for recv
-                    msg = conn.recv(16)                                  
-                except ConnectionAbortedError as e:
-                    print(f"Connection Aborted: {e}") 
-                    break
-                except socket.timeout as e:
-                    print(f"recv timed out. Connection is half-open or client took too long to respond. Ensure this machine is still connected to the network.")               
-                    break
+                
+                conn.settimeout(self.TIMEOUT_FOR_RECV) #  Timeout for recv
+                msg = conn.recv(16)                                                  
 
                 if not msg:
                     break
@@ -308,20 +297,19 @@ class Server:
                 full_msg += msg
 
                 if len(full_msg)-self.HEADERSIZE >= msglen:
-                    # ----------------Use unpickled json data here----------------
+                        # ----------------Use unpickled json data here----------------
 
-                    conn.settimeout(None) #  Reset timer for next msg
-                    unpickled_json = pickle.loads(full_msg[self.HEADERSIZE:self.HEADERSIZE+msglen])
-                    # print("unpickled_json: ",  unpickled_json)
+                        conn.settimeout(None) #  Reset timer for next msg
+                        unpickled_json = pickle.loads(full_msg[self.HEADERSIZE:self.HEADERSIZE+msglen])
+                        # print("unpickled_json: ",  unpickled_json)
 
-                    if len(full_msg) - self.HEADERSIZE > msglen: #  Multiple messages were received together
-                        full_msg = full_msg[self.HEADERSIZE+msglen:] #  Get the part of the next msg that was recieved with the previous one
-                        msglen = int(full_msg[:self.HEADERSIZE])      
-                    else:
-                        new_msg = True
-                        full_msg = b''
-
-                    try:
+                        if len(full_msg) - self.HEADERSIZE > msglen: #  Multiple messages were received together
+                            full_msg = full_msg[self.HEADERSIZE+msglen:] #  Get the part of the next msg that was recieved with the previous one
+                            msglen = int(full_msg[:self.HEADERSIZE])      
+                        else:
+                            new_msg = True
+                            full_msg = b''
+                    
                         if 'you' in unpickled_json:
                             you = unpickled_json['you']
                             if conn == conn1:
@@ -370,21 +358,25 @@ class Server:
                                         else:
                                             self.send_data(conn1, {"other_client_disconnected":"Other client disconnected unexpectedly"})
                                 break
-                    except KeyError:
-                        break               
+                                   
                             # ----------------Use unpickled json data here----------------
-        
+        except ConnectionAbortedError as e:
+            print(f"Connection Aborted: {e}") 
+        except socket.timeout as e:
+            print(f"recv timed out. Connection is half-open or client took too long to respond. Ensure this machine is still connected to the network.")               
         except SendingDataError as data:
             print(f"Error sending '{data}'")            
         except ConnectionResetError as e: #  This exception is caught when the server tries to receive a msg from a disconnected client
             print(f"Connection Reset: {e}")
-            if conn == conn1:
-                self.send_data(conn2, {"other_client_disconnected":"Other client disconnected unexpectedly"})
-            else:
-                self.send_data(conn1, {"other_client_disconnected":"Other client disconnected unexpectedly"})
-        except socket.error as e:
-            if e != 'timed out':
-                print(f"Some error occured: Socket may have been closed")
+            try:
+                if conn == conn1:
+                    self.send_data(conn2, {"other_client_disconnected":"Other client disconnected unexpectedly"})
+                else:
+                    self.send_data(conn1, {"other_client_disconnected":"Other client disconnected unexpectedly"})
+            except SendingDataError as data:
+                print(f"Error sending '{data}'")
+        except socket.error as e:            
+            print(f"Some error occured: Socket may have been closed")
         except Exception:
             print(f"An error occured: {e}")
         
