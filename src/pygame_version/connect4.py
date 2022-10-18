@@ -34,9 +34,11 @@ WHITE = (255, 255, 255)
 GRAY = (128, 128, 128)
 LIGHT_GRAYISH_BLUE = (206, 229, 242)
 
-MAX_GAME_CODE_LENGTH = 16
+GAME_CODE_LENGTH = 16
 MAX_IP_ADDR_LENGTH = 15
 MIN_IP_ADDR_LENGTH = 7
+MAX_NAME_LENGTH = 15
+MIN_NAME_LENGTH = 2
 HELP_LINK = "https://github.com/Winnie-Fred/Connect4#finding-your-internal-ipv4-address"
 
 
@@ -328,8 +330,8 @@ class Connect4:
             font_size=20,
             bg_rgb=BLUE,
             text_rgb=WHITE,
-            max_input_length=15,
-            min_input_length=2,
+            max_input_length=MAX_NAME_LENGTH,
+            min_input_length=MIN_NAME_LENGTH,
         )
 
         fade_out_text = FadeOutText(
@@ -425,8 +427,8 @@ class Connect4:
             font_size=20,
             bg_rgb=BLUE,
             text_rgb=WHITE,
-            max_input_length=MAX_GAME_CODE_LENGTH,
-            min_input_length=MAX_GAME_CODE_LENGTH,
+            max_input_length=GAME_CODE_LENGTH,
+            min_input_length=GAME_CODE_LENGTH,
         )
 
         fade_out_text = FadeOutText(
@@ -501,6 +503,7 @@ class Connect4:
             mouse_up = False
             key_down = False
             backspace = False
+            enter_key_pressed = False
             pressed_key = None
             validation = None
             for event in pygame.event.get():
@@ -514,6 +517,9 @@ class Connect4:
                     key_down = True
                     if event.key == pygame.K_BACKSPACE:
                         backspace = True
+                    elif event.key == pygame.K_RETURN:
+                        key_down = False
+                        enter_key_pressed = True
                     else:
                         pressed_key = event.unicode
                 
@@ -557,7 +563,7 @@ class Connect4:
             buttons.draw(temporary_surface)
 
             
-            ui_action = submit_input_btn.update(scaled_pos, mouse_up, submit_btn_enabled)
+            ui_action = submit_input_btn.update(scaled_pos, mouse_up, submit_btn_enabled, enter_key_pressed)
             if ui_action != GameState.NO_ACTION:
                 if ui_action == GameState.JOIN_GAME_WITH_ENTERED_CODE:
                     validation = self.validate_game_code(returned_input)
@@ -1002,7 +1008,12 @@ class Connect4:
         return colored(msg, "red", attrs=['bold'])
 
     def validate_game_code(self, returned_input):
-        validation = namedtuple("validation", "passed_validation, valid_input_or_error")        
+        validation = namedtuple("validation", "passed_validation, valid_input_or_error") 
+        if not returned_input:
+            return validation(False, "You must type in a code to continue")
+        # Greater than condition is not checked because input box already prevents input greater than the GAME_CODE_LENGTH
+        if len(returned_input) < GAME_CODE_LENGTH:
+            return validation(False, "Invalid code. Not enough characters")        
         if returned_input.isalnum():
             return validation(True, returned_input)
         return validation(False, "Code may only contain letters and digits")
@@ -1010,7 +1021,9 @@ class Connect4:
     def validate_ip_address(self, returned_input):
         pattern = re.compile(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
         match = pattern.search(returned_input)
-        validation = namedtuple("validation", "passed_validation, valid_input_or_error")
+        validation = namedtuple("validation", "passed_validation, valid_input_or_error")              
+        if not returned_input:
+            return validation(False, "You must type in an IP address to continue")
         if returned_input.lower() == "localhost":
             return validation(True, returned_input)
         if match:
@@ -1019,9 +1032,14 @@ class Connect4:
 
     def validate_name(self, returned_input, name):
         validation = namedtuple("validation", "passed_validation, valid_input_or_error")
+        if not returned_input:
+            return validation(False, "You must type in a name to continue")
+        # Greater than condition is not checked because input box already prevents input greater than the MAX_NAME_LENGTH
+        if len(returned_input) < MIN_NAME_LENGTH:
+            return validation(False, "That name is too short")
         if returned_input.isalnum():            
             if returned_input.lower() == name.lower():
-                return validation(False, "A player already exists with that name. Choose another name")
+                return validation(False, "That name is already taken by the other player. Choose another name")
             return validation(True, returned_input)
         return validation(False, "Your name may only contain letters and digits")
 

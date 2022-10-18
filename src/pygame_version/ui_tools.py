@@ -144,10 +144,12 @@ class DisabledOrEnabledBtn(UIElement):
         if not self.mouse_over: 
             return self.rects[0]
 
-    def update(self, mouse_pos, mouse_up, enabled):
+    def update(self, mouse_pos, mouse_up, enabled, enter_key_pressed):
         """ Updates the "mouse_over" and "enabled" variables and returns the button's
             action value when clicked.
         """
+        if enter_key_pressed:
+            return self.action
         if enabled:
             self.enabled = True
             if self.rect.collidepoint(mouse_pos):
