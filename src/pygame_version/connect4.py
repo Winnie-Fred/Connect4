@@ -43,11 +43,29 @@ HELP_LINK = "https://github.com/Winnie-Fred/Connect4#finding-your-internal-ipv4-
 class Connect4:
     POINTS_FOR_WINNING_ONE_ROUND = 10
     connect4game = Connect4Game()
+    TEMPORARY_SURFACE_WIDTH, TEMPORARY_SURFACE_HEIGHT = 1600.0, 900.0
 
     def __init__(self):
+        pygame.init()
         self.client = Client()
         self.ID = None
         self.keyboard_interrupt = False
+        
+        monitor_size = [pygame.display.Info().current_w, pygame.display.Info().current_h]
+        self.screen = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
+        # self.screen = pygame.display.set_mode((1280, 800))
+
+        width, height = self.screen.get_width(), self.screen.get_height()
+        xscale = width / self.TEMPORARY_SURFACE_WIDTH
+        yscale = height / self.TEMPORARY_SURFACE_HEIGHT
+        self.scale = xscale if xscale < yscale else yscale
+
+        # These are the distances from the top of the screen to the top of the scaled surface or simply, 
+        # the width and height of the horizontal and vertical black bars on either side of the screen (letterbox)
+        # We divide by 2 since scaled image will be blitted at the center of the screen.
+        self.top_x_padding = abs(self.screen.get_width() - int(self.TEMPORARY_SURFACE_WIDTH*self.scale)) / 2
+        self.top_y_padding = abs(self.screen.get_height() - int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)) / 2
+
         self._reset_game()
 
     def _reset_game(self):
@@ -66,9 +84,7 @@ class Connect4:
         self.round_over_json = {}
     
     def run_game(self):
-        pygame.init()
-        
-        screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        screen = self.screen
         pygame.display.set_caption("Connect4")
         game_state = GameState.MENU
         
@@ -91,11 +107,11 @@ class Connect4:
                 return
 
     def menu_screen(self, screen):
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
-        menu_header = create_text_to_draw("Ready to play Connect4?", 30, WHITE, BLUE, (screen_width*0.5, screen_height*0.17))
+        
+        menu_header = create_text_to_draw("Ready to play Connect4?", 30, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.17))
 
         create_game_btn = UIElement(
-            center_position=(screen_width*0.5, screen_height*0.3333),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -103,7 +119,7 @@ class Connect4:
             action=GameState.CREATE_GAME,
         )
         join_any_game_btn = UIElement(
-            center_position=(screen_width*0.5, screen_height*0.5),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.5),
             font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -111,7 +127,7 @@ class Connect4:
             action=GameState.JOIN_ANY_GAME,
         )
         join_game_with_code_btn = UIElement(
-            center_position=(screen_width*0.5, screen_height*0.6667),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
             font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -119,7 +135,7 @@ class Connect4:
             action=GameState.JOIN_GAME_WITH_CODE,
         )
         quit_btn = UIElement(
-            center_position=(screen_width*0.5, screen_height*0.83),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.83),
             font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -132,7 +148,7 @@ class Connect4:
         return self.game_menu_loop(screen, buttons, menu_header)
 
     def main_game_screen(self, screen, choice, ip, code=''):
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
+        
 
         loading_simulation_frames = []
         for i in range(1, 50):
@@ -140,25 +156,25 @@ class Connect4:
 
         red_bird_flying_frames = []
         for i in range(1, 8):
-            red_bird_flying_frames.append(pygame.image.load(f'../../images/red bird frames/red-bird-{i}.png'))
+            red_bird_flying_frames.append(pygame.image.load(f'../../images/red bird frames/red-bird-{i}.png').convert_alpha())
 
         blue_bird_flying_frames = []
         for i in range(1, 5):
-            blue_bird_flying_frames.append(pygame.image.load(f'../../images/blue bird frames/blue-bird-{i}.png'))
+            blue_bird_flying_frames.append(pygame.image.load(f'../../images/blue bird frames/blue-bird-{i}.png').convert_alpha())
 
         girl_swinging_frames = []
         for i in range(28):
-            girl_swinging_frames.append(pygame.image.load(f'../../images/girl-swinging frames/girl on swing frame ({i}).png'))
+            girl_swinging_frames.append(pygame.image.load(f'../../images/girl-swinging frames/girl on swing frame ({i}).png').convert_alpha())
 
         sun_rotating_frames = []
         for i in range(41):
-            sun_rotating_frames.append(pygame.image.load(f'../../images/sun frames/Sun frame ({i}).png'))
+            sun_rotating_frames.append(pygame.image.load(f'../../images/sun frames/Sun frame ({i}).png').convert_alpha())
 
         frames = namedtuple("frames", "loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames")  
         all_frames = frames(loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames)
 
         return_btn = UIElement(
-            center_position=(screen_width*0.13, screen_height*0.95),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.13, self.TEMPORARY_SURFACE_HEIGHT*0.95),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -167,7 +183,7 @@ class Connect4:
         )
 
         copy_btn = CopyButtonElement(
-            center_position=(screen_width*0.75, screen_height*0.42),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.42),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -178,17 +194,16 @@ class Connect4:
 
         buttons = RenderUpdates(return_btn)
         copy_btn = RenderUpdates(copy_btn)
-        background = pygame.image.load('../../images/playground.png')
-        background = pygame.transform.scale(background, (screen.get_rect().width, screen.get_rect().height))
-        board = pygame.image.load('../../images/Connect4 Giant set.png')
+        background = pygame.image.load('../../images/playground.png').convert_alpha()
+        board = pygame.image.load('../../images/Connect4 Giant set.png').convert_alpha()
         
         return self.play_game(screen, background, board, buttons, copy_btn, all_frames, choice=choice, ip=ip, code=code)
 
     def collect_ip_screen(self, screen, next_screen, **kwargs):
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
+        
         default_ip = self.client.get_default_ip()
         submit_ip_btn = DisabledOrEnabledBtn(
-            center_position=(screen_width*0.4375, screen_height*0.6667),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.4375, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
             font_size=20,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -198,7 +213,7 @@ class Connect4:
         )
 
         help_btn = UIElement(
-            center_position=(screen_width*0.1875, screen_height*0.6667),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.1875, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -207,7 +222,7 @@ class Connect4:
         )
 
         default_ip_btn = UIElement(
-            center_position=(screen_width*0.75, screen_height*0.6667),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -216,7 +231,7 @@ class Connect4:
         )
 
         return_btn = UIElement(
-            center_position=(screen_width*0.13, screen_height*0.95),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.13, self.TEMPORARY_SURFACE_HEIGHT*0.95),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -225,7 +240,7 @@ class Connect4:
         )
         
         paste_btn = UIElement(
-            center_position=(screen_width*0.75, screen_height*0.3333),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -234,7 +249,7 @@ class Connect4:
         )
 
         clear_btn = UIElement(
-            center_position=(screen_width*0.1875, screen_height*0.3333),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.1875, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -243,7 +258,7 @@ class Connect4:
         )
 
         input_box = InputBox(
-            center_position = (screen_width*0.4375, screen_height*0.3333),
+            center_position = (self.TEMPORARY_SURFACE_WIDTH*0.4375, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             placeholder_text='Enter IP here',
             font_size=20,
             bg_rgb=BLUE,
@@ -256,7 +271,7 @@ class Connect4:
             font_size=15,
             text_rgb=RED,
             bg_rgb=BLUE,
-            center_position=(screen_width*0.4375, screen_height*0.5))
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.4375, self.TEMPORARY_SURFACE_HEIGHT*0.5))
 
         buttons = RenderUpdates(return_btn, paste_btn, clear_btn, default_ip_btn, help_btn)
         game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=submit_ip_btn, input_box=input_box, fade_out_text=fade_out_text, default_ip=default_ip)
@@ -269,9 +284,9 @@ class Connect4:
         return ui_action
 
     def collect_name_screen(self, screen, name=''):
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
+        
         continue_btn = DisabledOrEnabledBtn(
-            center_position=(screen_width*0.5, screen_height*0.6667),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
             font_size=20,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -281,7 +296,7 @@ class Connect4:
         )
 
         return_btn = UIElement(
-            center_position=(screen_width*0.13, screen_height*0.95),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.13, self.TEMPORARY_SURFACE_HEIGHT*0.95),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -290,7 +305,7 @@ class Connect4:
         )
         
         paste_btn = UIElement(
-            center_position=(screen_width*0.75, screen_height*0.3333),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -299,7 +314,7 @@ class Connect4:
         )
 
         clear_btn = UIElement(
-            center_position=(screen_width*0.25, screen_height*0.3333),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.25, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -308,7 +323,7 @@ class Connect4:
         )
 
         input_box = InputBox(
-            center_position = (screen_width*0.5, screen_height*0.3333),
+            center_position = (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             placeholder_text='Enter your name here',
             font_size=20,
             bg_rgb=BLUE,
@@ -321,18 +336,18 @@ class Connect4:
             font_size=15,
             text_rgb=RED,
             bg_rgb=BLUE,
-            center_position=(screen_width*0.5, screen_height*0.5))
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.5))
 
         buttons = RenderUpdates(return_btn, paste_btn, clear_btn)
         return self.collect_input_loop(screen, buttons=buttons, submit_input_btn=continue_btn, input_box=input_box, fade_out_text=fade_out_text, name=name)       
     
     def choose_token_screen(self, screen, name=''):
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
+        
         texts = []
         msg = "You go first"
-        texts.append(create_text_to_draw(msg, 20, WHITE, BLUE, (screen_width*0.5, screen_height*0.1667)))
+        texts.append(create_text_to_draw(msg, 20, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.1667)))
         msg = f"{name}, choose a token"
-        texts.append(create_text_to_draw(msg, 25, WHITE, BLUE, (screen_width*0.5, screen_height*0.25)))
+        texts.append(create_text_to_draw(msg, 25, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.25)))
 
         inactive_red_button_img = pygame.image.load('../../images/token buttons/inactive red token button.png').convert_alpha()
         mouse_over_red_button_img = pygame.image.load('../../images/token buttons/mouse over red token button.png').convert_alpha()
@@ -342,19 +357,19 @@ class Connect4:
         red_token_btn = TokenButton(
             button_img=inactive_red_button_img,
             mouse_over_btn_img=mouse_over_red_button_img,
-            top_left_position=(screen_width*0.3, screen_height*0.333333),
+            top_left_position=(self.TEMPORARY_SURFACE_WIDTH*0.3, self.TEMPORARY_SURFACE_HEIGHT*0.333333),
             action=GameState.SELECT_RED_TOKEN,
         )
 
         yellow_token_btn = TokenButton(
             button_img=inactive_yellow_button_img,
             mouse_over_btn_img=mouse_over_yellow_button_img,
-            top_left_position=(screen_width*0.6, screen_height*0.333333),
+            top_left_position=(self.TEMPORARY_SURFACE_WIDTH*0.6, self.TEMPORARY_SURFACE_HEIGHT*0.333333),
             action=GameState.SELECT_YELLOW_TOKEN,
         )
        
         return_btn = UIElement(
-            center_position=(screen_width*0.13, screen_height*0.9533),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.13, self.TEMPORARY_SURFACE_HEIGHT*0.9533),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -366,9 +381,9 @@ class Connect4:
         return self.choose_token_loop(screen, buttons=buttons, texts=texts)
 
     def join_game_with_code_screen(self, screen, ip):
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
+        
         join_game_btn = DisabledOrEnabledBtn(
-            center_position=(screen_width*0.5, screen_height*0.6667),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
             font_size=20,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -378,7 +393,7 @@ class Connect4:
         )
 
         return_btn = UIElement(
-            center_position=(screen_width*0.13, screen_height*0.95),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.13, self.TEMPORARY_SURFACE_HEIGHT*0.95),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -387,7 +402,7 @@ class Connect4:
         )
         
         paste_btn = UIElement(
-            center_position=(screen_width*0.75, screen_height*0.3333),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -396,7 +411,7 @@ class Connect4:
         )
 
         clear_btn = UIElement(
-            center_position=(screen_width*0.25, screen_height*0.3333),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.25, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -405,7 +420,7 @@ class Connect4:
         )
 
         input_box = InputBox(
-            center_position = (screen_width*0.5, screen_height*0.3333),
+            center_position = (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             placeholder_text='Enter code here',
             font_size=20,
             bg_rgb=BLUE,
@@ -418,7 +433,7 @@ class Connect4:
             font_size=15,
             text_rgb=RED,
             bg_rgb=BLUE,
-            center_position=(screen_width*0.5, screen_height*0.5))
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.5))
 
         buttons = RenderUpdates(return_btn, paste_btn, clear_btn)
         game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box, fade_out_text=fade_out_text)
@@ -432,6 +447,8 @@ class Connect4:
             buttons sprite renderer.
         """
 
+        temporary_surface = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
+
         if self.client.client is not None:
             self.client.client.close()
 
@@ -444,22 +461,29 @@ class Connect4:
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     mouse_up = True            
                 
-            screen.fill(BLUE)
+            temporary_surface.fill(BLUE)
 
-            menu_header.draw(screen)
+            scaled_pos = self.get_scaled_mouse_position()
 
-            for button in buttons:
-                ui_action = button.update(pygame.mouse.get_pos(), mouse_up)
-                if ui_action != GameState.NO_ACTION:                                                               
+            menu_header.draw(temporary_surface)
+            
+            for button in buttons:              
+                ui_action = button.update(scaled_pos, mouse_up)
+                if ui_action != GameState.NO_ACTION:                                                             
                     return ui_action
 
-            buttons.draw(screen)
+            buttons.draw(temporary_surface)
+
+            scaled_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
+            screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
 
     def collect_input_loop(self, screen, buttons, input_box, submit_input_btn, fade_out_text, default_ip=None, name=''):
         """ Collects input in loop until an action is return by a button in the
             buttons sprite renderer.
         """
+
+        temporary_surface = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
         
         submit_btn_enabled = False
         error = ''
@@ -493,7 +517,9 @@ class Connect4:
                     else:
                         pressed_key = event.unicode
                 
-            screen.fill(BLUE)
+            temporary_surface.fill(BLUE)
+
+            scaled_pos = self.get_scaled_mouse_position()
 
             if error:
                 # TODO: Make error fade out after some time, possibly display error when they have entered max characters              
@@ -510,11 +536,12 @@ class Connect4:
                     error = ''
                     alpha = 255
                     
-                fade_out_text.draw(screen)                    
+                fade_out_text.draw(temporary_surface)                    
             
 
-            for button in buttons:
-                ui_action = button.update(pygame.mouse.get_pos(), mouse_up)
+            for button in buttons:                
+                ui_action = button.update(scaled_pos, mouse_up)
+                
                 if ui_action != GameState.NO_ACTION:
                     if ui_action == GameState.PASTE:
                         pasted_input = pyperclip.paste()
@@ -527,9 +554,10 @@ class Connect4:
                     else:                                              
                         return game_state_and_input(ui_action, '')
 
-            buttons.draw(screen)
+            buttons.draw(temporary_surface)
 
-            ui_action = submit_input_btn.update(pygame.mouse.get_pos(), mouse_up, submit_btn_enabled)
+            
+            ui_action = submit_input_btn.update(scaled_pos, mouse_up, submit_btn_enabled)
             if ui_action != GameState.NO_ACTION:
                 if ui_action == GameState.JOIN_GAME_WITH_ENTERED_CODE:
                     validation = self.validate_game_code(returned_input)
@@ -546,21 +574,26 @@ class Connect4:
                         error = validation.valid_input_or_error                    
                 else:
                     return game_state_and_input(ui_action, '')
-            submit_input_btn.draw(screen)
+            submit_input_btn.draw(temporary_surface)
 
-            after_input = input_box.update(pygame.mouse.get_pos(), mouse_up, key_down, pressed_key, backspace, pasted_input, clear)                   
-            input_box.draw(screen)
-            pygame.draw.rect(screen, after_input.color, (input_box.rect.left-3, input_box.rect.top-5, input_box.rect.w+10, input_box.rect.h*2), 2)
+            
+            after_input = input_box.update(scaled_pos, mouse_up, key_down, pressed_key, backspace, pasted_input, clear)                   
+            input_box.draw(temporary_surface)
+            pygame.draw.rect(temporary_surface, after_input.color, (input_box.rect.left-3, input_box.rect.top-5, input_box.rect.w+10, input_box.rect.h*2), 2)
             submit_btn_enabled = after_input.submit_btn_enabled
             returned_input = after_input.returned_input
 
+            scaled_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
+            screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
     
     def choose_token_loop(self, screen, buttons, texts):
         """ Collects player's token in loop until an action is return by a button in the
             buttons sprite renderer.
         """
-        
+
+        temporary_surface = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
+
         while True:
             mouse_up = False
             for event in pygame.event.get():
@@ -568,19 +601,23 @@ class Connect4:
                     pygame.quit()
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                    mouse_up = True                
+                    mouse_up = True
                 
-            screen.fill(BLUE)
+            temporary_surface.fill(BLUE)
+            scaled_pos = self.get_scaled_mouse_position()
 
             for text in texts:
-                text.draw(screen)
+                text.draw(temporary_surface)
 
             for button in buttons:
-                ui_action = button.update(pygame.mouse.get_pos(), mouse_up)
+                ui_action = button.update(scaled_pos, mouse_up)
                 if ui_action != GameState.NO_ACTION:
                     return ui_action
 
-            buttons.draw(screen)
+            buttons.draw(temporary_surface)
+
+            scaled_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
+            screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
 
     def play_game(self, screen, background, board, buttons, copy_btn, frames, choice, ip, code=''):
@@ -590,35 +627,36 @@ class Connect4:
             loading_text = ''
             texts = []
 
+        temporary_surface = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
+
         loading_simulaton_frames = frames.loading_simulation_frames
         red_bird_flying_frames = frames.red_bird_flying_frames
         blue_bird_flying_frames = frames.blue_bird_flying_frames
         girl_swinging_frames = frames.girl_swinging_frames
         sun_rotating_frames = frames.sun_rotating_frames
 
-
-        screen_width, screen_height = screen.get_rect().width, screen.get_rect().height
-
         last_update_of_loading_animation = pygame.time.get_ticks()
         loading_animation_cooldown = 50
         loading_animation_frame = 0  
 
         last_update_of_red_bird_flying = pygame.time.get_ticks()
-        red_bird_flying_cooldown = 50
+        red_bird_flying_cooldown = 65
         red_bird_flying_frame = 0 
-        red_bird_position = screen_width*-0.01 
+        red_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.01 
+        red_bird_speed = self.TEMPORARY_SURFACE_WIDTH*0.001
 
         last_update_of_blue_bird_flying = pygame.time.get_ticks()
-        blue_bird_flying_cooldown = 50
+        blue_bird_flying_cooldown = 100
         blue_bird_flying_frame = 0  
-        blue_bird_position = screen_width*-0.001 
+        blue_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.005
+        blue_bird_speed = self.TEMPORARY_SURFACE_WIDTH*0.0008
 
         last_update_of_girl_swinging = pygame.time.get_ticks()
-        girl_swinging_cooldown = 50
+        girl_swinging_cooldown = 100
         girl_swinging_frame = 0
 
         last_update_of_sun_rotating = pygame.time.get_ticks()
-        sun_rotating_cooldown = 50
+        sun_rotating_cooldown = 80
         sun_rotating_frame = 0  
 
 
@@ -654,7 +692,7 @@ class Connect4:
 
 
         while True:
-            default_y_position_for_printing_error = screen_height*0.6667
+            default_y_position_for_printing_error = self.TEMPORARY_SURFACE_HEIGHT*0.6667
 
             mouse_up = False
             for event in pygame.event.get():
@@ -663,12 +701,12 @@ class Connect4:
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     mouse_up = True
-           
-            if not round_started:
-                screen.fill(BLUE)
-            else:
+
+            scaled_pos = self.get_scaled_mouse_position()
+            temporary_surface.fill(BLUE)
+            if round_started:
                 clear_screen()
-                screen.blit(background, (0, 0))                
+                temporary_surface.blit(background, (0, 0))                
 
                 #------------------------------------------------ Animations ------------------------------------------------#
 
@@ -679,7 +717,7 @@ class Connect4:
                     if sun_rotating_frame >= len(sun_rotating_frames):
                         sun_rotating_frame = 0
 
-                screen.blit(sun_rotating_frames[sun_rotating_frame], (screen_width*0.055, screen_height*0.06))
+                temporary_surface.blit(sun_rotating_frames[sun_rotating_frame], (self.TEMPORARY_SURFACE_WIDTH*0.055, self.TEMPORARY_SURFACE_HEIGHT*0.06))
                 
 
                 current_time = pygame.time.get_ticks()
@@ -689,10 +727,10 @@ class Connect4:
                     if blue_bird_flying_frame >= len(blue_bird_flying_frames):
                         blue_bird_flying_frame = 0
 
-                screen.blit(blue_bird_flying_frames[blue_bird_flying_frame], (blue_bird_position, screen_height*0.01))
-                blue_bird_position += screen_width*0.008
-                if blue_bird_position >= screen_width*1.1:
-                    blue_bird_position = screen_width*-0.01
+                temporary_surface.blit(blue_bird_flying_frames[blue_bird_flying_frame], (blue_bird_position, self.TEMPORARY_SURFACE_HEIGHT*0.01))
+                blue_bird_position += blue_bird_speed
+                if blue_bird_position >= self.TEMPORARY_SURFACE_WIDTH*1.1:
+                    blue_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.005
 
 
                 current_time = pygame.time.get_ticks()
@@ -702,10 +740,10 @@ class Connect4:
                     if red_bird_flying_frame >= len(red_bird_flying_frames):
                         red_bird_flying_frame = 0
 
-                screen.blit(red_bird_flying_frames[red_bird_flying_frame], (red_bird_position, screen_height*0.01))
-                red_bird_position += screen_width*0.01
-                if red_bird_position >= screen_width*1.1:
-                    red_bird_position = screen_width*-0.01
+                temporary_surface.blit(red_bird_flying_frames[red_bird_flying_frame], (red_bird_position, self.TEMPORARY_SURFACE_HEIGHT*0.01))
+                red_bird_position += red_bird_speed
+                if red_bird_position >= self.TEMPORARY_SURFACE_WIDTH*1.1:
+                    red_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.01
 
 
                 current_time = pygame.time.get_ticks()
@@ -715,19 +753,19 @@ class Connect4:
                     if girl_swinging_frame >= len(girl_swinging_frames):
                         girl_swinging_frame = 0
 
-                screen.blit(girl_swinging_frames[girl_swinging_frame], (screen_width*0.79, screen_height*0.5))
+                temporary_surface.blit(girl_swinging_frames[girl_swinging_frame], (self.TEMPORARY_SURFACE_WIDTH*0.79, self.TEMPORARY_SURFACE_HEIGHT*0.5))
                 
 
                 #------------------------------------------------ Animations ------------------------------------------------#
                 
-                screen.blit(board, (screen_width*0.2581, screen_height*0.195))
+                temporary_surface.blit(board, (self.TEMPORARY_SURFACE_WIDTH*0.2581, self.TEMPORARY_SURFACE_HEIGHT*0.195))
 
             for button in buttons:
-                ui_action = button.update(pygame.mouse.get_pos(), mouse_up)
+                ui_action = button.update(scaled_pos, mouse_up)
                 if ui_action != GameState.NO_ACTION:
                     return ui_action                    
                         
-            buttons.draw(screen)
+            buttons.draw(temporary_surface)
 
             
             for error in errors:
@@ -735,26 +773,26 @@ class Connect4:
                     pass
                 else:
                     clear_screen()
-                    error_text = create_text_to_draw(error, 15, RED, BLUE, (screen_width*0.5, default_y_position_for_printing_error))
-                    error_text.draw(screen)
-                    default_y_position_for_printing_error += screen_height*0.0833
+                    error_text = create_text_to_draw(error, 15, RED, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, default_y_position_for_printing_error))
+                    error_text.draw(temporary_surface)
+                    default_y_position_for_printing_error += self.TEMPORARY_SURFACE_HEIGHT*0.0833
                     
 
             for text in texts:
-                text.draw(screen)
+                text.draw(temporary_surface)
 
             if code_to_display in texts:
                 current_time = pygame.time.get_ticks()
                 if last_click is None or current_time - last_click >= time_until_enable:
                     enabled = True
                 for button in copy_btn:
-                    ui_action = button.update(pygame.mouse.get_pos(), mouse_up, enabled)
+                    ui_action = button.update(scaled_pos, mouse_up, enabled)
                     if ui_action != GameState.NO_ACTION:
                         if ui_action == GameState.COPY:                        
                             last_click = current_time
                             pyperclip.copy(code_to_copy)
                             enabled = False                                                
-                copy_btn.draw(screen)
+                copy_btn.draw(temporary_surface)
 
 
             if loading_text or status_msg:
@@ -765,10 +803,10 @@ class Connect4:
                     if loading_animation_frame >= len(loading_simulaton_frames):
                         loading_animation_frame = 0
 
-                screen.blit(loading_simulaton_frames[loading_animation_frame], (screen_width*0.43, screen_height*0.125))
+                temporary_surface.blit(loading_simulaton_frames[loading_animation_frame], (self.TEMPORARY_SURFACE_WIDTH*0.44, self.TEMPORARY_SURFACE_HEIGHT*0.125))
                 if loading_text:            
-                    loading_msg = create_text_to_draw(loading_text, 15, WHITE, BLUE, (screen_width*0.5, screen_height*0.6667))
-                    loading_msg.draw(screen)
+                    loading_msg = create_text_to_draw(loading_text, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
+                    loading_msg.draw(temporary_surface)
                     
 
             if not errors and not status_msg:
@@ -827,10 +865,10 @@ class Connect4:
                             try:
                                 if "code" in unpickled_json:
                                     code_to_copy = unpickled_json['code']
-                                    code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, BLUE, (screen_width*0.5, screen_height*0.4167))
+                                    code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.4167))
                                     texts.append(code_to_display)
                                     msg = "This is your special code. Send it to someone you wish to join this game."
-                                    texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (screen_width*0.5, screen_height*0.5)))
+                                    texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.5)))
                                 elif "no_games_found" in unpickled_json:
                                     # Result from unpickled_json is not used because it is too long and has to be broken 
                                     # to be printed on multiple lines                                    
@@ -889,7 +927,7 @@ class Connect4:
                                         self.client.send_data({'colors':colors})
                                     else:
                                         msg = f"{first} goes first"
-                                        texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (screen_width*0.5, screen_height*0.4167)))
+                                        texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.4167)))
                                         loading_text = f"Waiting for {self.opponent} to choose their color"
                                     print(msg)
                                 elif "colors" in unpickled_json:                                                                                     
@@ -943,13 +981,23 @@ class Connect4:
             if status_msg:
                 current_time = pygame.time.get_ticks()
                 if current_time < status_msg_end_time:
-                    loading_msg = create_text_to_draw(status_msg, 15, WHITE, BLUE, (screen_width*0.5, screen_height*0.6667))
-                    loading_msg.draw(screen)
+                    loading_msg = create_text_to_draw(status_msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
+                    loading_msg.draw(temporary_surface)
                 else:
                     status_msg = ''
-            
+
+            scaled_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))
+            screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
             
+    def get_scaled_mouse_position(self):
+        pos = list(pygame.mouse.get_pos())
+        
+        # The mouse position has to be scaled too
+        # To get the scaled mouse position relative to the scaled surface and not (0, 0) of the display, 
+        # the paddings are subtracted before scaling
+        return ((pos[0] - self.top_x_padding) / self.scale), ((pos[1] - self.top_y_padding) / self.scale)
+
     def color_error_msg_red(self, msg):
         return colored(msg, "red", attrs=['bold'])
 
