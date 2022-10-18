@@ -292,6 +292,8 @@ class Client(BaseClient):
                         if not self.ID:
                             first_player = self.connect4game._shuffle_players([self.you, self.opponent])
                             self.send_data({'first':first_player})                      
+                        else:
+                            print("Randomly choosing who to go first . . .")                
                     elif "first" in self.unpickled_json:
                         first = self.unpickled_json['first'][0]
                         loading_msg = f"Waiting for {self.opponent} to choose their color"
@@ -299,7 +301,6 @@ class Client(BaseClient):
                         self.unpickled_json_lock.release()
                         loading_thread.daemon = True
                         if self.ID:
-                            print("Randomly choosing who to go first . . .")                
                             print(f"{first} goes first")
                         if first == self.you:
                             colors = self.connect4game._get_players_colors(self.you)
