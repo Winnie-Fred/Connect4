@@ -12,7 +12,6 @@ import pygame
 import pygame.freetype
 import pyperclip # type: ignore
 
-from pygame.rect import Rect
 from pygame.sprite import RenderUpdates
 
 from basic_version.connect4 import Connect4Game
@@ -54,8 +53,8 @@ class Connect4:
         self.keyboard_interrupt = False
         
         monitor_size = [pygame.display.Info().current_w, pygame.display.Info().current_h]
-        self.screen = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
-        # self.screen = pygame.display.set_mode((1280, 800))
+        # self.screen = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
+        self.screen = pygame.display.set_mode((1280, 800))
 
         width, height = self.screen.get_width(), self.screen.get_height()
         xscale = width / self.TEMPORARY_SURFACE_WIDTH
@@ -161,8 +160,10 @@ class Connect4:
             red_bird_flying_frames.append(pygame.image.load(f'../../images/red bird frames/red-bird-{i}.png').convert_alpha())
 
         blue_bird_flying_frames = []
+        bigger_blue_bird_flying_frames = []
         for i in range(1, 5):
             blue_bird_flying_frames.append(pygame.image.load(f'../../images/blue bird frames/blue-bird-{i}.png').convert_alpha())
+            bigger_blue_bird_flying_frames.append(pygame.image.load(f'../../images/bigger blue bird frames/bigger-blue-bird-{i}.png').convert_alpha())
 
         girl_swinging_frames = []
         for i in range(28):
@@ -172,8 +173,8 @@ class Connect4:
         for i in range(41):
             sun_rotating_frames.append(pygame.image.load(f'../../images/sun frames/Sun frame ({i}).png').convert_alpha())
 
-        frames = namedtuple("frames", "loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames")  
-        all_frames = frames(loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames)
+        frames = namedtuple("frames", "loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames,  girl_swinging_frames, sun_rotating_frames")  
+        all_frames = frames(loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames)
 
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.13, self.TEMPORARY_SURFACE_HEIGHT*0.95),
@@ -638,6 +639,7 @@ class Connect4:
         loading_simulaton_frames = frames.loading_simulation_frames
         red_bird_flying_frames = frames.red_bird_flying_frames
         blue_bird_flying_frames = frames.blue_bird_flying_frames
+        bigger_blue_bird_flying_frames = frames.bigger_blue_bird_flying_frames
         girl_swinging_frames = frames.girl_swinging_frames
         sun_rotating_frames = frames.sun_rotating_frames
 
@@ -656,6 +658,13 @@ class Connect4:
         blue_bird_flying_frame = 0  
         blue_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.005
         blue_bird_speed = self.TEMPORARY_SURFACE_WIDTH*0.0008
+
+        last_update_of_bigger_blue_bird_flying = pygame.time.get_ticks()
+        bigger_blue_bird_flying_cooldown = 105
+        bigger_blue_bird_flying_frame = 0
+        bigger_blue_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.3
+        bigger_blue_bird_speed = self.TEMPORARY_SURFACE_WIDTH*0.0015
+
 
         last_update_of_girl_swinging = pygame.time.get_ticks()
         girl_swinging_cooldown = 100
@@ -734,9 +743,23 @@ class Connect4:
                         blue_bird_flying_frame = 0
 
                 temporary_surface.blit(blue_bird_flying_frames[blue_bird_flying_frame], (blue_bird_position, self.TEMPORARY_SURFACE_HEIGHT*0.01))
+
                 blue_bird_position += blue_bird_speed
                 if blue_bird_position >= self.TEMPORARY_SURFACE_WIDTH*1.1:
                     blue_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.005
+
+
+                current_time = pygame.time.get_ticks()
+                if current_time - last_update_of_bigger_blue_bird_flying >= bigger_blue_bird_flying_cooldown:
+                    bigger_blue_bird_flying_frame += 1
+                    last_update_of_bigger_blue_bird_flying = current_time
+                    if bigger_blue_bird_flying_frame >= len(bigger_blue_bird_flying_frames):
+                        bigger_blue_bird_flying_frame = 0
+
+                temporary_surface.blit(bigger_blue_bird_flying_frames[bigger_blue_bird_flying_frame], (bigger_blue_bird_position, self.TEMPORARY_SURFACE_HEIGHT*0.005))
+                bigger_blue_bird_position += bigger_blue_bird_speed
+                if bigger_blue_bird_position >= self.TEMPORARY_SURFACE_WIDTH*1.1:
+                    bigger_blue_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.03
 
 
                 current_time = pygame.time.get_ticks()
