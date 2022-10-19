@@ -153,8 +153,8 @@ class Connect4:
         
 
         loading_simulation_frames = []
-        for i in range(1, 50):
-            loading_simulation_frames.append(pygame.image.load(f'../../images/loading-animation-balls/frame-{i}.png').convert_alpha())
+        for i in range(52):
+            loading_simulation_frames.append(pygame.image.load(f'../../images/loading animation frames/loading frame ({i}).png').convert_alpha())
 
         red_bird_flying_frames = []
         for i in range(1, 8):
@@ -185,7 +185,7 @@ class Connect4:
         )
 
         copy_btn = CopyButtonElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.42),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.45),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -642,7 +642,7 @@ class Connect4:
         sun_rotating_frames = frames.sun_rotating_frames
 
         last_update_of_loading_animation = pygame.time.get_ticks()
-        loading_animation_cooldown = 50
+        loading_animation_cooldown = 370
         loading_animation_frame = 0  
 
         last_update_of_red_bird_flying = pygame.time.get_ticks()
@@ -809,7 +809,7 @@ class Connect4:
                     if loading_animation_frame >= len(loading_simulaton_frames):
                         loading_animation_frame = 0
 
-                temporary_surface.blit(loading_simulaton_frames[loading_animation_frame], (self.TEMPORARY_SURFACE_WIDTH*0.44, self.TEMPORARY_SURFACE_HEIGHT*0.125))
+                temporary_surface.blit(loading_simulaton_frames[loading_animation_frame], (self.TEMPORARY_SURFACE_WIDTH*0.385, self.TEMPORARY_SURFACE_HEIGHT*0.1))
                 if loading_text:            
                     loading_msg = create_text_to_draw(loading_text, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
                     loading_msg.draw(temporary_surface)
@@ -871,10 +871,10 @@ class Connect4:
                             try:
                                 if "code" in unpickled_json:
                                     code_to_copy = unpickled_json['code']
-                                    code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.4167))
+                                    code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.45))
                                     texts.append(code_to_display)
                                     msg = "This is your special code. Send it to someone you wish to join this game."
-                                    texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.5)))
+                                    texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.55)))
                                 elif "no_games_found" in unpickled_json:
                                     # Result from unpickled_json is not used because it is too long and has to be broken 
                                     # to be printed on multiple lines                                    
