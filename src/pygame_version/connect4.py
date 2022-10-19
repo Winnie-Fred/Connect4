@@ -87,6 +87,8 @@ class Connect4:
     def run_game(self):
         screen = self.screen
         pygame.display.set_caption("Connect4")
+        icon = pygame.image.load('../../images/icon.png').convert_alpha()
+        pygame.display.set_icon(icon)
         game_state = GameState.MENU
         
         while True:          
