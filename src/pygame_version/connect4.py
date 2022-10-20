@@ -1,5 +1,6 @@
 import sys
 import time
+import math
 import socket
 import pickle
 import select
@@ -265,7 +266,7 @@ class Connect4:
 
         input_box = InputBox(
             center_position = (self.TEMPORARY_SURFACE_WIDTH*0.4375, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
-            placeholder_text='Enter IP here',
+            placeholder_text='Enter IP of server machine here',
             font_size=20,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -630,7 +631,7 @@ class Connect4:
             screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
 
-    def blit_board(self, surface, board_surface, mouse_pos, board_dimensions, red_token, yellow_token):
+    def blit_board(self, surface, board_surface, mouse_pos_on_click, current_mouse_pos, board_dimensions, red_token, yellow_token):
         
         board_topleft = board_dimensions.board_topleft
         board_slot_edges = board_dimensions.board_slot_edges
@@ -640,20 +641,34 @@ class Connect4:
         width_of_hole = board_dimensions.width_of_hole
         distance_between_rows = board_dimensions.distance_between_rows
         distance_between_cols = board_dimensions.distance_between_cols
-        x_position, y_position = mouse_pos
+        x_pos_on_click, y_pos_on_click = mouse_pos_on_click
+        current_x_pos, _ = current_mouse_pos
 
         board_x = board_topleft[0]
         board_y = board_topleft[1]
         board_topleft = (board_x, board_y)
         play_status = ()
+
+        # player_one = Player('Winnie', colored('O', 'red', attrs=['bold'])) #  Used in quick testing
+        # self.your_turn = True #  Used in quick testing
+
         if self.your_turn:
-            if x_position is not None and y_position is not None and x_position in range(board_slot_edges[0], board_slot_edges[-1]):
-                for i in range(len(board_slot_edges)):
-                    if i:                    
-                        if int(x_position) in range(board_slot_edges[i-1], board_slot_edges[i]):
-                            choice = i-1
-                            break
+
+            if int(current_x_pos) in range(board_slot_edges[0], board_slot_edges[-1]):
+                for i in range(1, len(board_slot_edges)):                    
+                    if int(current_x_pos) in range(board_slot_edges[i-1], board_slot_edges[i]):
+                        if not self.board.check_if_column_is_full(i-1):
+                            surface.blit(self.token, (board_slot_edges[i-1]+8, board_topleft[1]-10)) #  Offset positions so that token is in the center
+                            # surface.blit(red_token, (board_slot_edges[i-1]+8, board_topleft[1]-10)) #  Used in quick testing
+           
+
+            if x_pos_on_click is not None and y_pos_on_click is not None and int(x_pos_on_click) in range(board_slot_edges[0], board_slot_edges[-1]):
+                for i in range(1, len(board_slot_edges)):
+                    if int(x_pos_on_click) in range(board_slot_edges[i-1], board_slot_edges[i]):
+                        choice = i-1
+                        break
                 play_status = self.board.play_at_position(self.player, choice)
+                # play_status = self.board.play_at_position(player_one, choice) #  Used in quick testing
                 print(self.board)
 
         for row_num, row in enumerate(self.board.grid, start=1):
@@ -781,7 +796,7 @@ class Connect4:
             default_y_position_for_printing_error = self.TEMPORARY_SURFACE_HEIGHT*0.6667
 
             mouse_up = False
-            mouse_pos = (None, None)
+            mouse_pos_on_click = (None, None)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -790,7 +805,7 @@ class Connect4:
                     mouse_up = True
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     # Get scaled x and y positions
-                    mouse_pos = int((event.pos[0] - self.top_x_padding) / self.scale), int((event.pos[1] - self.top_y_padding) / self.scale)                    
+                    mouse_pos_on_click = int((event.pos[0] - self.top_x_padding) / self.scale), int((event.pos[1] - self.top_y_padding) / self.scale)                    
 
             scaled_pos = self.get_scaled_mouse_position()
             temporary_surface.fill(BLUE)
@@ -861,7 +876,7 @@ class Connect4:
 
                 #------------------------------------------------ Animations ------------------------------------------------#
                 
-                self.blit_board(temporary_surface, board, mouse_pos, board_dimensions, red_token, yellow_token)
+                self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token)
 
             for button in buttons:
                 ui_action = button.update(scaled_pos, mouse_up)
@@ -990,6 +1005,10 @@ class Connect4:
                                     print(status_msg)
                                 elif "other_client_disconnected" in unpickled_json:                       
                                     errors.append(unpickled_json['other_client_disconnected'])
+                                elif 'timeout' in unpickled_json:
+                                    error = unpickled_json['timeout']
+                                    errors.append(error)
+                                    print(self.color_error_msg_red(error))
                                 elif "status" in unpickled_json:                                                                             
                                     loading_text = unpickled_json['status']                                
                                 elif "waiting_for_name" in unpickled_json:
@@ -1036,9 +1055,17 @@ class Connect4:
                                     colors = unpickled_json['colors']                        
                                     if first == self.you:
                                         self.your_turn = True
+                                        if colors[0] == 'red':
+                                            self.token = red_token
+                                        elif colors[0] == 'yellow':
+                                            self.token = yellow_token
                                         self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))                                                                 
                                     else:
                                         self.your_turn = False
+                                        if colors[1] == 'red':
+                                            self.token = red_token
+                                        elif colors[1] == 'yellow':
+                                            self.token = yellow_token
                                         self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
                                     self.client.send_data({'opponent_player_object':self.player})
                                 elif "opponent_player_object" in unpickled_json:
@@ -1065,10 +1092,7 @@ class Connect4:
                                 #     self.first_player_for_next_round = unpickled_json['first_player']
                                 #     self.first_player_received.set()
                                 #     with self.condition:
-                                #         self.condition.notify()
-                                # elif 'timeout' in unpickled_json:
-                                #     print(colored(unpickled_json['timeout'], "red", attrs=['bold']))
-                                #     break                 
+                                #         self.condition.notify()                                                 
                             except socket.error:
                                 if not self.keyboard_interrupt:
                                     print(self.color_error_msg_red(general_error_msg))

@@ -16,3 +16,12 @@ class Board(BaseBoard):
                 if i == 0:
                     return play_status(False, "That column is full")
                 continue
+
+    def check_if_column_is_full(self, column):
+        for i, row in reversed(list(enumerate(self.grid))):
+            if row[column] == '':
+                continue
+            else:
+                if i == 0:
+                    return True
+        return False
