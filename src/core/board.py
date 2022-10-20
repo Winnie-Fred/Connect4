@@ -52,8 +52,7 @@ class Board:
                 if i == 0:
                     print("That column is full")
                     self.play_at_position(player) #  Call function again to take in another input
-                continue
-        return True 
+                continue         
 
     def _check_horizontal_win(self, player_marker):
         win_pattern = [player_marker] * 4
@@ -90,6 +89,4 @@ class Board:
 
     def check_tie(self):
         for row in self.grid:
-            if '' in row: #  Board not full, no tie yet
-                return False
-        return True
+            return '' not in row
