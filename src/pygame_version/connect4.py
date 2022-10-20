@@ -5,7 +5,6 @@ import pickle
 import select
 import re
 import webbrowser
-from cgitb import text
 from collections import namedtuple
 
 import pygame
@@ -18,7 +17,7 @@ from basic_version.connect4 import Connect4Game
 
 from core.player import Player
 from core.level import Level
-from core.board import Board
+from pygame_version.utils import Board
 
 from pygame_version.client import Client
 from pygame_version.choice import Choice
@@ -39,6 +38,7 @@ MIN_IP_ADDR_LENGTH = 7
 MAX_NAME_LENGTH = 15
 MIN_NAME_LENGTH = 2
 HELP_LINK = "https://github.com/Winnie-Fred/Connect4#finding-your-internal-ipv4-address"
+
 
 
 class Connect4:
@@ -74,6 +74,7 @@ class Connect4:
         self.you = ""
         self.opponent = Player(name='', marker='')
         self.player = Player(name='', marker='')
+        self.token = None
         self.your_turn = False
         self.level = Level()
         self._reset_for_new_round()
@@ -629,6 +630,49 @@ class Connect4:
             screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
 
+    def blit_board(self, surface, board_surface, mouse_pos, board_dimensions, red_token, yellow_token):
+        
+        board_topleft = board_dimensions.board_topleft
+        board_slot_edges = board_dimensions.board_slot_edges
+        horizontal_distance_between_first_row_and_screen_edge = board_dimensions.horizontal_distance_between_first_row_and_screen_edge
+        vertical_distance_between_first_col_and_screen_edge = board_dimensions.vertical_distance_between_first_col_and_screen_edge
+        height_of_hole = board_dimensions.height_of_hole
+        width_of_hole = board_dimensions.width_of_hole
+        distance_between_rows = board_dimensions.distance_between_rows
+        distance_between_cols = board_dimensions.distance_between_cols
+        x_position, y_position = mouse_pos
+
+        board_x = board_topleft[0]
+        board_y = board_topleft[1]
+        board_topleft = (board_x, board_y)
+        play_status = ()
+        if self.your_turn:
+            if x_position is not None and y_position is not None and x_position in range(board_slot_edges[0], board_slot_edges[-1]):
+                for i in range(len(board_slot_edges)):
+                    if i:                    
+                        if int(x_position) in range(board_slot_edges[i-1], board_slot_edges[i]):
+                            choice = i-1
+                            break
+                play_status = self.board.play_at_position(self.player, choice)
+                print(self.board)
+
+        for row_num, row in enumerate(self.board.grid, start=1):
+            for col_num, token in enumerate(row, start=1):
+                token_x_position = int(horizontal_distance_between_first_row_and_screen_edge + (width_of_hole*(col_num-1)) \
+                                    + (distance_between_cols*(col_num-1)))
+
+                token_y_position = int(vertical_distance_between_first_col_and_screen_edge + (height_of_hole*(row_num-1)) \
+                                    + (distance_between_rows*(row_num-1)))
+                if token == colored('O', 'red', attrs=['bold']):                                                
+                    surface.blit(red_token, (token_x_position, token_y_position))                    
+                elif token == colored('O', 'yellow', attrs=['bold']):
+                    surface.blit(yellow_token, (token_x_position, token_y_position))
+
+        surface.blit(board_surface, board_topleft)
+
+        return play_status
+
+
     def play_game(self, screen, background, board, buttons, copy_btn, frames, choice, ip, code=''):
 
         def clear_screen():
@@ -697,8 +741,33 @@ class Connect4:
 
         full_msg = b''
         new_msg = True
-
         self._reset_game()
+
+        board_topleft = self.TEMPORARY_SURFACE_WIDTH*0.2581, self.TEMPORARY_SURFACE_HEIGHT*0.195
+        distance_from_left_bar_to_first_slot = 47
+        # A board slot is the curved part on the top of the board where tokens enter from and drop into the board
+        width_of_slots = [92, 98, 100, 97, 97, 99, 95]      
+        slot_x = int(board_topleft[0]) + distance_from_left_bar_to_first_slot
+        board_slot_edges = [slot_x, ]
+        for width in width_of_slots:
+            slot_x += width
+            board_slot_edges.append(slot_x)
+        distance_between_left_bar_and_first_column = 10
+        width_of_left_bar = 44
+        distance_from_top_of_board_to_top_of_first_row_of_holes = 37
+        vertical_distance_between_first_col_and_screen_edge = board_topleft[1] + distance_from_top_of_board_to_top_of_first_row_of_holes 
+        horizontal_distance_between_first_row_and_screen_edge = board_topleft[0] + distance_between_left_bar_and_first_column + width_of_left_bar
+
+        board_dimensions = namedtuple("board_dimensions", "board_topleft, board_slot_edges," 
+                                        "horizontal_distance_between_first_row_and_screen_edge, height_of_hole,"
+                                        "width_of_hole, vertical_distance_between_first_col_and_screen_edge, distance_between_rows,"
+                                        "distance_between_cols")
+        board_dimensions = board_dimensions(board_topleft, board_slot_edges, horizontal_distance_between_first_row_and_screen_edge, 
+                                            72, 72, vertical_distance_between_first_col_and_screen_edge, 23, 26)
+
+        red_token = pygame.image.load('../../images/red token.png').convert_alpha()
+        yellow_token = pygame.image.load('../../images/yellow token.png').convert_alpha()
+
         text_and_error = self.client.connect_to_game(choice, ip, code)
         if text_and_error['error']:
             errors.append(text_and_error['text'])
@@ -712,12 +781,16 @@ class Connect4:
             default_y_position_for_printing_error = self.TEMPORARY_SURFACE_HEIGHT*0.6667
 
             mouse_up = False
+            mouse_pos = (None, None)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     mouse_up = True
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    # Get scaled x and y positions
+                    mouse_pos = int((event.pos[0] - self.top_x_padding) / self.scale), int((event.pos[1] - self.top_y_padding) / self.scale)                    
 
             scaled_pos = self.get_scaled_mouse_position()
             temporary_surface.fill(BLUE)
@@ -745,7 +818,6 @@ class Connect4:
                         blue_bird_flying_frame = 0
 
                 temporary_surface.blit(blue_bird_flying_frames[blue_bird_flying_frame], (blue_bird_position, self.TEMPORARY_SURFACE_HEIGHT*0.01))
-
                 blue_bird_position += blue_bird_speed
                 if blue_bird_position >= self.TEMPORARY_SURFACE_WIDTH*1.1:
                     blue_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.005
@@ -789,7 +861,7 @@ class Connect4:
 
                 #------------------------------------------------ Animations ------------------------------------------------#
                 
-                temporary_surface.blit(board, (self.TEMPORARY_SURFACE_WIDTH*0.2581, self.TEMPORARY_SURFACE_HEIGHT*0.195))
+                self.blit_board(temporary_surface, board, mouse_pos, board_dimensions, red_token, yellow_token)
 
             for button in buttons:
                 ui_action = button.update(scaled_pos, mouse_up)
@@ -889,9 +961,8 @@ class Connect4:
                                 full_msg = b''                
                             
                             print("unpickled_json", unpickled_json)
-                            # -------------------------------------Use unpickled json data here-------------------------------------
-                            loading_text = ''
-                    
+
+                            loading_text = ''                    
 
                             try:
                                 if "code" in unpickled_json:
@@ -959,13 +1030,13 @@ class Connect4:
                                     else:
                                         msg = f"{first} goes first"
                                         texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.4167)))
-                                        loading_text = f"Waiting for {self.opponent} to choose their color"
+                                        loading_text = f"Waiting for {self.opponent} to choose their token"
                                     print(msg)
                                 elif "colors" in unpickled_json:                                                                                     
                                     colors = unpickled_json['colors']                        
                                     if first == self.you:
                                         self.your_turn = True
-                                        self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))                            
+                                        self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))                                                                 
                                     else:
                                         self.your_turn = False
                                         self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
@@ -1008,6 +1079,8 @@ class Connect4:
                                 if not self.keyboard_interrupt:
                                     # print(self.color_error_msg_red(something_went_wrong_msg))
                                     error = something_went_wrong_msg            
+
+                            # -------------------------------------Use unpickled json data here-------------------------------------
 
             if status_msg:
                 current_time = pygame.time.get_ticks()
