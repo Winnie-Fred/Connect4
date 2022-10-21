@@ -18,7 +18,7 @@ from basic_version.connect4 import Connect4Game
 
 from core.player import Player
 from core.level import Level
-from pygame_version.utils import Board
+from pygame_version.utils import Board, Token
 
 from pygame_version.client import Client
 from pygame_version.choice import Choice
@@ -54,8 +54,8 @@ class Connect4:
         self.keyboard_interrupt = False
         
         monitor_size = [pygame.display.Info().current_w, pygame.display.Info().current_h]
-        # self.screen = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
-        self.screen = pygame.display.set_mode((1280, 800))
+        self.screen = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
+        # self.screen = pygame.display.set_mode((1280, 800))
 
         width, height = self.screen.get_width(), self.screen.get_height()
         xscale = width / self.TEMPORARY_SURFACE_WIDTH
@@ -631,7 +631,7 @@ class Connect4:
             screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
 
-    def blit_board(self, surface, board_surface, mouse_pos_on_click, current_mouse_pos, board_dimensions, red_token, yellow_token):
+    def blit_board(self, surface, board_surface, mouse_pos_on_click, current_mouse_pos, board_dimensions, red_token, yellow_token, tokens):
         
         board_topleft = board_dimensions.board_topleft
         board_slot_edges = board_dimensions.board_slot_edges
@@ -650,6 +650,7 @@ class Connect4:
         play_status = ()
 
         # player_one = Player('Winnie', colored('O', 'red', attrs=['bold'])) #  Used in quick testing
+        # player_one = Player('James', colored('O', 'yellow', attrs=['bold'])) #  Used in quick testing
         # self.your_turn = True #  Used in quick testing
 
         if self.your_turn:
@@ -659,7 +660,7 @@ class Connect4:
                     if int(current_x_pos) in range(board_slot_edges[i-1], board_slot_edges[i]):
                         if not self.board.check_if_column_is_full(i-1):
                             surface.blit(self.token, (board_slot_edges[i-1]+8, board_topleft[1]-10)) #  Offset positions so that token is in the center
-                            # surface.blit(red_token, (board_slot_edges[i-1]+8, board_topleft[1]-10)) #  Used in quick testing
+                            # surface.blit(yellow_token, (board_slot_edges[i-1]+8, board_topleft[1]-10)) #  Used in quick testing
            
 
             if x_pos_on_click is not None and y_pos_on_click is not None and int(x_pos_on_click) in range(board_slot_edges[0], board_slot_edges[-1]):
@@ -668,20 +669,33 @@ class Connect4:
                         choice = i-1
                         break
                 play_status = self.board.play_at_position(self.player, choice)
-                # play_status = self.board.play_at_position(player_one, choice) #  Used in quick testing
+                # play_status = self.board.play_at_position(player_one, choice) #  Used in quick testing                
                 print(self.board)
+
+
+        positions_with_created_tokens = [token.position_on_grid for token in tokens]
 
         for row_num, row in enumerate(self.board.grid, start=1):
             for col_num, token in enumerate(row, start=1):
-                token_x_position = int(horizontal_distance_between_first_row_and_screen_edge + (width_of_hole*(col_num-1)) \
-                                    + (distance_between_cols*(col_num-1)))
+                if (row_num-1, col_num-1) not in positions_with_created_tokens:
+                    token_x_position = int(horizontal_distance_between_first_row_and_screen_edge + (width_of_hole*(col_num-1)) \
+                                        + (distance_between_cols*(col_num-1)))
 
-                token_y_position = int(vertical_distance_between_first_col_and_screen_edge + (height_of_hole*(row_num-1)) \
-                                    + (distance_between_rows*(row_num-1)))
-                if token == colored('O', 'red', attrs=['bold']):                                                
-                    surface.blit(red_token, (token_x_position, token_y_position))                    
-                elif token == colored('O', 'yellow', attrs=['bold']):
-                    surface.blit(yellow_token, (token_x_position, token_y_position))
+                    token_y_position = int(vertical_distance_between_first_col_and_screen_edge + (height_of_hole*(row_num-1)) \
+                                        + (distance_between_rows*(row_num-1)))
+
+                    initial_position = (board_slot_edges[col_num-1]+8, board_topleft[1]-10)
+                    
+                    if token == colored('O', 'red', attrs=['bold']):                                                
+                        new_token = Token(red_token, (row_num-1, col_num-1), (token_x_position, token_y_position), initial_position)
+                        tokens.add(new_token)
+                    elif token == colored('O', 'yellow', attrs=['bold']):
+                        new_token = Token(yellow_token, (row_num-1, col_num-1), (token_x_position, token_y_position), initial_position)
+                        tokens.add(new_token)
+
+        for token in tokens:
+            token.update()
+            token.draw(surface)
 
         surface.blit(board_surface, board_topleft)
 
@@ -783,6 +797,8 @@ class Connect4:
         red_token = pygame.image.load('../../images/red token.png').convert_alpha()
         yellow_token = pygame.image.load('../../images/yellow token.png').convert_alpha()
 
+        tokens = pygame.sprite.Group()
+
         text_and_error = self.client.connect_to_game(choice, ip, code)
         if text_and_error['error']:
             errors.append(text_and_error['text'])
@@ -876,7 +892,7 @@ class Connect4:
 
                 #------------------------------------------------ Animations ------------------------------------------------#
                 
-                self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token)
+                self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token, tokens)
 
             for button in buttons:
                 ui_action = button.update(scaled_pos, mouse_up)
