@@ -23,7 +23,7 @@ from pygame_version.utils import Board, Token
 from pygame_version.client import Client
 from pygame_version.choice import Choice
 from pygame_version.gamestate import GameState
-from pygame_version.ui_tools import UIElement, CopyButtonElement, DisabledOrEnabledBtn, TokenButton, InputBox, FadeOutText, create_text_to_draw
+from pygame_version.ui_tools import UIElement, CopyButtonElement, DisabledOrEnabledBtn, TokenButton, InputBox, FadeOutText, ErrorNotifier, create_text_to_draw
 
 from termcolor import colored  # type: ignore
 
@@ -54,8 +54,8 @@ class Connect4:
         self.keyboard_interrupt = False
         
         monitor_size = [pygame.display.Info().current_w, pygame.display.Info().current_h]
-        self.screen = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
-        # self.screen = pygame.display.set_mode((1280, 800))
+        # self.screen = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
+        self.screen = pygame.display.set_mode((1280, 800))
 
         width, height = self.screen.get_width(), self.screen.get_height()
         xscale = width / self.TEMPORARY_SURFACE_WIDTH
@@ -631,8 +631,9 @@ class Connect4:
             screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
 
-    def blit_board(self, surface, board_surface, mouse_pos_on_click, current_mouse_pos, board_dimensions, red_token, yellow_token, tokens):
-        
+    def blit_board(self, surface, board_surface, mouse_pos_on_click, current_mouse_pos, board_dimensions, red_token, yellow_token, tokens, notifiers):
+        error_occured = False
+
         board_topleft = board_dimensions.board_topleft
         board_slot_edges = board_dimensions.board_slot_edges
         horizontal_distance_between_first_row_and_screen_edge = board_dimensions.horizontal_distance_between_first_row_and_screen_edge
@@ -669,8 +670,12 @@ class Connect4:
                         choice = i-1
                         break
                 play_status = self.board.play_at_position(self.player, choice)
-                # play_status = self.board.play_at_position(player_one, choice) #  Used in quick testing                
-                print(self.board)
+                # play_status = self.board.play_at_position(player_one, choice) #  Used in quick testing 
+                if not play_status.status:
+                    error_occured = True
+                else:
+                    # self.your_turn = False
+                    print(self.board)
 
 
         positions_with_created_tokens = [token.position_on_grid for token in tokens]
@@ -696,6 +701,9 @@ class Connect4:
         for token in tokens:
             token.update()
             token.draw(surface)
+
+        notifiers.error_notifier.update(error_occured)
+        notifiers.error_notifier.draw(surface)
 
         surface.blit(board_surface, board_topleft)
 
@@ -799,6 +807,10 @@ class Connect4:
 
         tokens = pygame.sprite.Group()
 
+        notifiers = namedtuple("notifiers", "error_notifier")
+        error_notifier = ErrorNotifier("That column is full", 15, WHITE)
+        notifiers = notifiers(error_notifier)
+
         text_and_error = self.client.connect_to_game(choice, ip, code)
         if text_and_error['error']:
             errors.append(text_and_error['text'])
@@ -892,7 +904,7 @@ class Connect4:
 
                 #------------------------------------------------ Animations ------------------------------------------------#
                 
-                self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token, tokens)
+                self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token, tokens, notifiers)
 
             for button in buttons:
                 ui_action = button.update(scaled_pos, mouse_up)

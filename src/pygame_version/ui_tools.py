@@ -340,7 +340,74 @@ class FadeOutText(Sprite):
             self.original_surf_copy = self.original_surf
 
         return alpha # Return 0 or non-zero value corresponding to True or False
+
+class ErrorNotifier(Sprite):
+    def __init__(self, error: str, font_size: int, font_color: tuple):
+        super().__init__()
+        self.error_occured = False
+        self.image = pygame.image.load('../../images/error notifier.png').convert_alpha()       
+        font = pygame.freetype.SysFont("Courier", font_size, bold=True)
+        text_surface, _ = font.render(text=error, fgcolor=font_color)
+        self.image.blit(text_surface, text_surface.get_rect(center=self.image.get_rect().center))
+        self.y_pos = 107
+        self.static_position = (1313, self.y_pos)
+        self.outside_position = (1620, self.y_pos)        
+        self.speed = 7        
+        self.max_vibrations = 6
+        self.reset()
         
+    def reset(self):
+        self.current_position = self.outside_position       
+        self.move_left = True
+        self.incoming = False
+        self.vibrating = False
+        self.static = False
+        self.outgoing = False
+        self.vibrate_count = 0
+        self.time_since_static = None
+
+    def vibrate(self):
+        return (self.static_position[0]-5, self.y_pos) if self.move_left else (self.static_position[0]+5, self.y_pos)
+
+    @property
+    def rect(self):
+        return self.current_position
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+
+    def update(self, error_occured):
+        if error_occured:
+            self.error_occured = True
+            self.reset()
+            self.incoming = True
+
+        if self.error_occured:
+            if self.incoming:
+                self.current_position = self.static_position
+                if self.current_position == self.static_position:
+                    self.vibrating = True
+                    self.incoming = False
+                
+            elif self.vibrating:
+                self.current_position = self.vibrate()
+                self.move_left = not self.move_left
+                self.vibrate_count += 1
+                if self.vibrate_count == self.max_vibrations:
+                    self.vibrating = False
+                    self.static = True
+                    self.time_since_static = pygame.time.get_ticks()
+                    self.current_position = self.static_position
+
+            elif self.static:
+                current_time = pygame.time.get_ticks()
+                if self.time_since_static + 3000 <= current_time:
+                    self.static = False
+                    self.outgoing = True
+
+            elif self.outgoing:
+                self.current_position = (min(self.current_position[0] + self.speed, self.outside_position[0]), self.y_pos)
+
 
 def create_surface_with_text(text, font_size, text_rgb, bg_rgb):
     """ Returns surface with text written on """
