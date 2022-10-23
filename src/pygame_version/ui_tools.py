@@ -341,6 +341,7 @@ class FadeOutText(Sprite):
 
         return alpha # Return 0 or non-zero value corresponding to True or False
 
+
 class ErrorNotifier(Sprite):
     def __init__(self, error: str, font_size: int, font_color: tuple):
         super().__init__()
@@ -406,6 +407,79 @@ class ErrorNotifier(Sprite):
                     self.outgoing = True
 
             elif self.outgoing:
+                self.current_position = (min(self.current_position[0] + self.speed, self.outside_position[0]), self.y_pos)
+
+
+class StatusNotifier(Sprite):
+    def __init__(self, opponent: str, font_size: int, font_color: tuple):
+        super().__init__()
+        self.y_pos = 107
+        self.static_position = (1261, self.y_pos)
+        self.outside_position = (1620, self.y_pos)
+        self.speed = 7
+
+        self.notifier_image = pygame.image.load('../../images/status notifier.png').convert_alpha()
+               
+        font = pygame.freetype.SysFont("Courier", font_size, bold=True)
+        texts = ['Waiting for', opponent, 'to play']
+        
+        text_x_center_pos = 180
+        text_y_pos = 25
+        for text in texts:
+            text_surface, _ = font.render(text=text, fgcolor=font_color)  
+            self.notifier_image.blit(text_surface, text_surface.get_rect(center=(text_x_center_pos, text_y_pos)))
+            text_y_pos += 30        
+
+        self.loading_frames = []
+        for i in range(4):
+            self.loading_frames.append(pygame.image.load(f'../../images/notifier loading frames/notifier loading frame ({i}).png').convert_alpha())
+        self.notifier_image_copy = self.notifier_image.copy()
+        self.animation_cooldown = 1000        
+        self.reset()
+        
+    def reset(self):
+        self.last_animation_update = pygame.time.get_ticks()
+        self.current_frame = 0
+        self.current_position = self.outside_position        
+        self.incoming = False
+        self.static = False
+
+    @property
+    def image(self):       
+        return self.notifier_image
+
+    @property
+    def rect(self):
+        return self.current_position
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+
+    def update(self, waiting_has_begun: bool, opponent_turn: bool):
+        if waiting_has_begun:
+            self.reset()
+            self.incoming = True
+
+        if opponent_turn:
+            if self.incoming:
+                self.current_position = (max(self.current_position[0]-self.speed, self.static_position[0]), self.y_pos)
+                if self.current_position == self.static_position:
+                    self.static = True
+                    self.incoming = False
+
+            elif self.static:
+                current_time = pygame.time.get_ticks()
+                if current_time - self.last_animation_update >= self.animation_cooldown:
+                    self.current_frame += 1
+                    self.last_animation_update = current_time
+                    if self.current_frame >= len(self.loading_frames):
+                        self.current_frame = 0
+                
+                frame = self.loading_frames[self.current_frame]
+                self.notifier_image = self.notifier_image_copy.copy()
+                self.notifier_image.blit(frame, (114, 120))                
+        else:
+            if self.current_position != self.outside_position:
                 self.current_position = (min(self.current_position[0] + self.speed, self.outside_position[0]), self.y_pos)
 
 
