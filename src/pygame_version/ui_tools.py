@@ -385,10 +385,9 @@ class ErrorNotifier(Sprite):
 
         if self.error_occured:
             if self.incoming:
-                self.current_position = self.static_position
-                if self.current_position == self.static_position:
-                    self.vibrating = True
-                    self.incoming = False
+                self.current_position = self.static_position                
+                self.vibrating = True
+                self.incoming = False
                 
             elif self.vibrating:
                 self.current_position = self.vibrate()
