@@ -4,7 +4,7 @@ import pickle
 
 from termcolor import colored  # type: ignore
 
-from pygame_version.choice import Choice
+from pygame_version.states import Choice
 
 os.system('') # To ensure that escape sequences work, and coloured text is displayed normally and not as weird characters
 

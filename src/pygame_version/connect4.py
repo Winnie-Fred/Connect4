@@ -21,9 +21,9 @@ from core.level import Level
 from pygame_version.utils import Board, Token
 
 from pygame_version.client import Client
-from pygame_version.choice import Choice
+from pygame_version.states import Choice, TokenState
 from pygame_version.gamestate import GameState
-from pygame_version.ui_tools import UIElement, CopyButtonElement, DisabledOrEnabledBtn, TokenButton, InputBox, FadeOutText, create_text_to_draw
+from pygame_version.ui_tools import UIElement, CopyButtonElement, DisabledOrEnabledBtn, TokenButton, InputBox, FadeOutText, ErrorNotifier, StatusNotifier, create_text_to_draw
 
 from termcolor import colored  # type: ignore
 
@@ -52,10 +52,12 @@ class Connect4:
         self.client = Client()
         self.ID = None
         self.keyboard_interrupt = False
+        self.red_marker = colored('O', 'red', attrs=['bold'])
+        self.yellow_marker = colored('O', 'yellow', attrs=['bold'])
         
         monitor_size = [pygame.display.Info().current_w, pygame.display.Info().current_h]
-        self.screen = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
-        # self.screen = pygame.display.set_mode((1280, 800))
+        # self.screen = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
+        self.screen = pygame.display.set_mode((1280, 800))
 
         width, height = self.screen.get_width(), self.screen.get_height()
         xscale = width / self.TEMPORARY_SURFACE_WIDTH
@@ -631,8 +633,10 @@ class Connect4:
             screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
 
-    def blit_board(self, surface, board_surface, mouse_pos_on_click, current_mouse_pos, board_dimensions, red_token, yellow_token, tokens):
-        
+    def blit_board(self, surface, board_surface, mouse_pos_on_click, current_mouse_pos, board_dimensions, red_token, yellow_token, tokens, notifiers):
+        error_occured = False
+        waiting_has_begun = False
+
         board_topleft = board_dimensions.board_topleft
         board_slot_edges = board_dimensions.board_slot_edges
         horizontal_distance_between_first_row_and_screen_edge = board_dimensions.horizontal_distance_between_first_row_and_screen_edge
@@ -649,8 +653,8 @@ class Connect4:
         board_topleft = (board_x, board_y)
         play_status = ()
 
-        # player_one = Player('Winnie', colored('O', 'red', attrs=['bold'])) #  Used in quick testing
-        # player_one = Player('James', colored('O', 'yellow', attrs=['bold'])) #  Used in quick testing
+        # player_one = Player('Winnie', self.red_marker) #  Used in quick testing
+        # player_one = Player('James', self.yellow_marker) #  Used in quick testing
         # self.your_turn = True #  Used in quick testing
 
         if self.your_turn:
@@ -668,9 +672,15 @@ class Connect4:
                     if int(x_pos_on_click) in range(board_slot_edges[i-1], board_slot_edges[i]):
                         choice = i-1
                         break
+                # play_status = self.board.play_at_position(player_one, choice) #  Used in quick testing 
                 play_status = self.board.play_at_position(self.player, choice)
-                # play_status = self.board.play_at_position(player_one, choice) #  Used in quick testing                
-                print(self.board)
+                if not play_status.status:
+                    error_occured = True
+                else:
+                    self.your_turn = False
+                    # Make sure error notifier is outside before bringing in status notifier
+                    notifiers.error_notifier.current_position = notifiers.error_notifier.outside_position 
+                    print(self.board)
 
 
         positions_with_created_tokens = [token.position_on_grid for token in tokens]
@@ -686,16 +696,29 @@ class Connect4:
 
                     initial_position = (board_slot_edges[col_num-1]+8, board_topleft[1]-10)
                     
-                    if token == colored('O', 'red', attrs=['bold']):                                                
-                        new_token = Token(red_token, (row_num-1, col_num-1), (token_x_position, token_y_position), initial_position)
+                    
+                    if token == self.red_marker:                                             
+                        new_token = Token(red_token, self.red_marker, (row_num-1, col_num-1), (token_x_position, token_y_position), initial_position)
                         tokens.add(new_token)
-                    elif token == colored('O', 'yellow', attrs=['bold']):
-                        new_token = Token(yellow_token, (row_num-1, col_num-1), (token_x_position, token_y_position), initial_position)
+                    elif token == self.yellow_marker:
+                        new_token = Token(yellow_token, self.yellow_marker, (row_num-1, col_num-1), (token_x_position, token_y_position), initial_position)
                         tokens.add(new_token)
 
+        token_states = []
         for token in tokens:
-            token.update()
+            token_state = token.update()
             token.draw(surface)
+            if token.marker == self.player.marker:
+                token_states.append(token_state)
+            
+        if TokenState.JUST_LANDED in token_states and not self.your_turn:
+            waiting_has_begun = True
+
+        notifiers.error_notifier.update(error_occured)
+        notifiers.error_notifier.draw(surface)
+
+        notifiers.status_notifier.update(waiting_has_begun=waiting_has_begun, opponent_turn=(not self.your_turn))
+        notifiers.status_notifier.draw(surface)
 
         surface.blit(board_surface, board_topleft)
 
@@ -755,7 +778,7 @@ class Connect4:
         time_until_enable = 3000
         time_of_status_msg_display = 1000
 
-        round_started = False      
+        round_started = False   
 
         errors = []
         loading_text = ''
@@ -771,6 +794,7 @@ class Connect4:
         full_msg = b''
         new_msg = True
         self._reset_game()
+        # self.your_turn = True #  Used in quick testing  
 
         board_topleft = self.TEMPORARY_SURFACE_WIDTH*0.2581, self.TEMPORARY_SURFACE_HEIGHT*0.195
         distance_from_left_bar_to_first_slot = 47
@@ -798,6 +822,8 @@ class Connect4:
         yellow_token = pygame.image.load('../../images/yellow token.png').convert_alpha()
 
         tokens = pygame.sprite.Group()
+                
+        notifiers = ()
 
         text_and_error = self.client.connect_to_game(choice, ip, code)
         if text_and_error['error']:
@@ -892,7 +918,7 @@ class Connect4:
 
                 #------------------------------------------------ Animations ------------------------------------------------#
                 
-                self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token, tokens)
+                self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token, tokens, notifiers)
 
             for button in buttons:
                 ui_action = button.update(scaled_pos, mouse_up)
@@ -1087,6 +1113,10 @@ class Connect4:
                                 elif "opponent_player_object" in unpickled_json:
                                       round_started = True
                                       self.opponent = unpickled_json['opponent_player_object']
+                                      notifiers = namedtuple("notifiers", "error_notifier, status_notifier")
+                                      error_notifier = ErrorNotifier("That column is full", 15, WHITE)
+                                      status_notifier = StatusNotifier(self.opponent.name, 20, WHITE)
+                                      notifiers = notifiers(error_notifier, status_notifier)
                                       self._reset_for_new_round()
                                       self.client.send_data({'board':self.board})
                                 elif "board" in unpickled_json:

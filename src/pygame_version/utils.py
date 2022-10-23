@@ -1,7 +1,9 @@
 from collections import namedtuple
-from core.board import Board as BaseBoard
+
 from pygame.sprite import Sprite
 
+from core.board import Board as BaseBoard
+from pygame_version.states import TokenState
 
 class Board(BaseBoard):
     def __init__(self):
@@ -30,13 +32,16 @@ class Board(BaseBoard):
 
 class Token(Sprite):
     GRAVITY = 0.6
-    def __init__(self, token, position_on_grid, final_position, initial_position):
+    def __init__(self, token, marker, position_on_grid, final_position, initial_position):
         super().__init__()
+        self.marker = marker
         self.image = token
         self.position_on_grid = position_on_grid
         self.current_position = initial_position
         self.final_position = final_position
         self.speed = 0
+        self.token_state = TokenState.FALLING
+        
 
     @property
     def rect(self):
@@ -56,7 +61,10 @@ class Token(Sprite):
             distance = final_pos_y - y_position
             if distance <= 0:
                 self.current_position = self.final_position
-            else:
+                self.token_state = TokenState.JUST_LANDED
+            else:          
                 self.current_position = (current_pos_x, y_position)
-
+        else:
+            self.token_state = TokenState.HAS_LANDED
+        return self.token_state
         
