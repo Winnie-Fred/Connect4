@@ -651,11 +651,7 @@ class Connect4:
         board_x = board_topleft[0]
         board_y = board_topleft[1]
         board_topleft = (board_x, board_y)
-        play_status = ()
-
-        # player_one = Player('Winnie', self.red_marker) #  Used in quick testing
-        # player_one = Player('James', self.yellow_marker) #  Used in quick testing
-        # self.your_turn = True #  Used in quick testing
+        play_status = ()        
 
         if self.your_turn:
 
@@ -664,7 +660,6 @@ class Connect4:
                     if int(current_x_pos) in range(board_slot_edges[i-1], board_slot_edges[i]):
                         if not self.board.check_if_column_is_full(i-1):
                             surface.blit(self.token, (board_slot_edges[i-1]+8, board_topleft[1]-10)) #  Offset positions so that token is in the center
-                            # surface.blit(yellow_token, (board_slot_edges[i-1]+8, board_topleft[1]-10)) #  Used in quick testing
            
 
             if x_pos_on_click is not None and y_pos_on_click is not None and int(x_pos_on_click) in range(board_slot_edges[0], board_slot_edges[-1]):
@@ -672,12 +667,17 @@ class Connect4:
                     if int(x_pos_on_click) in range(board_slot_edges[i-1], board_slot_edges[i]):
                         choice = i-1
                         break
-                # play_status = self.board.play_at_position(player_one, choice) #  Used in quick testing 
+
                 play_status = self.board.play_at_position(self.player, choice)
                 if not play_status.status:
                     error_occured = True
                 else:
                     self.your_turn = False
+                    self.client.send_data({'board':self.board})
+                    if self.board.check_win(self.player):
+                        self.player.points += self.POINTS_FOR_WINNING_ONE_ROUND
+                        print(f"\n{self.player.name} {self.player.marker} wins this round!\n")
+                        self.client.send_data({'round_over':True, 'winner':self.player})                 
                     # Make sure error notifier is outside before bringing in status notifier
                     notifiers.error_notifier.current_position = notifiers.error_notifier.outside_position 
                     print(self.board)
@@ -704,15 +704,12 @@ class Connect4:
                         new_token = Token(yellow_token, self.yellow_marker, (row_num-1, col_num-1), (token_x_position, token_y_position), initial_position)
                         tokens.add(new_token)
 
-        token_states = []
         for token in tokens:
             token_state = token.update()
             token.draw(surface)
-            if token.marker == self.player.marker:
-                token_states.append(token_state)
+            if token.marker == self.player.marker and token_state == TokenState.JUST_LANDED:
+                waiting_has_begun = True
             
-        if TokenState.JUST_LANDED in token_states and not self.your_turn:
-            waiting_has_begun = True
 
         notifiers.error_notifier.update(error_occured)
         notifiers.error_notifier.draw(surface)
@@ -1116,16 +1113,13 @@ class Connect4:
                                       notifiers = namedtuple("notifiers", "error_notifier, status_notifier")
                                       error_notifier = ErrorNotifier("That column is full", 15, WHITE)
                                       status_notifier = StatusNotifier(self.opponent.name, 20, WHITE)
+                                      if not self.your_turn:
+                                        status_notifier.incoming = True
                                       notifiers = notifiers(error_notifier, status_notifier)
                                       self._reset_for_new_round()
-                                      self.client.send_data({'board':self.board})
                                 elif "board" in unpickled_json:
-                                    if self.your_turn:
-                                        self.board = unpickled_json['board']
-                                        if self.board.check_win(self.player):
-                                            self.player.points += self.POINTS_FOR_WINNING_ONE_ROUND
-                                            print(f"\n{self.player.name} {self.player.marker} wins this round!\n")
-                                            self.send_data({'round_over':True, 'winner':self.player})
+                                    self.board = unpickled_json['board']                                        
+                                    self.your_turn = True
                                 # elif "round_over" in unpickled_json and "winner" in unpickled_json:
                                 #     self.round_over_json = unpickled_json
                                 #     self.round_over_event.set()
