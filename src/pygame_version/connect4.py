@@ -23,7 +23,7 @@ from pygame_version.utils import Board, Token
 from pygame_version.client import Client
 from pygame_version.states import Choice, TokenState
 from pygame_version.gamestate import GameState
-from pygame_version.ui_tools import UIElement, CopyButtonElement, DisabledOrEnabledBtn, TokenButton, InputBox, FadeOutText, ErrorNotifier, StatusNotifier, create_text_to_draw
+from pygame_version.ui_tools import UIElement, CopyButtonElement, DisabledOrEnabledBtn, TokenButton, InputBox, FadeOutText, ErrorNotifier, StatusNotifier, ScoreBoard, create_text_to_draw
 
 from termcolor import colored  # type: ignore
 
@@ -56,8 +56,8 @@ class Connect4:
         self.yellow_marker = colored('O', 'yellow', attrs=['bold'])
         
         monitor_size = [pygame.display.Info().current_w, pygame.display.Info().current_h]
-        # self.screen = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
-        self.screen = pygame.display.set_mode((1280, 800))
+        self.screen = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
+        # self.screen = pygame.display.set_mode((1280, 800))
 
         width, height = self.screen.get_width(), self.screen.get_height()
         xscale = width / self.TEMPORARY_SURFACE_WIDTH
@@ -183,11 +183,11 @@ class Connect4:
         all_frames = frames(loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames)
 
         return_btn = UIElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.13, self.TEMPORARY_SURFACE_HEIGHT*0.95),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.04, self.TEMPORARY_SURFACE_HEIGHT*0.98),
             font_size=15,
             bg_rgb=BLUE,
             text_rgb=WHITE,
-            text="Return to main menu",
+            text="Quit",
             action=GameState.MENU,
         )
 
@@ -821,6 +821,8 @@ class Connect4:
         tokens = pygame.sprite.Group()
                 
         notifiers = ()
+        your_scoreboard = None
+        opponent_scoreboard = None
 
         text_and_error = self.client.connect_to_game(choice, ip, code)
         if text_and_error['error']:
@@ -916,6 +918,10 @@ class Connect4:
                 #------------------------------------------------ Animations ------------------------------------------------#
                 
                 self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token, tokens, notifiers)
+                your_scoreboard.update(self.player.points)
+                your_scoreboard.draw(temporary_surface)
+                opponent_scoreboard.draw(temporary_surface)
+                opponent_scoreboard.update(self.opponent.points)
 
             for button in buttons:
                 ui_action = button.update(scaled_pos, mouse_up)
@@ -1113,6 +1119,10 @@ class Connect4:
                                       notifiers = namedtuple("notifiers", "error_notifier, status_notifier")
                                       error_notifier = ErrorNotifier("That column is full", 15, WHITE)
                                       status_notifier = StatusNotifier(self.opponent.name, 20, WHITE)
+                                      color = 'red' if self.player.marker == self.red_marker else 'yellow'
+                                      opponent_color = 'red' if self.player.marker == self.yellow_marker else 'yellow'
+                                      your_scoreboard = ScoreBoard(color, WHITE, 15)
+                                      opponent_scoreboard = ScoreBoard(opponent_color, WHITE, 15, self.opponent.name)
                                       if not self.your_turn:
                                         status_notifier.incoming = True
                                       notifiers = notifiers(error_notifier, status_notifier)

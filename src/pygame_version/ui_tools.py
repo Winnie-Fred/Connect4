@@ -482,6 +482,43 @@ class StatusNotifier(Sprite):
                 self.current_position = (min(self.current_position[0] + self.speed, self.outside_position[0]), self.y_pos)
 
 
+class ScoreBoard(Sprite):
+    def __init__(self, token_color: str, font_color: tuple, name_font_size: int, player_name: str = "You"):
+        super().__init__()
+        self.scoreboard_image = pygame.image.load(f'../../images/player with {token_color} token scoreboard.png')
+        self.font_color = font_color
+        self.points = 0
+        self.player_name = player_name
+
+        font = pygame.freetype.SysFont("Courier", name_font_size, bold=True)
+        text_surface, _ = font.render(text=f' {self.player_name} ', fgcolor=self.font_color, bgcolor=(72,161,120))  
+        self.image.blit(text_surface, text_surface.get_rect(center=(114, 47)))
+
+        self.font = pygame.freetype.SysFont("Courier", 30, bold=True)
+        text_surface, _ = self.font.render(text=str(self.points), fgcolor=self.font_color)  
+        self.scoreboard_image.blit(text_surface, text_surface.get_rect(center=(114, 73)))
+        self.original_scoreboard_image_copy = self.scoreboard_image.copy()
+
+
+    @property
+    def image(self):
+        return self.scoreboard_image
+
+    @property
+    def rect(self):
+        return (69, 733) if self.player_name == 'You' else (1304, 733)
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+
+    def update(self, player_points:int):
+        if self.points != player_points:
+            self.points = player_points
+            self.scoreboard_image = self.original_scoreboard_image_copy.copy()
+            text_surface, _ = self.font.render(text=str(self.points), fgcolor=self.font_color)  
+            self.scoreboard_image.blit(text_surface, text_surface.get_rect(center=(114, 73)))
+
+
 def create_surface_with_text(text, font_size, text_rgb, bg_rgb):
     """ Returns surface with text written on """
     font = pygame.freetype.SysFont("Courier", font_size, bold=True)
