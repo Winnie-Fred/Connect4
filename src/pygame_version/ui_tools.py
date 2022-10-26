@@ -413,7 +413,7 @@ class StatusNotifier(Sprite):
     def __init__(self, opponent: str, font_size: int, font_color: tuple):
         super().__init__()
         self.y_pos = 107
-        self.static_position = (1261, self.y_pos)
+        self.static_position = (1313, self.y_pos)
         self.outside_position = (1620, self.y_pos)
         self.speed = 7
 
@@ -422,15 +422,15 @@ class StatusNotifier(Sprite):
         font = pygame.freetype.SysFont("Courier", font_size, bold=True)
         texts = ['Waiting for', opponent, 'to play']
         
-        text_x_center_pos = 180
-        text_y_pos = 25
+        text_x_center_pos = 152
+        text_y_pos = 28
         for text in texts:
             text_surface, _ = font.render(text=text, fgcolor=font_color)  
             self.notifier_image.blit(text_surface, text_surface.get_rect(center=(text_x_center_pos, text_y_pos)))
-            text_y_pos += 30        
+            text_y_pos += 28       
 
         self.loading_frames = []
-        for i in range(4):
+        for i in range(6):
             self.loading_frames.append(pygame.image.load(f'../../images/notifier loading frames/notifier loading frame ({i}).png').convert_alpha())
         self.notifier_image_copy = self.notifier_image.copy()
         self.animation_cooldown = 1000        
@@ -476,7 +476,7 @@ class StatusNotifier(Sprite):
                 
                 frame = self.loading_frames[self.current_frame]
                 self.notifier_image = self.notifier_image_copy.copy()
-                self.notifier_image.blit(frame, (114, 120))                
+                self.notifier_image.blit(frame, (91, 94))               
         else:
             if self.current_position != self.outside_position:
                 self.current_position = (min(self.current_position[0] + self.speed, self.outside_position[0]), self.y_pos)
@@ -492,12 +492,12 @@ class ScoreBoard(Sprite):
 
         font = pygame.freetype.SysFont("Courier", name_font_size, bold=True)
         text_surface, _ = font.render(text=f' {self.player_name} ', fgcolor=self.font_color, bgcolor=(72,161,120))  
-        self.image.blit(text_surface, text_surface.get_rect(center=(114, 47)))
+        self.scoreboard_image.blit(text_surface, text_surface.get_rect(center=(110, 48)))
+        self.original_scoreboard_image_copy = self.scoreboard_image.copy()
 
         self.font = pygame.freetype.SysFont("Courier", 30, bold=True)
         text_surface, _ = self.font.render(text=str(self.points), fgcolor=self.font_color)  
         self.scoreboard_image.blit(text_surface, text_surface.get_rect(center=(114, 73)))
-        self.original_scoreboard_image_copy = self.scoreboard_image.copy()
 
 
     @property

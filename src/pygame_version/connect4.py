@@ -1118,7 +1118,7 @@ class Connect4:
                                       self.opponent = unpickled_json['opponent_player_object']
                                       notifiers = namedtuple("notifiers", "error_notifier, status_notifier")
                                       error_notifier = ErrorNotifier("That column is full", 15, WHITE)
-                                      status_notifier = StatusNotifier(self.opponent.name, 20, WHITE)
+                                      status_notifier = StatusNotifier(self.opponent.name, 17, WHITE)
                                       color = 'red' if self.player.marker == self.red_marker else 'yellow'
                                       opponent_color = 'red' if self.player.marker == self.yellow_marker else 'yellow'
                                       your_scoreboard = ScoreBoard(color, WHITE, 15)
