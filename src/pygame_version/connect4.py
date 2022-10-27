@@ -675,6 +675,7 @@ class Connect4:
                     error_occured = True
                 else:
                     self.your_turn = False
+                    self.client.send_data({'board':self.board})
                     check_win = self.board.check_win(self.player)
                     if check_win.win_or_not:
                         self.player.points += self.POINTS_FOR_WINNING_ONE_ROUND
@@ -685,7 +686,6 @@ class Connect4:
                         print("\nIt's a tie!\n")
                         self.client.send_data({'round_over':True, 'winner':None})
                                          
-                    self.client.send_data({'board':self.board})
                     # Make sure error notifier is outside before bringing in status notifier
                     notifiers.error_notifier.current_position = notifiers.error_notifier.outside_position 
                     print(self.board)
