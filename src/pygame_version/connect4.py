@@ -1149,6 +1149,9 @@ class Connect4:
                                 elif "board" in unpickled_json:
                                     self.board = unpickled_json['board']                                        
                                     self.your_turn = True
+                                    check_win = self.board.check_win(self.opponent)
+                                    if check_win.win_or_not:
+                                        self.your_turn = False
                                 elif "round_over" in unpickled_json and "winner" in unpickled_json:
                                     round_over_json = unpickled_json
                                     self.round_over = True
