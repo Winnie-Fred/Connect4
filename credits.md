@@ -2,7 +2,7 @@
 
 ## Image Attributions
 
-1. Natural environment lanscape scene
+1. Natural environment landscape scene
     * Title: Natural environment lanscape scene
     * Author: [brgfx](https://www.freepik.com/author/brgfx)
     * Source: <a href="https://www.freepik.com/free-vector/natural-environment-lanscape-scene_5597221.htm#query=cartoon%20grass&position=6&from_view=keyword">Image by brgfx</a> on Freepik
