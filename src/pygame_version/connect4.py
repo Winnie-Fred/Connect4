@@ -18,7 +18,7 @@ from basic_version.connect4 import Connect4Game
 
 from core.player import Player
 from core.level import Level
-from pygame_version.utils import Board, Token
+from pygame_version.utils import Board, Token, GlowingToken
 
 from pygame_version.client import Client
 from pygame_version.states import Choice, TokenState
@@ -51,6 +51,7 @@ class Connect4:
         pygame.init()
         self.client = Client()
         self.ID = None
+        self.round_over = True
         self.keyboard_interrupt = False
         self.red_marker = colored('O', 'red', attrs=['bold'])
         self.yellow_marker = colored('O', 'yellow', attrs=['bold'])
@@ -633,9 +634,10 @@ class Connect4:
             screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
 
-    def blit_board(self, surface, board_surface, mouse_pos_on_click, current_mouse_pos, board_dimensions, red_token, yellow_token, tokens, notifiers):
+    def blit_board(self, surface, board_surface, mouse_pos_on_click, current_mouse_pos, board_dimensions, red_token, yellow_token, tokens, notifiers, glowing_tokens):
         error_occured = False
         waiting_has_begun = False
+        glow = True
 
         board_topleft = board_dimensions.board_topleft
         board_slot_edges = board_dimensions.board_slot_edges
@@ -674,10 +676,16 @@ class Connect4:
                 else:
                     self.your_turn = False
                     self.client.send_data({'board':self.board})
-                    if self.board.check_win(self.player):
+                    check_win = self.board.check_win(self.player)
+                    if check_win.win_or_not:
                         self.player.points += self.POINTS_FOR_WINNING_ONE_ROUND
-                        print(f"\n{self.player.name} {self.player.marker} wins this round!\n")
-                        self.client.send_data({'round_over':True, 'winner':self.player})                 
+                        print(f"You win this round!\n")
+                        self.client.send_data({'round_over':True, 'winner':self.player})
+
+                    if self.board.check_tie():
+                        print("\nIt's a tie!\n")
+                        self.client.send_data({'round_over':True, 'winner':None})
+                                         
                     # Make sure error notifier is outside before bringing in status notifier
                     notifiers.error_notifier.current_position = notifiers.error_notifier.outside_position 
                     print(self.board)
@@ -709,15 +717,21 @@ class Connect4:
             token.draw(surface)
             if token.marker == self.player.marker and token_state == TokenState.JUST_LANDED:
                 waiting_has_begun = True
+            if token_state == TokenState.FALLING:
+                glow = False #  Tokens should only glow when fourth token in a row just/has landed
             
 
         notifiers.error_notifier.update(error_occured)
         notifiers.error_notifier.draw(surface)
 
-        notifiers.status_notifier.update(waiting_has_begun=waiting_has_begun, opponent_turn=(not self.your_turn))
+        notifiers.status_notifier.update(waiting_has_begun=waiting_has_begun, opponent_turn=(not self.your_turn and not self.round_over))
         notifiers.status_notifier.draw(surface)
 
         surface.blit(board_surface, board_topleft)
+
+        if glow:
+            glowing_tokens.update()
+            glowing_tokens.draw(surface)
 
         return play_status
 
@@ -775,7 +789,7 @@ class Connect4:
         time_until_enable = 3000
         time_of_status_msg_display = 1000
 
-        round_started = False   
+        game_started = False   
 
         errors = []
         loading_text = ''
@@ -791,7 +805,6 @@ class Connect4:
         full_msg = b''
         new_msg = True
         self._reset_game()
-        # self.your_turn = True #  Used in quick testing  
 
         board_topleft = self.TEMPORARY_SURFACE_WIDTH*0.2581, self.TEMPORARY_SURFACE_HEIGHT*0.195
         distance_from_left_bar_to_first_slot = 47
@@ -807,13 +820,16 @@ class Connect4:
         distance_from_top_of_board_to_top_of_first_row_of_holes = 37
         vertical_distance_between_first_col_and_screen_edge = board_topleft[1] + distance_from_top_of_board_to_top_of_first_row_of_holes 
         horizontal_distance_between_first_row_and_screen_edge = board_topleft[0] + distance_between_left_bar_and_first_column + width_of_left_bar
+        width_of_hole, height_of_hole = 72, 72
+        distance_between_rows, distance_between_cols = 23, 26
 
         board_dimensions = namedtuple("board_dimensions", "board_topleft, board_slot_edges," 
                                         "horizontal_distance_between_first_row_and_screen_edge, height_of_hole,"
                                         "width_of_hole, vertical_distance_between_first_col_and_screen_edge, distance_between_rows,"
                                         "distance_between_cols")
         board_dimensions = board_dimensions(board_topleft, board_slot_edges, horizontal_distance_between_first_row_and_screen_edge, 
-                                            72, 72, vertical_distance_between_first_col_and_screen_edge, 23, 26)
+                                            width_of_hole, height_of_hole, vertical_distance_between_first_col_and_screen_edge, 
+                                            distance_between_rows, distance_between_cols)
 
         red_token = pygame.image.load('../../images/red token.png').convert_alpha()
         yellow_token = pygame.image.load('../../images/yellow token.png').convert_alpha()
@@ -823,6 +839,8 @@ class Connect4:
         notifiers = ()
         your_scoreboard = None
         opponent_scoreboard = None
+
+        glowing_tokens = pygame.sprite.Group() #  Tokens that will glow when four of them are in a row i.e. a player has won a round
 
         text_and_error = self.client.connect_to_game(choice, ip, code)
         if text_and_error['error']:
@@ -850,7 +868,7 @@ class Connect4:
 
             scaled_pos = self.get_scaled_mouse_position()
             temporary_surface.fill(BLUE)
-            if round_started:
+            if game_started:
                 clear_screen()
                 temporary_surface.blit(background, (0, 0))                
 
@@ -917,11 +935,11 @@ class Connect4:
 
                 #------------------------------------------------ Animations ------------------------------------------------#
                 
-                self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token, tokens, notifiers)
+                self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token, tokens, notifiers, glowing_tokens)
                 your_scoreboard.update(self.player.points)
                 your_scoreboard.draw(temporary_surface)
-                opponent_scoreboard.draw(temporary_surface)
                 opponent_scoreboard.update(self.opponent.points)
+                opponent_scoreboard.draw(temporary_surface)
 
             for button in buttons:
                 ui_action = button.update(scaled_pos, mouse_up)
@@ -932,7 +950,7 @@ class Connect4:
 
             
             for error in errors:
-                if round_started:
+                if game_started:
                     pass
                 else:
                     clear_screen()
@@ -1114,7 +1132,8 @@ class Connect4:
                                         self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
                                     self.client.send_data({'opponent_player_object':self.player})
                                 elif "opponent_player_object" in unpickled_json:
-                                      round_started = True
+                                      self.round_over = False
+                                      game_started = True
                                       self.opponent = unpickled_json['opponent_player_object']
                                       notifiers = namedtuple("notifiers", "error_notifier, status_notifier")
                                       error_notifier = ErrorNotifier("That column is full", 15, WHITE)
@@ -1130,9 +1149,31 @@ class Connect4:
                                 elif "board" in unpickled_json:
                                     self.board = unpickled_json['board']                                        
                                     self.your_turn = True
-                                # elif "round_over" in unpickled_json and "winner" in unpickled_json:
-                                #     self.round_over_json = unpickled_json
-                                #     self.round_over_event.set()
+                                elif "round_over" in unpickled_json and "winner" in unpickled_json:
+                                    round_over_json = unpickled_json
+                                    self.round_over = True
+                                    self.your_turn = False
+                                    winner = round_over_json['winner']
+                                    if winner is not None:
+                                        if winner.name != self.player.name:
+                                            print(f"\n{self.opponent.name} {self.opponent.marker} wins this round")
+                                            print("Better luck next time!\n")
+                                            self.opponent.points = round_over_json['winner'].points
+
+                                        win_check_result = self.board.check_win(winner)
+                                        four_in_a_row = win_check_result.four_in_a_row
+
+                                        marker = win_check_result.marker
+                                        token_color = "red" if marker == self.red_marker else "yellow"
+                                        for position in four_in_a_row:
+                                            token_x_position = int(horizontal_distance_between_first_row_and_screen_edge + (width_of_hole*(position[1])) \
+                                                                + (distance_between_cols*(position[1])))
+
+                                            token_y_position = int(vertical_distance_between_first_col_and_screen_edge + (height_of_hole*(position[0])) \
+                                                                + (distance_between_rows*(position[0])))
+
+                                            glowing_token = GlowingToken(token_color, (token_x_position, token_y_position))
+                                            glowing_tokens.add(glowing_token)
                                 # elif 'play_again' in unpickled_json:
                                 #     self.play_again_reply = unpickled_json['play_again']
                                 #     self.play_again_reply_received.set()                        
