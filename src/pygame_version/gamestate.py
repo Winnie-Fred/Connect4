@@ -1,6 +1,7 @@
 from enum import Enum
 
 class GameState(Enum):
+    CREDITS = -3
     NO_ACTION = -2
     QUIT = -1
     MENU = 0

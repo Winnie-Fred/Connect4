@@ -39,6 +39,7 @@ MIN_IP_ADDR_LENGTH = 7
 MAX_NAME_LENGTH = 15
 MIN_NAME_LENGTH = 2
 HELP_LINK = "https://github.com/Winnie-Fred/Connect4#finding-your-internal-ipv4-address"
+CREDITS_LINK = "https://github.com/Winnie-Fred/Connect4/blob/49e342fd87cb3fb82386d59762bbb3f2ccf441f4/credits.md"
 
 
 
@@ -119,7 +120,7 @@ class Connect4:
         menu_header = create_text_to_draw("Ready to play Connect4?", 30, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.17))
 
         create_game_btn = UIElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.3),
             font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -127,7 +128,7 @@ class Connect4:
             action=GameState.CREATE_GAME,
         )
         join_any_game_btn = UIElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.5),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.45),
             font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -135,15 +136,23 @@ class Connect4:
             action=GameState.JOIN_ANY_GAME,
         )
         join_game_with_code_btn = UIElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6),
             font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
             text="Join game with code",
             action=GameState.JOIN_GAME_WITH_CODE,
         )
+        credits_btn = UIElement(
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.75),
+            font_size=25,
+            bg_rgb=BLUE,
+            text_rgb=WHITE,
+            text="Credits",
+            action=GameState.CREDITS,
+        )
         quit_btn = UIElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.83),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.9),
             font_size=25,
             bg_rgb=BLUE,
             text_rgb=WHITE,
@@ -151,7 +160,7 @@ class Connect4:
             action=GameState.QUIT,
         )
 
-        buttons = RenderUpdates(create_game_btn, join_any_game_btn, join_game_with_code_btn, quit_btn)
+        buttons = RenderUpdates(create_game_btn, join_any_game_btn, join_game_with_code_btn, credits_btn, quit_btn)
 
         return self.game_menu_loop(screen, buttons, menu_header)
 
@@ -479,8 +488,12 @@ class Connect4:
             
             for button in buttons:              
                 ui_action = button.update(scaled_pos, mouse_up)
-                if ui_action != GameState.NO_ACTION:                                                             
-                    return ui_action
+                if ui_action != GameState.NO_ACTION:
+                    if ui_action == GameState.CREDITS:
+                        webbrowser.open(CREDITS_LINK, new=2)
+                        pygame.display.iconify() #  Minimize window to show opened browser tab since game runs in fullscreen mode
+                    else:
+                        return ui_action
 
             buttons.draw(temporary_surface)
 
@@ -564,7 +577,8 @@ class Connect4:
                     elif ui_action == GameState.CONTINUE_WITH_DEFAULT_IP:
                         return game_state_and_input(ui_action, default_ip)
                     elif ui_action == GameState.HELP:
-                        webbrowser.open(HELP_LINK, new=2)                        
+                        webbrowser.open(HELP_LINK, new=2)
+                        pygame.display.iconify() #  Minimize window to show opened browser tab since game runs in fullscreen mode                        
                     else:                                              
                         return game_state_and_input(ui_action, '')
 
