@@ -57,3 +57,5 @@ Connect to a private network first. To check your internal (private or local) IP
 
 #### Credits and Inspiration
 This project is inspired by the Connect4 project on Crio at crio.do [here](https://www.crio.do/projects/python-multiplayer-game-connect4/)
+
+All resources (images) used in this project that I did not create myself were gotten for free. Special thanks to these authors who I have [credited](https://github.com/Winnie-Fred/Connect4/blob/c2c27e70c7ae6c9251e205f844b6b485536b66d0/credits.md).
