@@ -147,6 +147,66 @@ class Server:
             print(f"Some Error occured: {e}")
             self.close_client(conn, addr)                
 
+    def is_connection_alive(self, conn, addr):
+
+        full_msg = b''
+        new_msg = True
+        unpickled_json = None
+        try:
+            self.send_data(conn, {"is_alive": ""})
+            while True:
+                conn.settimeout(self.TIMEOUT_FOR_RECV) #  Timeout for recv
+                msg = conn.recv(16)                                                  
+
+                if not msg:
+                    break
+
+                if new_msg:
+                    msglen = int(msg[:self.HEADERSIZE])
+                    new_msg = False
+
+
+                full_msg += msg
+
+                if len(full_msg)-self.HEADERSIZE >= msglen:
+                    # ----------------Use unpickled json data here----------------
+
+                    conn.settimeout(None) #  Reset timer for next msg
+                    unpickled_json = pickle.loads(full_msg[self.HEADERSIZE:self.HEADERSIZE+msglen])
+                    # print("unpickled_json: ",  unpickled_json)
+
+                    if len(full_msg) - self.HEADERSIZE > msglen: #  Multiple messages were received together
+                        full_msg = full_msg[self.HEADERSIZE+msglen:] #  Get the part of the next msg that was recieved with the previous one
+                        msglen = int(full_msg[:self.HEADERSIZE])      
+                    else:
+                        new_msg = True
+                        full_msg = b''
+                        
+                    if 'is_alive' in unpickled_json:
+                        break
+                    
+            if unpickled_json is not None:       
+                if 'is_alive' in unpickled_json:
+                    if unpickled_json['is_alive']:
+                        print("Connection is alive")
+                        return True
+
+        except ConnectionAbortedError as e:
+            print(f"Connection Aborted: {e}") 
+        except socket.timeout as e:
+            print(f"recv timed out. Connection is half-open or client took too long to respond. Ensure this machine is still connected to the network.")               
+        except SendingDataError as data:
+            print(f"Error sending '{data}'")
+            self.close_client(conn, addr)
+        except ConnectionResetError as e: #  This exception is caught when the server tries to receive a msg from a disconnected client
+            print(f"Connection Reset: {e}")
+            self.close_client(conn, addr)       
+        except (socket.error, Exception) as e:
+            print(f"Some Error occured: {e}")
+            self.close_client(conn, addr)
+        return False              
+        
+
     def generate_unique_random_game_id(self):
         # Create random unique id of length 16 without letters I and O and without the digit 0
         # This is because letter I and digit 1 can be mistaken for each other, same with letter O and digit 0
@@ -195,42 +255,52 @@ class Server:
 
 
     def join_game(self, conn, addr, type, game_id=''):
-        game_found = False
-        found_game = Game(None, [], '')
-        with self.games_lock:
-            if type == 'invite_only':
-                for game in self.games:
-                    if game.type == type and game.id == game_id:
-                        if len(game.clients) >= 2:
-                            print("Game full")
-                            self.send_data(conn, {'game_full':'You cannot join this game as it has enough players. Try joining another game or creating a new one'})
-                            self.close_client(conn, addr)
-                            return
-                        game_found = True
-                        found_game = game
-            elif type == 'open':
-                for game in self.games:
-                    if game.type == type and len(game.clients) == 1:
-                        game_found = True
-                        found_game = game
-                       
-
-        if not game_found:
-            if type == 'invite_only':
-                msg = "No games exist with that code. Ask for an up-to-date code, try creating your own game or try joining a different game"
-                print(msg)
-                self.send_data(conn, {'no_games_found':msg})
-                self.close_client(conn, addr)
-            elif type == 'open':
-                msg = "No games were found for you to join. Creating new game"
-                print(msg)
-                self.send_data(conn, {'status':msg})              
-                self.create_game(conn, addr, 'open')
-        else:
-            self.send_data(conn, {'join_successful':"Game joined successfully"})
+        while True:
+            game_found = False
+            found_game = Game(None, [], '')
             with self.games_lock:
-                found_game.clients.append((conn, addr, ))
-                found_game.second_client_has_joined.set()
+                if type == 'invite_only':
+                    for game in self.games:
+                        if game.type == type and game.id == game_id:
+                            if len(game.clients) >= 2:
+                                print("Game full")
+                                self.send_data(conn, {'game_full':'You cannot join this game as it has enough players. Try joining another game or creating a new one'})
+                                self.close_client(conn, addr)
+                                return
+                            game_found = True
+                            found_game = game
+                elif type == 'open':
+                    for game in self.games:
+                        if game.type == type and len(game.clients) == 1:
+                            game_found = True
+                            found_game = game
+                        
+
+            if not game_found:
+                if type == 'invite_only':
+                    msg = "No games exist with that code. Ask for an up-to-date code, try creating your own game or try joining a different game"
+                    print(msg)
+                    self.send_data(conn, {'no_games_found':msg})
+                    self.close_client(conn, addr)
+                elif type == 'open':
+                    msg = "No games were found for you to join. Creating new game"
+                    print(msg)
+                    self.send_data(conn, {'status':msg})              
+                    self.create_game(conn, addr, 'open')
+            else:
+                with self.games_lock:
+                    if not self.is_connection_alive(found_game.clients[0][0], found_game.clients[0][1]):
+                        print("COnnection is not alive")
+                        if found_game in self.games:
+                            self.games.remove(found_game)
+                            print(f"[GAME DESTROYED] {found_game} destroyed.")
+                            print(f"[NO OF GAMES LEFT] {len(self.games)}")
+                        continue
+                    else:
+                        self.send_data(conn, {'join_successful':"Game joined successfully"})
+                        found_game.clients.append((conn, addr, ))
+                        found_game.second_client_has_joined.set()
+            break
        
     def destroy_game(self, game, game_lock):
         with game_lock:

@@ -250,7 +250,10 @@ class Client(BaseClient):
                         loading_thread = Thread(target=self.simulate_loading_with_spinner, args=(loading_msg, self.unpickled_json, ))
                         self.unpickled_json_lock.release()
                         loading_thread.daemon = True
-                        loading_thread.start()                                                                        
+                        loading_thread.start() 
+                    elif "is_alive" in self.unpickled_json:
+                        self.unpickled_json_lock.release()
+                        self.send_data({'is_alive':True})                                                                       
                     elif "other_client_disconnected" in self.unpickled_json:
                         self.other_client_disconnected.set()
                         disconnect_msg = colored(self.unpickled_json['other_client_disconnected'], "red", attrs=['bold'])
