@@ -1080,6 +1080,8 @@ class Connect4:
                                     status_msg = "Both clients connected. Starting game"                                                                                               
                                     status_msg_end_time = pygame.time.get_ticks() + time_of_status_msg_display
                                     print(status_msg)
+                                elif "is_alive" in unpickled_json:
+                                    self.client.send_data({'is_alive':True})
                                 elif "other_client_disconnected" in unpickled_json:                       
                                     errors.append(unpickled_json['other_client_disconnected'])
                                 elif 'timeout' in unpickled_json:
