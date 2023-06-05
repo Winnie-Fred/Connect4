@@ -11,6 +11,9 @@ from typing import List
 from core.exceptions import SendingDataError
 from core.game import Game
 
+from one_pair_of_clients_version.server import Server as OnePairServer
+
+one_pair_server = OnePairServer()
 
 class Server:
     def __init__(self):
@@ -90,40 +93,48 @@ class Server:
         print("[CLOSED] server is closed")
 
     def create_or_join_game(self, conn, addr):
-        full_msg = b''
-        new_msg = True
         unpickled_json = None
+        buffer = b""
+        receiving = True
         try:
-            while True:
+            while receiving:
                 conn.settimeout(self.TIMEOUT_FOR_RECV) #  Timeout for recv
                 msg = conn.recv(16)                                                  
 
                 if not msg:
                     break
 
-                if new_msg:
-                    msglen = int(msg[:self.HEADERSIZE])
-                    new_msg = False
+                # Add received data to the buffer
+                buffer += msg 
 
+                # Process complete messages
+                while len(buffer) >= self.HEADERSIZE:
+                    # Extract the header and determine the message length
+                    header = buffer[:self.HEADERSIZE]
+                    message_length = int(header)
 
-                full_msg += msg
+                    # Check if the complete message is available in the buffer
+                    if len(buffer) >= self.HEADERSIZE + message_length:
 
-                if len(full_msg)-self.HEADERSIZE >= msglen:
-                    # ----------------Use unpickled json data here----------------
+                        # -------------------------------------Use unpickled json data here-------------------------------------
 
-                    conn.settimeout(None) #  Reset timer for next msg
-                    unpickled_json = pickle.loads(full_msg[self.HEADERSIZE:self.HEADERSIZE+msglen])
-                    # print("unpickled_json: ",  unpickled_json)
+                        # Extract the complete message
+                        message = buffer[self.HEADERSIZE:self.HEADERSIZE + message_length]
+                        unpickled_json = pickle.loads(message) 
 
-                    if len(full_msg) - self.HEADERSIZE > msglen: #  Multiple messages were received together
-                        full_msg = full_msg[self.HEADERSIZE+msglen:] #  Get the part of the next msg that was recieved with the previous one
-                        msglen = int(full_msg[:self.HEADERSIZE])      
+                        conn.settimeout(None) #  Reset timer for next msg
+                        # print("unpickled_json", unpickled_json) 
+                    
+                        if 'create_game' in unpickled_json or 'join_game_with_invite' in unpickled_json or 'join_any_game' in unpickled_json:
+                            receiving = False
+                            break
+                        # -------------------------------------Use unpickled json data here-------------------------------------
+
+                        # Remove the processed message from the buffer
+                        buffer = buffer[self.HEADERSIZE + message_length:]   
                     else:
-                        new_msg = True
-                        full_msg = b''
-                        
-                    if 'create_game' in unpickled_json or 'join_game_with_invite' in unpickled_json or 'join_any_game' in unpickled_json:
-                        break
+                        # Incomplete message, break out of the loop and wait for more data
+                        break             
                     
             if unpickled_json is not None:       
                 if 'create_game' in unpickled_json:
@@ -149,9 +160,10 @@ class Server:
 
     def is_connection_alive(self, conn, addr):
 
-        full_msg = b''
-        new_msg = True
+        
         unpickled_json = None
+        buffer = b""
+        
         try:
             self.send_data(conn, {"is_alive": ""})
             while True:
@@ -161,35 +173,36 @@ class Server:
                 if not msg:
                     break
 
-                if new_msg:
-                    msglen = int(msg[:self.HEADERSIZE])
-                    new_msg = False
+                # Add received data to the buffer
+                buffer += msg 
 
+                # Process complete messages
+                while len(buffer) >= self.HEADERSIZE:
+                    # Extract the header and determine the message length
+                    header = buffer[:self.HEADERSIZE]
+                    message_length = int(header)
 
-                full_msg += msg
+                    # Check if the complete message is available in the buffer
+                    if len(buffer) >= self.HEADERSIZE + message_length:
 
-                if len(full_msg)-self.HEADERSIZE >= msglen:
-                    # ----------------Use unpickled json data here----------------
+                        # -------------------------------------Use unpickled json data here-------------------------------------
 
-                    conn.settimeout(None) #  Reset timer for next msg
-                    unpickled_json = pickle.loads(full_msg[self.HEADERSIZE:self.HEADERSIZE+msglen])
-                    # print("unpickled_json: ",  unpickled_json)
+                        # Extract the complete message
+                        message = buffer[self.HEADERSIZE:self.HEADERSIZE + message_length]
+                        unpickled_json = pickle.loads(message) 
 
-                    if len(full_msg) - self.HEADERSIZE > msglen: #  Multiple messages were received together
-                        full_msg = full_msg[self.HEADERSIZE+msglen:] #  Get the part of the next msg that was recieved with the previous one
-                        msglen = int(full_msg[:self.HEADERSIZE])      
+                        conn.settimeout(None) #  Reset timer for next msg
+                        # print("unpickled_json", unpickled_json) 
+                                            
+                        if 'is_alive' in unpickled_json:
+                            if unpickled_json['is_alive']:
+                                print("Connection is alive")
+                                return True
+                        # Remove the processed message from the buffer
+                        buffer = buffer[self.HEADERSIZE + message_length:]
                     else:
-                        new_msg = True
-                        full_msg = b''
-                        
-                    if 'is_alive' in unpickled_json:
-                        break
-                    
-            if unpickled_json is not None:       
-                if 'is_alive' in unpickled_json:
-                    if unpickled_json['is_alive']:
-                        print("Connection is alive")
-                        return True
+                        # Incomplete message, break out of the loop and wait for more data
+                        break                               
 
         except ConnectionAbortedError as e:
             print(f"Connection Aborted: {e}") 
@@ -290,7 +303,7 @@ class Server:
             else:
                 with self.games_lock:
                     if not self.is_connection_alive(found_game.clients[0][0], found_game.clients[0][1]):
-                        print("COnnection is not alive")
+                        print("Connection is not alive")
                         if found_game in self.games:
                             self.games.remove(found_game)
                             print(f"[GAME DESTROYED] {found_game} destroyed.")
@@ -317,6 +330,7 @@ class Server:
     def close_client(self, conn, addr):
         conn.close()
         print(f"[DISCONNECTION] {addr} disconnected.")    
+
 
     def play_game(self, conn, addr, game, game_lock):       
 
@@ -348,88 +362,50 @@ class Server:
             else:
                 self.send_data(conn, {"waiting_for_name":"Waiting for other player to enter their name"})
 
-            full_msg = b''
-            new_msg = True
+            buffer = b""
+            receiving = True
             
-            while True:
+            while receiving:
                 
                 conn.settimeout(self.TIMEOUT_FOR_RECV) #  Timeout for recv
                 msg = conn.recv(16)                                                  
 
                 if not msg:
                     break
+                
 
-                if new_msg:
-                    msglen = int(msg[:self.HEADERSIZE])
-                    new_msg = False
+                # Add received data to the buffer
+                buffer += msg 
 
+                # Process complete messages
+                while len(buffer) >= self.HEADERSIZE:
+                    # Extract the header and determine the message length
+                    header = buffer[:self.HEADERSIZE]
+                    message_length = int(header)
 
-                full_msg += msg
+                    # Check if the complete message is available in the buffer
+                    if len(buffer) >= self.HEADERSIZE + message_length:
 
-                if len(full_msg)-self.HEADERSIZE >= msglen:
-                        # ----------------Use unpickled json data here----------------
+                        # -------------------------------------Use unpickled json data here-------------------------------------
+
+                        # Extract the complete message
+                        message = buffer[self.HEADERSIZE:self.HEADERSIZE + message_length]
+                        unpickled_json = pickle.loads(message) 
 
                         conn.settimeout(None) #  Reset timer for next msg
-                        unpickled_json = pickle.loads(full_msg[self.HEADERSIZE:self.HEADERSIZE+msglen])
-                        # print("unpickled_json: ",  unpickled_json)
-
-                        if len(full_msg) - self.HEADERSIZE > msglen: #  Multiple messages were received together
-                            full_msg = full_msg[self.HEADERSIZE+msglen:] #  Get the part of the next msg that was recieved with the previous one
-                            msglen = int(full_msg[:self.HEADERSIZE])      
-                        else:
-                            new_msg = True
-                            full_msg = b''
+                        # print("unpickled_json", unpickled_json)                       
                     
-                        if 'you' in unpickled_json:
-                            you = unpickled_json['you']
-                            if conn == conn1:
-                                self.send_data(conn2, {'opponent':you})
-                            elif conn == conn2:
-                                self.send_data(conn1, {'opponent':you})                        
-                        elif 'first' in unpickled_json:
-                            self.send_data(conn1, {'first':unpickled_json['first']})                        
-                            self.send_data(conn2, {'first':unpickled_json['first']})
-                        elif 'colors' in unpickled_json:
-                            self.send_data(conn1, {'colors':unpickled_json['colors']})
-                            self.send_data(conn2, {'colors':unpickled_json['colors']})
-                        elif 'opponent_player_object' in unpickled_json:
-                            if conn == conn1:
-                                self.send_data(conn2, {'opponent_player_object':unpickled_json['opponent_player_object']})
-                            elif conn == conn2:
-                                self.send_data(conn1, {'opponent_player_object':unpickled_json['opponent_player_object']})                                            
-                        elif 'board' in unpickled_json:
-                            if conn == conn1:
-                                self.send_data(conn2, {'board':unpickled_json['board']})                            
-                            elif conn == conn2:
-                                self.send_data(conn1, {'board':unpickled_json['board']})  
-                        elif 'round_over' in unpickled_json:
-                            self.send_data(conn1, unpickled_json)
-                            self.send_data(conn2, unpickled_json)
-                        elif 'play_again' in unpickled_json:
-                            if conn == conn1:
-                                self.send_data(conn2, {'play_again':unpickled_json['play_again']})
-                                if not unpickled_json['play_again']:
-                                    print("Player has quit the game")
-                                    break
-                            elif conn == conn2:
-                                self.send_data(conn1, {'play_again':unpickled_json['play_again']})
-                                if not unpickled_json['play_again']:
-                                    print("Player has quit the game")
-                                    break
-                        elif 'first_player' in unpickled_json:                        
-                            self.send_data(conn1, {'first_player':unpickled_json['first_player']})                        
-                            self.send_data(conn2, {'first_player':unpickled_json['first_player']})                                                
-                        elif 'DISCONNECT' in unpickled_json:
-                            if unpickled_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:
-                                if 'close_other_client' in unpickled_json:
-                                    if unpickled_json['close_other_client']:
-                                        if conn == conn1:
-                                            self.send_data(conn2, {"other_client_disconnected":"Other client disconnected unexpectedly"})
-                                        else:
-                                            self.send_data(conn1, {"other_client_disconnected":"Other client disconnected unexpectedly"})
-                                break
-                                   
-                            # ----------------Use unpickled json data here----------------
+                        if not one_pair_server.process_message(conn, unpickled_json, conn1, conn2):
+                            receiving = False
+                            break                               
+                            # -------------------------------------Use unpickled json data here-------------------------------------
+                            
+                        # Remove the processed message from the buffer
+                        buffer = buffer[self.HEADERSIZE + message_length:]
+                    else:
+                        # Incomplete message, break out of the loop and wait for more data
+                        break
+
         except ConnectionAbortedError as e:
             print(f"Connection Aborted: {e}") 
         except socket.timeout as e:
@@ -447,7 +423,7 @@ class Server:
                 print(f"Error sending '{data}'")
         except socket.error as e:            
             print(f"Some error occured: Socket may have been closed")
-        except Exception:
+        except Exception as e:
             print(f"An error occured: {e}")
         
         with game_lock:

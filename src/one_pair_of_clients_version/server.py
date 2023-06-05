@@ -177,13 +177,60 @@ class Server:
         print("[CLOSED] server is closed")
         sys.exit(1)
 
+    def process_message(self, conn, unpickled_json, conn1, conn2):
+        if 'you' in unpickled_json:
+            you = unpickled_json['you']
+            if conn == conn1:
+                self.send_data(conn2, {'opponent':you})
+            elif conn == conn2:
+                self.send_data(conn1, {'opponent':you})                        
+        elif 'first' in unpickled_json:
+            self.send_data(conn1, {'first':unpickled_json['first']})                        
+            self.send_data(conn2, {'first':unpickled_json['first']})
+        elif 'colors' in unpickled_json:
+            self.send_data(conn1, {'colors':unpickled_json['colors']})
+            self.send_data(conn2, {'colors':unpickled_json['colors']})
+        elif 'opponent_player_object' in unpickled_json:
+            if conn == conn1:
+                self.send_data(conn2, {'opponent_player_object':unpickled_json['opponent_player_object']})
+            elif conn == conn2:
+                self.send_data(conn1, {'opponent_player_object':unpickled_json['opponent_player_object']})                                            
+        elif 'board' in unpickled_json:
+            if conn == conn1:
+                self.send_data(conn2, {'board':unpickled_json['board']})                            
+            elif conn == conn2:
+                self.send_data(conn1, {'board':unpickled_json['board']})  
+        elif 'round_over' in unpickled_json:
+            self.send_data(conn1, unpickled_json)
+            self.send_data(conn2, unpickled_json)
+        elif 'play_again' in unpickled_json:
+            if conn == conn1:
+                self.send_data(conn2, {'play_again':unpickled_json['play_again']})
+                if not unpickled_json['play_again']:
+                    print("Player has quit the game")
+            elif conn == conn2:
+                self.send_data(conn1, {'play_again':unpickled_json['play_again']})
+                if not unpickled_json['play_again']:
+                    print("Player has quit the game")
+        elif 'first_player' in unpickled_json:                        
+            self.send_data(conn1, {'first_player':unpickled_json['first_player']})                        
+            self.send_data(conn2, {'first_player':unpickled_json['first_player']})                                                
+        elif 'DISCONNECT' in unpickled_json:
+            if unpickled_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:
+                if 'close_other_client' in unpickled_json:
+                    if unpickled_json['close_other_client']:
+                        if conn == conn1:
+                            self.send_data(conn2, {"other_client_disconnected":"Other client disconnected unexpectedly"})
+                        else:
+                            self.send_data(conn1, {"other_client_disconnected":"Other client disconnected unexpectedly"})
+                return False
+        return True
+
     def play_game(self, conn, addr):        
 
         print(f"[NEW CONNECTION] {addr} connected.")
 
-        
-        full_msg = b''
-        new_msg = True
+    
         id = None
 
         with self.clients_lock:
@@ -209,7 +256,9 @@ class Server:
             else:
                 self.send_data(conn, {"waiting_for_name":"Waiting for other player to enter their name"})
                 
-            while True:
+            buffer = b""
+            receiving = True
+            while receiving:
                 
                 conn.settimeout(self.TIMEOUT_FOR_RECV) #  Timeout for recv
                 msg = conn.recv(16)                                  
@@ -218,77 +267,38 @@ class Server:
                 if not msg:
                     break
 
-                if new_msg:
-                    msglen = int(msg[:self.HEADERSIZE])
-                    new_msg = False
+                # Add received data to the buffer
+                buffer += msg 
 
+                # Process complete messages
+                while len(buffer) >= self.HEADERSIZE:
+                    # Extract the header and determine the message length
+                    header = buffer[:self.HEADERSIZE]
+                    message_length = int(header)
 
-                full_msg += msg
+                    # Check if the complete message is available in the buffer
+                    if len(buffer) >= self.HEADERSIZE + message_length:
 
-                if len(full_msg)-self.HEADERSIZE >= msglen:
-                    # ----------------Use unpickled json data here----------------
+                        # -------------------------------------Use unpickled json data here-------------------------------------
 
-                    conn.settimeout(None) #  Reset timer for next msg
-                    unpickled_json = pickle.loads(full_msg[self.HEADERSIZE:self.HEADERSIZE+msglen])
-                    # print("unpickled_json: ",  unpickled_json)
+                        # Extract the complete message
+                        message = buffer[self.HEADERSIZE:self.HEADERSIZE + message_length]
+                        unpickled_json = pickle.loads(message) 
 
-                    if len(full_msg) - self.HEADERSIZE > msglen: #  Multiple messages were received together
-                        full_msg = full_msg[self.HEADERSIZE+msglen:] #  Get the part of the next msg that was recieved with the previous one
-                        msglen = int(full_msg[:self.HEADERSIZE])      
-                    else:
-                        new_msg = True
-                        full_msg = b''    
+                        conn.settimeout(None) #  Reset timer for next msg
+                        # print("unpickled_json", unpickled_json)           
 
                     
-                        if 'you' in unpickled_json:
-                            you = unpickled_json['you']
-                            if conn == conn1:
-                                self.send_data(conn2, {'opponent':you})
-                            elif conn == conn2:
-                                self.send_data(conn1, {'opponent':you})                        
-                        elif 'first' in unpickled_json:
-                            self.send_data(conn1, {'first':unpickled_json['first']})                        
-                            self.send_data(conn2, {'first':unpickled_json['first']})
-                        elif 'colors' in unpickled_json:
-                            self.send_data(conn1, {'colors':unpickled_json['colors']})
-                            self.send_data(conn2, {'colors':unpickled_json['colors']})
-                        elif 'opponent_player_object' in unpickled_json:
-                            if conn == conn1:
-                                self.send_data(conn2, {'opponent_player_object':unpickled_json['opponent_player_object']})
-                            elif conn == conn2:
-                                self.send_data(conn1, {'opponent_player_object':unpickled_json['opponent_player_object']})                                            
-                        elif 'board' in unpickled_json:
-                            if conn == conn1:
-                                self.send_data(conn2, {'board':unpickled_json['board']})                            
-                            elif conn == conn2:
-                                self.send_data(conn1, {'board':unpickled_json['board']})  
-                        elif 'round_over' in unpickled_json:
-                            self.send_data(conn1, unpickled_json)
-                            self.send_data(conn2, unpickled_json)
-                        elif 'play_again' in unpickled_json:
-                            if conn == conn1:
-                                self.send_data(conn2, {'play_again':unpickled_json['play_again']})
-                                if not unpickled_json['play_again']:
-                                    print("Player has quit the game")
-                                    break
-                            elif conn == conn2:
-                                self.send_data(conn1, {'play_again':unpickled_json['play_again']})
-                                if not unpickled_json['play_again']:
-                                    print("Player has quit the game")
-                                    break
-                        elif 'first_player' in unpickled_json:                        
-                            self.send_data(conn1, {'first_player':unpickled_json['first_player']})                        
-                            self.send_data(conn2, {'first_player':unpickled_json['first_player']})                                                
-                        elif 'DISCONNECT' in unpickled_json:
-                            if unpickled_json['DISCONNECT'] == self.DISCONNECT_MESSAGE:
-                                if 'close_other_client' in unpickled_json:
-                                    if unpickled_json['close_other_client']:
-                                        if conn == conn1:
-                                            self.send_data(conn2, {"other_client_disconnected":"Other client disconnected unexpectedly"})
-                                        else:
-                                            self.send_data(conn1, {"other_client_disconnected":"Other client disconnected unexpectedly"})
-                                break                                  
-                            # ----------------Use unpickled json data here----------------
+                        if not self.process_message(conn, unpickled_json, conn1, conn2):
+                            receiving = False
+                            break
+                        # -------------------------------------Use unpickled json data here-------------------------------------
+                        
+                        # Remove the processed message from the buffer
+                        buffer = buffer[self.HEADERSIZE + message_length:]
+                    else:
+                        # Incomplete message, break out of the loop and wait for more data
+                        break
         except ConnectionAbortedError as e:
             print(f"Connection Aborted: {e}") 
         except socket.timeout as e:
@@ -306,7 +316,7 @@ class Server:
                 print(f"Error sending '{data}'")
         except socket.error as e:
             print(f"Some error occured: Socket may have been closed")
-        except Exception:
+        except Exception as e:
             print(f"An error occured: {e}")
 
         # Close other and current client

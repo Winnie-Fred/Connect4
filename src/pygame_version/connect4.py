@@ -1,6 +1,4 @@
 import sys
-import time
-import math
 import socket
 import pickle
 import select
@@ -32,6 +30,7 @@ RED = (204, 0, 0)
 WHITE = (255, 255, 255)
 GRAY = (128, 128, 128)
 LIGHT_GRAYISH_BLUE = (206, 229, 242)
+TRANSPARENT = (0, 0, 0, 0)
 
 GAME_CODE_LENGTH = 16
 MAX_IP_ADDR_LENGTH = 15
@@ -52,7 +51,7 @@ class Connect4:
         pygame.init()
         self.client = Client()
         self.ID = None
-        self.round_over = True
+        self.round_over = False
         self.keyboard_interrupt = False
         self.red_marker = colored('O', 'red', attrs=['bold'])
         self.yellow_marker = colored('O', 'yellow', attrs=['bold'])
@@ -87,8 +86,45 @@ class Connect4:
     def _reset_for_new_round(self):
         self.board = Board()
         self.play_again_reply = False
+        self.play_again_reply_received = False
+        self.opponent_play_again_reply = False
+        self.opponent_play_again_reply_received = False
         self.first_player_for_next_round = Player(name='', marker='')
         self.round_over_json = {}
+
+    def _calculate_and_display_final_result(self, players):
+        player_one, player_two = players
+        result = [
+            f"You have {player_one.points} points",
+            f"{player_two.name} has {player_two.points} points"
+        ]
+        if player_one.points > player_two.points:
+            result.append("You win!")
+        elif player_two.points > player_one.points:
+            result.append(f"{player_two.name} wins!")
+        else:
+            result.append("Game ends in a tie")
+        return result
+
+    def _display_result(self, round_or_game="round"):
+        result = []
+        if round_or_game == "round":
+            result = [
+                "At the end of round {self.level.current_level}, ", 
+                f"You have {self.player.points} points",
+                f"{self.opponent.name} has {self.opponent.points} points"
+            ]
+        elif round_or_game == "game":
+            
+            if self.level.current_level == 1:
+                result.append(f"At the end of the game,")
+            else:
+                result.append(f"At the end of the game, after {self.level.current_level} rounds,")
+                
+            final_result = self._calculate_and_display_final_result([self.player, self.opponent])
+            result.extend(final_result)
+            result.append("Thanks for playing")
+        return result
     
     def run_game(self):
         screen = self.screen
@@ -195,7 +231,7 @@ class Connect4:
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.04, self.TEMPORARY_SURFACE_HEIGHT*0.98),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Quit",
             action=GameState.MENU,
@@ -359,6 +395,74 @@ class Connect4:
 
         buttons = RenderUpdates(return_btn, paste_btn, clear_btn)
         return self.collect_input_loop(screen, buttons=buttons, submit_input_btn=continue_btn, input_box=input_box, fade_out_text=fade_out_text, name=name)       
+
+    def play_again_screen(self, screen, temp_surf, winner=''):
+        texts = []
+        if winner == self.player.name:
+            msg = "You win this round"
+        else:
+            msg = f"{winner} wins this round"
+
+        texts.append(create_text_to_draw(msg, 20, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.2)))
+        msg = "Do you want to play another round?"
+        texts.append(create_text_to_draw(msg, 20, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.4)))
+
+        yes_btn = UIElement(
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.4, self.TEMPORARY_SURFACE_HEIGHT*0.7),
+            font_size=20,
+            bg_rgb=TRANSPARENT,
+            text_rgb=WHITE,
+            text="Yes",
+            action=GameState.PLAY_AGAIN_YES,
+        )
+        no_btn = UIElement(
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.7, self.TEMPORARY_SURFACE_HEIGHT*0.7),
+            font_size=20,
+            bg_rgb=TRANSPARENT,
+            text_rgb=WHITE,
+            text="No",
+            action=GameState.PLAY_AGAIN_NO,
+        )
+
+        return_btn = UIElement(
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.04, self.TEMPORARY_SURFACE_HEIGHT*0.98),
+            font_size=15,
+            bg_rgb=TRANSPARENT,
+            text_rgb=WHITE,
+            text="Quit",
+            action=GameState.MENU,
+        )
+
+        buttons = RenderUpdates(return_btn, yes_btn, no_btn)
+        return self.play_again_loop(screen, temp_surf, buttons=buttons, texts=texts)     
+
+    def display_result_screen(self, screen, temp_surf, results=[]):
+        texts = []
+        result_y = 0.15
+        for result in results:
+            texts.append(create_text_to_draw(result, 20, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*result_y)))
+            result_y += 0.1
+        
+
+        end_game_btn = UIElement(
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*(result_y+0.2)),
+            font_size=25,
+            bg_rgb=TRANSPARENT,
+            text_rgb=WHITE,
+            text="End Game",
+            action=GameState.MENU,
+        )
+        return_btn = UIElement(
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.04, self.TEMPORARY_SURFACE_HEIGHT*0.98),
+            font_size=15,
+            bg_rgb=TRANSPARENT,
+            text_rgb=WHITE,
+            text="Quit",
+            action=GameState.MENU,
+        )
+
+        buttons = RenderUpdates(return_btn, end_game_btn)
+        return self.display_result_loop(screen, temp_surf, buttons=buttons, texts=texts)     
     
     def choose_token_screen(self, screen, name=''):
         
@@ -469,7 +573,12 @@ class Connect4:
         temporary_surface = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
 
         if self.client.client is not None:
+            try:
+                self.client.send_data({'DISCONNECT':self.client.DISCONNECT_MESSAGE})
+            except socket.error:
+                pass
             self.client.client.close()
+        self._reset_game()
 
         while True:
             mouse_up = False
@@ -648,6 +757,42 @@ class Connect4:
             screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
 
+    def play_again_loop(self, screen, temp_surf, buttons, texts):
+
+        pause_screen = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
+
+        while True:
+            mouse_up = False
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    mouse_up = True
+                    
+            pause_screen.fill((0, 0, 0))
+            pause_screen.set_alpha(200)           
+            scaled_pos = self.get_scaled_mouse_position()
+
+            for text in texts:
+                text.draw(pause_screen)
+
+            for button in buttons:
+                ui_action = button.update(scaled_pos, mouse_up)
+                if ui_action != GameState.NO_ACTION:
+                    return ui_action
+
+            buttons.draw(pause_screen)
+
+            scaled_surface = pygame.transform.smoothscale(temp_surf, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
+            screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
+            scaled_surface = pygame.transform.smoothscale(pause_screen, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
+            screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
+            pygame.display.flip()
+        
+    def display_result_loop(self, screen, temp_surf, buttons, texts):
+        return self.play_again_loop(screen, temp_surf, buttons, texts)
+
     def blit_board(self, surface, board_surface, mouse_pos_on_click, current_mouse_pos, board_dimensions, red_token, yellow_token, tokens, notifiers, glowing_tokens):
         error_occured = False
         waiting_has_begun = False
@@ -759,7 +904,7 @@ class Connect4:
 
         temporary_surface = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
 
-        loading_simulaton_frames = frames.loading_simulation_frames
+        loading_simulation_frames = frames.loading_simulation_frames
         red_bird_flying_frames = frames.red_bird_flying_frames
         blue_bird_flying_frames = frames.blue_bird_flying_frames
         bigger_blue_bird_flying_frames = frames.bigger_blue_bird_flying_frames
@@ -815,9 +960,7 @@ class Connect4:
         code_to_copy = ''
         unpickled_json = {}
         texts = []
-
-        full_msg = b''
-        new_msg = True
+        
         self._reset_game()
 
         board_topleft = self.TEMPORARY_SURFACE_WIDTH*0.2581, self.TEMPORARY_SURFACE_HEIGHT*0.195
@@ -851,10 +994,12 @@ class Connect4:
         tokens = pygame.sprite.Group()
                 
         notifiers = ()
+        winner = None
         your_scoreboard = None
         opponent_scoreboard = None
 
         glowing_tokens = pygame.sprite.Group() #  Tokens that will glow when four of them are in a row i.e. a player has won a round
+        glowing_timer = 0
 
         text_and_error = self.client.connect_to_game(choice, ip, code)
         if text_and_error['error']:
@@ -864,6 +1009,8 @@ class Connect4:
             status_msg = text_and_error['text']
             status_msg_end_time = pygame.time.get_ticks() + time_of_status_msg_display
 
+        # Buffer to store received data
+        buffer = b''
 
         while True:
             default_y_position_for_printing_error = self.TEMPORARY_SURFACE_HEIGHT*0.6667
@@ -882,339 +1029,393 @@ class Connect4:
 
             scaled_pos = self.get_scaled_mouse_position()
             temporary_surface.fill(BLUE)
-            if game_started:
-                clear_screen()
-                temporary_surface.blit(background, (0, 0))                
-
-                #------------------------------------------------ Animations ------------------------------------------------#
-
-                current_time = pygame.time.get_ticks()
-                if current_time - last_update_of_sun_rotating >= sun_rotating_cooldown:
-                    sun_rotating_frame += 1
-                    last_update_of_sun_rotating = current_time
-                    if sun_rotating_frame >= len(sun_rotating_frames):
-                        sun_rotating_frame = 0
-
-                temporary_surface.blit(sun_rotating_frames[sun_rotating_frame], (self.TEMPORARY_SURFACE_WIDTH*0.055, self.TEMPORARY_SURFACE_HEIGHT*0.06))
-                
-
-                current_time = pygame.time.get_ticks()
-                if current_time - last_update_of_blue_bird_flying >= blue_bird_flying_cooldown:
-                    blue_bird_flying_frame += 1
-                    last_update_of_blue_bird_flying = current_time
-                    if blue_bird_flying_frame >= len(blue_bird_flying_frames):
-                        blue_bird_flying_frame = 0
-
-                temporary_surface.blit(blue_bird_flying_frames[blue_bird_flying_frame], (blue_bird_position, self.TEMPORARY_SURFACE_HEIGHT*0.01))
-                blue_bird_position += blue_bird_speed
-                if blue_bird_position >= self.TEMPORARY_SURFACE_WIDTH*1.1:
-                    blue_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.005
-
-
-                current_time = pygame.time.get_ticks()
-                if current_time - last_update_of_bigger_blue_bird_flying >= bigger_blue_bird_flying_cooldown:
-                    bigger_blue_bird_flying_frame += 1
-                    last_update_of_bigger_blue_bird_flying = current_time
-                    if bigger_blue_bird_flying_frame >= len(bigger_blue_bird_flying_frames):
-                        bigger_blue_bird_flying_frame = 0
-
-                temporary_surface.blit(bigger_blue_bird_flying_frames[bigger_blue_bird_flying_frame], (bigger_blue_bird_position, self.TEMPORARY_SURFACE_HEIGHT*0.005))
-                bigger_blue_bird_position += bigger_blue_bird_speed
-                if bigger_blue_bird_position >= self.TEMPORARY_SURFACE_WIDTH*1.1:
-                    bigger_blue_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.03
-
-
-                current_time = pygame.time.get_ticks()
-                if current_time - last_update_of_red_bird_flying >= red_bird_flying_cooldown:
-                    red_bird_flying_frame += 1
-                    last_update_of_red_bird_flying = current_time
-                    if red_bird_flying_frame >= len(red_bird_flying_frames):
-                        red_bird_flying_frame = 0
-
-                temporary_surface.blit(red_bird_flying_frames[red_bird_flying_frame], (red_bird_position, self.TEMPORARY_SURFACE_HEIGHT*0.01))
-                red_bird_position += red_bird_speed
-                if red_bird_position >= self.TEMPORARY_SURFACE_WIDTH*1.1:
-                    red_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.01
-
-
-                current_time = pygame.time.get_ticks()
-                if current_time - last_update_of_girl_swinging >= girl_swinging_cooldown:
-                    girl_swinging_frame += 1
-                    last_update_of_girl_swinging = current_time
-                    if girl_swinging_frame >= len(girl_swinging_frames):
-                        girl_swinging_frame = 0
-
-                temporary_surface.blit(girl_swinging_frames[girl_swinging_frame], (self.TEMPORARY_SURFACE_WIDTH*0.79, self.TEMPORARY_SURFACE_HEIGHT*0.5))
-                
-
-                #------------------------------------------------ Animations ------------------------------------------------#
-                
-                self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token, tokens, notifiers, glowing_tokens)
-                your_scoreboard.update(self.player.points)
-                your_scoreboard.draw(temporary_surface)
-                opponent_scoreboard.update(self.opponent.points)
-                opponent_scoreboard.draw(temporary_surface)
-
-            for button in buttons:
-                ui_action = button.update(scaled_pos, mouse_up)
-                if ui_action != GameState.NO_ACTION:
-                    return ui_action                    
-                        
-            buttons.draw(temporary_surface)
-
-            
-            for error in errors:
+            try:
                 if game_started:
-                    pass
-                else:
                     clear_screen()
-                    error_text = create_text_to_draw(error, 15, RED, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, default_y_position_for_printing_error))
-                    error_text.draw(temporary_surface)
-                    default_y_position_for_printing_error += self.TEMPORARY_SURFACE_HEIGHT*0.0833
+                    temporary_surface.blit(background, (0, 0))                
+
+                    #------------------------------------------------ Animations ------------------------------------------------#
+
+                    current_time = pygame.time.get_ticks()
+                    if current_time - last_update_of_sun_rotating >= sun_rotating_cooldown:
+                        sun_rotating_frame += 1
+                        last_update_of_sun_rotating = current_time
+                        if sun_rotating_frame >= len(sun_rotating_frames):
+                            sun_rotating_frame = 0
+
+                    temporary_surface.blit(sun_rotating_frames[sun_rotating_frame], (self.TEMPORARY_SURFACE_WIDTH*0.055, self.TEMPORARY_SURFACE_HEIGHT*0.06))
                     
 
-            for text in texts:
-                text.draw(temporary_surface)
+                    current_time = pygame.time.get_ticks()
+                    if current_time - last_update_of_blue_bird_flying >= blue_bird_flying_cooldown:
+                        blue_bird_flying_frame += 1
+                        last_update_of_blue_bird_flying = current_time
+                        if blue_bird_flying_frame >= len(blue_bird_flying_frames):
+                            blue_bird_flying_frame = 0
 
-            if code_to_display in texts:
-                current_time = pygame.time.get_ticks()
-                if last_click is None or current_time - last_click >= time_until_enable:
-                    enabled = True
-                for button in copy_btn:
-                    ui_action = button.update(scaled_pos, mouse_up, enabled)
+                    temporary_surface.blit(blue_bird_flying_frames[blue_bird_flying_frame], (blue_bird_position, self.TEMPORARY_SURFACE_HEIGHT*0.01))
+                    blue_bird_position += blue_bird_speed
+                    if blue_bird_position >= self.TEMPORARY_SURFACE_WIDTH*1.1:
+                        blue_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.005
+
+
+                    current_time = pygame.time.get_ticks()
+                    if current_time - last_update_of_bigger_blue_bird_flying >= bigger_blue_bird_flying_cooldown:
+                        bigger_blue_bird_flying_frame += 1
+                        last_update_of_bigger_blue_bird_flying = current_time
+                        if bigger_blue_bird_flying_frame >= len(bigger_blue_bird_flying_frames):
+                            bigger_blue_bird_flying_frame = 0
+
+                    temporary_surface.blit(bigger_blue_bird_flying_frames[bigger_blue_bird_flying_frame], (bigger_blue_bird_position, self.TEMPORARY_SURFACE_HEIGHT*0.005))
+                    bigger_blue_bird_position += bigger_blue_bird_speed
+                    if bigger_blue_bird_position >= self.TEMPORARY_SURFACE_WIDTH*1.1:
+                        bigger_blue_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.03
+
+
+                    current_time = pygame.time.get_ticks()
+                    if current_time - last_update_of_red_bird_flying >= red_bird_flying_cooldown:
+                        red_bird_flying_frame += 1
+                        last_update_of_red_bird_flying = current_time
+                        if red_bird_flying_frame >= len(red_bird_flying_frames):
+                            red_bird_flying_frame = 0
+
+                    temporary_surface.blit(red_bird_flying_frames[red_bird_flying_frame], (red_bird_position, self.TEMPORARY_SURFACE_HEIGHT*0.01))
+                    red_bird_position += red_bird_speed
+                    if red_bird_position >= self.TEMPORARY_SURFACE_WIDTH*1.1:
+                        red_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.01
+
+
+                    current_time = pygame.time.get_ticks()
+                    if current_time - last_update_of_girl_swinging >= girl_swinging_cooldown:
+                        girl_swinging_frame += 1
+                        last_update_of_girl_swinging = current_time
+                        if girl_swinging_frame >= len(girl_swinging_frames):
+                            girl_swinging_frame = 0
+
+                    temporary_surface.blit(girl_swinging_frames[girl_swinging_frame], (self.TEMPORARY_SURFACE_WIDTH*0.79, self.TEMPORARY_SURFACE_HEIGHT*0.5))
+                    
+
+                    #------------------------------------------------ Animations ------------------------------------------------#
+                    
+                    self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token, tokens, notifiers, glowing_tokens)
+                    your_scoreboard.update(self.player.points)
+                    your_scoreboard.draw(temporary_surface)
+                    opponent_scoreboard.update(self.opponent.points)
+                    opponent_scoreboard.draw(temporary_surface)
+
+                for button in buttons:
+                    ui_action = button.update(scaled_pos, mouse_up)
                     if ui_action != GameState.NO_ACTION:
-                        if ui_action == GameState.COPY:                        
-                            last_click = current_time
-                            pyperclip.copy(code_to_copy)
-                            enabled = False                                                
-                copy_btn.draw(temporary_surface)
-
-
-            if loading_text or status_msg:
-                current_time = pygame.time.get_ticks()
-                if current_time - last_update_of_loading_animation >= loading_animation_cooldown:
-                    loading_animation_frame += 1
-                    last_update_of_loading_animation = current_time
-                    if loading_animation_frame >= len(loading_simulaton_frames):
-                        loading_animation_frame = 0
-
-                temporary_surface.blit(loading_simulaton_frames[loading_animation_frame], (self.TEMPORARY_SURFACE_WIDTH*0.385, self.TEMPORARY_SURFACE_HEIGHT*0.1))
-                if loading_text:            
-                    loading_msg = create_text_to_draw(loading_text, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
-                    loading_msg.draw(temporary_surface)
-                    
-
-            if not errors and not status_msg:
-                client = self.client.client
-                # Get the list of sockets which are readable
-                read_sockets, _, _ = select.select([client] , [], [], 0)
-                for sock in read_sockets:
-                    # incoming message from remote server
-                    if sock == client:
-                        try:
-                            msg = client.recv(16)
-                        except ConnectionResetError: #  This exception is caught when the client tries to receive a msg from a disconnected server
-                            error = "Connection Reset: Server closed the connection or other client may have disconnected"
-                            errors.append(error)
-                            continue
-                        except socket.error:
-                            errors.append(general_error_msg)
-                            continue
-                        
-                        if not msg: #  This breaks out of the loop when disconnect msg has been sent to server and/or client conn has been closed server-side
-                            error_msg = ''
+                        return ui_action                    
                             
-                            if not self.keyboard_interrupt: 
-                                # Connection was forcibly closed by server
-                                error_msg = general_error_msg
+                buttons.draw(temporary_surface)
 
-                            errors.append(error_msg)
-                            continue
+                
+                for error in errors:
+                    if game_started:
+                        pass
+                    else:
+                        clear_screen()
+                        error_text = create_text_to_draw(error, 15, RED, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, default_y_position_for_printing_error))
+                        error_text.draw(temporary_surface)
+                        default_y_position_for_printing_error += self.TEMPORARY_SURFACE_HEIGHT*0.0833
                         
-                        if new_msg:
-                            msglen = int(msg[:self.client.HEADERSIZE])  
-                            new_msg = False
+
+                for text in texts:
+                    text.draw(temporary_surface)
+
+                if code_to_display in texts:
+                    current_time = pygame.time.get_ticks()
+                    if last_click is None or current_time - last_click >= time_until_enable:
+                        enabled = True
+                    for button in copy_btn:
+                        ui_action = button.update(scaled_pos, mouse_up, enabled)
+                        if ui_action != GameState.NO_ACTION:
+                            if ui_action == GameState.COPY:                        
+                                last_click = current_time
+                                pyperclip.copy(code_to_copy)
+                                enabled = False                                                
+                    copy_btn.draw(temporary_surface)
 
 
-                        full_msg += msg
+                if loading_text or status_msg:
+                    current_time = pygame.time.get_ticks()
+                    if current_time - last_update_of_loading_animation >= loading_animation_cooldown:
+                        loading_animation_frame += 1
+                        last_update_of_loading_animation = current_time
+                        if loading_animation_frame >= len(loading_simulation_frames):
+                            loading_animation_frame = 0
 
-                        if len(full_msg) - self.client.HEADERSIZE >= msglen:
-                            
-                            # -------------------------------------Use unpickled json data here-------------------------------------
+                    temporary_surface.blit(loading_simulation_frames[loading_animation_frame], (self.TEMPORARY_SURFACE_WIDTH*0.385, self.TEMPORARY_SURFACE_HEIGHT*0.1))
+                    if loading_text:
+                        loading_msg = create_text_to_draw(loading_text, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
+                        loading_msg.draw(temporary_surface)
+                
 
-                            unpickled_json = pickle.loads(full_msg[self.client.HEADERSIZE:self.client.HEADERSIZE+msglen]) 
+                if not errors and not status_msg:
 
-
-                            if len(full_msg) - self.client.HEADERSIZE > msglen: #  Multiple messages were received together
-                                full_msg = full_msg[self.client.HEADERSIZE+msglen:] #  Get the part of the next msg that was recieved with the previous one
-                                msglen = int(full_msg[:self.client.HEADERSIZE])      
+                    if self.round_over and game_started:
+                        if not self.play_again_reply_received:
+                            if glowing_timer > 0:
+                                glowing_timer -= pygame.time.get_ticks() - last_ticks
                             else:
-                                new_msg = True
-                                full_msg = b''                
-                            
-                            print("unpickled_json", unpickled_json)
-
-                            loading_text = ''                    
-
-                            try:
-                                if "code" in unpickled_json:
-                                    code_to_copy = unpickled_json['code']
-                                    code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.45))
-                                    texts.append(code_to_display)
-                                    msg = "This is your special code. Send it to someone you wish to join this game."
-                                    texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.55)))
-                                elif "no_games_found" in unpickled_json:
-                                    # Result from unpickled_json is not used because it is too long and has to be broken 
-                                    # to be printed on multiple lines                                    
-                                    errors = ["No games exist with that code.", "Ask for an up-to-date code, "
-                                                "try creating your own game ", "or try joining a different game"]
-                                elif "game_full" in unpickled_json:
-                                    errors.append(unpickled_json['game_full'])
-                                elif "join_successful" in unpickled_json:
-                                    status_msg = unpickled_json['join_successful']
-                                    status_msg_end_time = pygame.time.get_ticks() + time_of_status_msg_display
-                                    print(status_msg)
-                                elif "id" in unpickled_json:
-                                    clear_screen()
-                                    self.ID = unpickled_json["id"]
-                                    status_msg = "Both clients connected. Starting game"                                                                                               
-                                    status_msg_end_time = pygame.time.get_ticks() + time_of_status_msg_display
-                                    print(status_msg)
-                                elif "is_alive" in unpickled_json:
-                                    self.client.send_data({'is_alive':True})
-                                elif "other_client_disconnected" in unpickled_json:                       
-                                    errors.append(unpickled_json['other_client_disconnected'])
-                                elif 'timeout' in unpickled_json:
-                                    error = unpickled_json['timeout']
-                                    errors.append(error)
-                                    print(self.color_error_msg_red(error))
-                                elif "status" in unpickled_json:                                                                             
-                                    loading_text = unpickled_json['status']                                
-                                elif "waiting_for_name" in unpickled_json:
-                                    loading_text = unpickled_json['waiting_for_name']                        
-                                elif "get_first_player_name" in unpickled_json:                                                               
-                                    loading_text = "Waiting for other player to enter their name"
-                                    game_state_and_input = self.collect_name_screen(screen)
-                                    if game_state_and_input.game_state == GameState.MENU:
-                                        return game_state_and_input.game_state              
-                                    self.you = game_state_and_input.input
-                                    self.client.send_data({'you':self.you})
-                                elif "opponent" in unpickled_json:                                                             
-                                    self.opponent = unpickled_json['opponent']
-                                    if not self.you:
-                                        game_state_and_input = self.collect_name_screen(screen, name=self.opponent)
-                                        if game_state_and_input.game_state == GameState.MENU:
-                                            return game_state_and_input.game_state           
-                                        self.you = game_state_and_input.input
-                                        self.client.send_data({'you':self.you})                        
-                                    print("You are up against: ", self.opponent)                        
-                                    # Shuffling player names
+                                ui_action = self.play_again_screen(screen, temporary_surface, winner)
+                                if ui_action == GameState.MENU:
+                                    return ui_action
+                                if ui_action == GameState.PLAY_AGAIN_YES:
+                                    self.play_again_reply = True
+                                    self.play_again_reply_received = True
+                                    self.client.send_data({'play_again':True})
+                                elif ui_action == GameState.PLAY_AGAIN_NO:
+                                    self.play_again_reply = False
+                                    self.play_again_reply_received = True
+                                    self.client.send_data({'play_again':False})
+                                    ui_action = self.display_result_screen(screen, temporary_surface, self._display_result("game"))                                                        
+                                    if ui_action == GameState.MENU:
+                                        return ui_action 
+                        elif self.play_again_reply_received and not self.opponent_play_again_reply_received:
+                            loading_text = f"Waiting for {self.opponent.name} to reply"
+                        elif self.play_again_reply_received and self.opponent_play_again_reply_received:
+                            if self.play_again_reply:
+                                if self.opponent_play_again_reply:
+                                    self.level.current_level += 1
+                                    self._reset_for_new_round()                            
+                                    self.round_over = False
+                                    tokens = pygame.sprite.Group()
+                                    glowing_tokens = pygame.sprite.Group()
+                                    # Shuffle the players again before starting next round.
                                     if not self.ID:
-                                        first_player = self.connect4game._shuffle_players([self.you, self.opponent])
-                                        self.client.send_data({'first':first_player})
-                                    print("Randomly choosing who to go first . . .")                                                        
-                                elif "first" in unpickled_json:
-                                    first = unpickled_json['first'][0]                                                                        
-                                    if first == self.you:
-                                        msg = f"You go first"
-                                        ui_action = self.choose_token_screen(screen, name=self.you)
-                                        if ui_action == GameState.MENU:
-                                            return ui_action
-                                        if ui_action == GameState.SELECT_RED_TOKEN:
-                                            colors = ('red', 'yellow')
-                                        else:
-                                            colors = ('yellow', 'red')
-                                        self.client.send_data({'colors':colors})
-                                    else:
-                                        msg = f"{first} goes first"
-                                        texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.4167)))
-                                        loading_text = f"Waiting for {self.opponent} to choose their token"
-                                    print(msg)
-                                elif "colors" in unpickled_json:                                                                                     
-                                    colors = unpickled_json['colors']                        
-                                    if first == self.you:
-                                        self.your_turn = True
-                                        if colors[0] == 'red':
-                                            self.token = red_token
-                                        elif colors[0] == 'yellow':
-                                            self.token = yellow_token
-                                        self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))                                                                 
-                                    else:
-                                        self.your_turn = False
-                                        if colors[1] == 'red':
-                                            self.token = red_token
-                                        elif colors[1] == 'yellow':
-                                            self.token = yellow_token
-                                        self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
-                                    self.client.send_data({'opponent_player_object':self.player})
-                                elif "opponent_player_object" in unpickled_json:
-                                      self.round_over = False
-                                      game_started = True
-                                      self.opponent = unpickled_json['opponent_player_object']
-                                      notifiers = namedtuple("notifiers", "error_notifier, status_notifier")
-                                      error_notifier = ErrorNotifier("That column is full", 15, WHITE)
-                                      status_notifier = StatusNotifier(self.opponent.name, 17, WHITE)
-                                      color = 'red' if self.player.marker == self.red_marker else 'yellow'
-                                      opponent_color = 'red' if self.player.marker == self.yellow_marker else 'yellow'
-                                      your_scoreboard = ScoreBoard(color, WHITE, 15)
-                                      opponent_scoreboard = ScoreBoard(opponent_color, WHITE, 15, self.opponent.name)
-                                      if not self.your_turn:
-                                        status_notifier.incoming = True
-                                      notifiers = notifiers(error_notifier, status_notifier)
-                                      self._reset_for_new_round()
-                                elif "board" in unpickled_json:
-                                    self.board = unpickled_json['board']                                        
-                                    self.your_turn = True
-                                    check_win = self.board.check_win(self.opponent)
-                                    if check_win.win_or_not:
-                                        self.your_turn = False
-                                elif "round_over" in unpickled_json and "winner" in unpickled_json:
-                                    round_over_json = unpickled_json
-                                    self.round_over = True
-                                    self.your_turn = False
-                                    winner = round_over_json['winner']
-                                    if winner is not None:
-                                        if winner.name != self.player.name:
-                                            print(f"\n{self.opponent.name} {self.opponent.marker} wins this round")
-                                            print("Better luck next time!\n")
-                                            self.opponent.points = round_over_json['winner'].points
+                                        first_player = self.connect4game._shuffle_players([self.player, self.opponent])[0]
+                                        self.client.send_data({'first_player':first_player})
+                                else:
+                                    result = [f"{self.opponent.name} has quit"]
+                                    result.extend(self._display_result("game"))
+                                    ui_action = self.display_result_screen(screen, temporary_surface, result)
+                                    if ui_action == GameState.MENU:
+                                        return ui_action                                                       
 
-                                        win_check_result = self.board.check_win(winner)
-                                        four_in_a_row = win_check_result.four_in_a_row
+                    last_ticks = pygame.time.get_ticks()
 
-                                        marker = win_check_result.marker
-                                        token_color = "red" if marker == self.red_marker else "yellow"
-                                        for position in four_in_a_row:
-                                            token_x_position = int(horizontal_distance_between_first_row_and_screen_edge + (width_of_hole*(position[1])) \
-                                                                + (distance_between_cols*(position[1])))
 
-                                            token_y_position = int(vertical_distance_between_first_col_and_screen_edge + (height_of_hole*(position[0])) \
-                                                                + (distance_between_rows*(position[0])))
-
-                                            glowing_token = GlowingToken(token_color, (token_x_position, token_y_position))
-                                            glowing_tokens.add(glowing_token)
-                                # elif 'play_again' in unpickled_json:
-                                #     self.play_again_reply = unpickled_json['play_again']
-                                #     self.play_again_reply_received.set()                        
-                                #     with self.condition:
-                                #         self.condition.notify()
-                                # elif 'first_player' in unpickled_json:
-                                #     self.first_player_for_next_round = unpickled_json['first_player']
-                                #     self.first_player_received.set()
-                                #     with self.condition:
-                                #         self.condition.notify()                                                 
+                    client = self.client.client
+                    # Get the list of sockets which are readable
+                    read_sockets, _, _ = select.select([client] , [], [], 0)
+                    for sock in read_sockets:
+                        # incoming message from remote server
+                        if sock == client:
+                            try:
+                                msg = client.recv(16)
+                            except ConnectionResetError: #  This exception is caught when the client tries to receive a msg from a disconnected server
+                                error = "Connection Reset: Server closed the connection or other client may have disconnected"
+                                errors.append(error)
+                                continue
                             except socket.error:
-                                if not self.keyboard_interrupt:
-                                    print(self.color_error_msg_red(general_error_msg))
-                                    error = general_error_msg
-                            except Exception as e: # Catch EOFError and other exceptions
-                                # NOTE: EOFError can also be raised when input() is interrupted with a Keyboard Interrupt
-                                print(e)
-                                if not self.keyboard_interrupt:
-                                    # print(self.color_error_msg_red(something_went_wrong_msg))
-                                    error = something_went_wrong_msg            
+                                errors.append(general_error_msg)
+                                continue
+                            
+                            if not msg: #  This breaks out of the loop when disconnect msg has been sent to server and/or client conn has been closed server-side
+                                error_msg = ''
+                                
+                                if not self.keyboard_interrupt: 
+                                    # Connection was forcibly closed by server
+                                    error_msg = general_error_msg
 
-                            # -------------------------------------Use unpickled json data here-------------------------------------
+                                errors.append(error_msg)
+                                continue
+                            
+                            # Add received data to the buffer
+                            buffer += msg                            
+
+                            # Process complete messages
+                            while len(buffer) >= self.client.HEADERSIZE:
+                                # Extract the header and determine the message length
+                                header = buffer[:self.client.HEADERSIZE]
+                                message_length = int(header)
+
+                                # Check if the complete message is available in the buffer
+                                if len(buffer) >= self.client.HEADERSIZE + message_length:
+
+                                    # -------------------------------------Use unpickled json data here-------------------------------------
+
+                                    # Extract the complete message
+                                    message = buffer[self.client.HEADERSIZE:self.client.HEADERSIZE + message_length]
+                                    unpickled_json = pickle.loads(message) 
+                                    print("unpickled_json", unpickled_json)
+
+                                    loading_text = ''                    
+
+                                    if "code" in unpickled_json:
+                                        code_to_copy = unpickled_json['code']
+                                        code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.45))
+                                        texts.append(code_to_display)
+                                        msg = "This is your special code. Send it to someone you wish to join this game."
+                                        texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.55)))
+                                    elif "no_games_found" in unpickled_json:
+                                        # Result from unpickled_json is not used because it is too long and has to be broken 
+                                        # to be printed on multiple lines                                    
+                                        errors = ["No games exist with that code.", "Ask for an up-to-date code, "
+                                                    "try creating your own game ", "or try joining a different game"]
+                                    elif "game_full" in unpickled_json:
+                                        errors.append(unpickled_json['game_full'])
+                                    elif "join_successful" in unpickled_json:
+                                        status_msg = unpickled_json['join_successful']
+                                        status_msg_end_time = pygame.time.get_ticks() + time_of_status_msg_display
+                                        print(status_msg)
+                                    elif "id" in unpickled_json:
+                                        clear_screen()
+                                        self.ID = unpickled_json["id"]
+                                        status_msg = "Both clients connected. Starting game"                                                                                               
+                                        status_msg_end_time = pygame.time.get_ticks() + time_of_status_msg_display
+                                        print(status_msg)
+                                    elif "is_alive" in unpickled_json:
+                                        self.client.send_data({'is_alive':True})
+                                    elif "other_client_disconnected" in unpickled_json:                       
+                                        errors.append(unpickled_json['other_client_disconnected'])
+                                    elif 'timeout' in unpickled_json:
+                                        error = unpickled_json['timeout']
+                                        errors.append(error)
+                                        print(self.color_error_msg_red(error))
+                                    elif "status" in unpickled_json:                                                                             
+                                        loading_text = unpickled_json['status']                                
+                                    elif "waiting_for_name" in unpickled_json:
+                                        loading_text = unpickled_json['waiting_for_name']                        
+                                    elif "get_first_player_name" in unpickled_json:                                                               
+                                        loading_text = "Waiting for other player to enter their name"
+                                        game_state_and_input = self.collect_name_screen(screen)
+                                        if game_state_and_input.game_state == GameState.MENU:
+                                            return game_state_and_input.game_state              
+                                        self.you = game_state_and_input.input
+                                        self.client.send_data({'you':self.you})
+                                    elif "opponent" in unpickled_json:                                                             
+                                        self.opponent = unpickled_json['opponent']
+                                        if not self.you:
+                                            game_state_and_input = self.collect_name_screen(screen, name=self.opponent)
+                                            if game_state_and_input.game_state == GameState.MENU:
+                                                return game_state_and_input.game_state           
+                                            self.you = game_state_and_input.input
+                                            self.client.send_data({'you':self.you})                        
+                                        print("You are up against: ", self.opponent)                        
+                                        # Shuffling player names
+                                        if not self.ID:
+                                            first_player = self.connect4game._shuffle_players([self.you, self.opponent])
+                                            self.client.send_data({'first':first_player})
+                                        print("Randomly choosing who to go first . . .")                                                        
+                                    elif "first" in unpickled_json:
+                                        first = unpickled_json['first'][0]                                                                        
+                                        if first == self.you:
+                                            msg = f"You go first"
+                                            ui_action = self.choose_token_screen(screen, name=self.you)
+                                            if ui_action == GameState.MENU:
+                                                return ui_action
+                                            if ui_action == GameState.SELECT_RED_TOKEN:
+                                                colors = ('red', 'yellow')
+                                            else:
+                                                colors = ('yellow', 'red')
+                                            self.client.send_data({'colors':colors})
+                                        else:
+                                            msg = f"{first} goes first"
+                                            texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.4167)))
+                                            loading_text = f"Waiting for {self.opponent} to choose their token"
+                                        print(msg)
+                                    elif "colors" in unpickled_json:                                                                                     
+                                        colors = unpickled_json['colors']                        
+                                        if first == self.you:
+                                            self.your_turn = True
+                                            if colors[0] == 'red':
+                                                self.token = red_token
+                                            elif colors[0] == 'yellow':
+                                                self.token = yellow_token
+                                            self.player = Player(self.you, colored('O', colors[0], attrs=['bold']))                                                                 
+                                        else:
+                                            self.your_turn = False
+                                            if colors[1] == 'red':
+                                                self.token = red_token
+                                            elif colors[1] == 'yellow':
+                                                self.token = yellow_token
+                                            self.player = Player(self.you, colored('O', colors[1], attrs=['bold']))                        
+                                        self.client.send_data({'opponent_player_object':self.player})
+                                    elif "opponent_player_object" in unpickled_json:
+                                        self.round_over = False
+                                        game_started = True
+                                        self.opponent = unpickled_json['opponent_player_object']
+                                        notifiers = namedtuple("notifiers", "error_notifier, status_notifier")
+                                        error_notifier = ErrorNotifier("That column is full", 15, WHITE)
+                                        status_notifier = StatusNotifier(self.opponent.name, 17, WHITE)
+                                        color = 'red' if self.player.marker == self.red_marker else 'yellow'
+                                        opponent_color = 'red' if self.player.marker == self.yellow_marker else 'yellow'
+                                        your_scoreboard = ScoreBoard(color, WHITE, 15)
+                                        opponent_scoreboard = ScoreBoard(opponent_color, WHITE, 15, self.opponent.name)
+                                        if not self.your_turn:
+                                            status_notifier.incoming = True
+                                        notifiers = notifiers(error_notifier, status_notifier)
+                                        self._reset_for_new_round()
+                                    elif "board" in unpickled_json:
+                                        self.board = unpickled_json['board']                                        
+                                        self.your_turn = True
+                                        check_win = self.board.check_win(self.opponent)
+                                        if check_win.win_or_not:
+                                            self.your_turn = False
+                                    elif "round_over" in unpickled_json and "winner" in unpickled_json:
+                                        round_over_json = unpickled_json
+                                        self.round_over = True
+                                        self.your_turn = False
+                                        winner = round_over_json['winner']
+                                        glowing_timer = 5000
+                                        if winner is not None:
+                                            win_check_result = self.board.check_win(winner)
+                                            four_in_a_row = win_check_result.four_in_a_row
+
+                                            marker = win_check_result.marker
+                                            token_color = "red" if marker == self.red_marker else "yellow"
+                                            for position in four_in_a_row:
+                                                token_x_position = int(horizontal_distance_between_first_row_and_screen_edge + (width_of_hole*(position[1])) \
+                                                                    + (distance_between_cols*(position[1])))
+
+                                                token_y_position = int(vertical_distance_between_first_col_and_screen_edge + (height_of_hole*(position[0])) \
+                                                                    + (distance_between_rows*(position[0])))
+
+                                                glowing_token = GlowingToken(token_color, (token_x_position, token_y_position))
+                                                glowing_tokens.add(glowing_token)
+
+                                            if winner.name != self.player.name:
+                                                print(f"\n{self.opponent.name} {self.opponent.marker} wins this round")
+                                                print("Better luck next time!\n")
+                                                self.opponent.points = round_over_json['winner'].points   
+
+                                            winner =  winner.name
+                                        else:
+                                            winner = ''
+                                    elif 'play_again' in unpickled_json:
+                                        self.opponent_play_again_reply = unpickled_json['play_again']
+                                        self.opponent_play_again_reply_received = True                                                      
+                                    elif 'first_player' in unpickled_json:
+                                        self.first_player_for_next_round = unpickled_json['first_player']
+                                        status_msg = f"Round {self.level.current_level}......{self.first_player_for_next_round.name} goes first"
+                                        status_msg_end_time = pygame.time.get_ticks() + time_of_status_msg_display
+                                        print(status_msg)
+                                        if self.first_player_for_next_round.name == self.player.name:
+                                            self.your_turn = True                            
+                                        else:                            
+                                            self.your_turn = False                                                                           
+
+                                    # -------------------------------------Use unpickled json data here-------------------------------------
+                                    # Remove the processed message from the buffer
+                                    buffer = buffer[self.client.HEADERSIZE + message_length:]
+                                else:
+                                    # Incomplete message, break out of the loop and wait for more data
+                                    break
+                        
+            
+            except socket.error:
+                if not self.keyboard_interrupt:
+                    print(self.color_error_msg_red(general_error_msg))
+                    errors.append(general_error_msg)
+            # except Exception as e: # Catch EOFError and other exceptions
+            #     # NOTE: EOFError can also be raised when input() is interrupted with a Keyboard Interrupt
+            #     print(self.color_error_msg_red(e))
+            #     if not self.keyboard_interrupt:
+            #         # print(self.color_error_msg_red(something_went_wrong_msg))
+            #         errors.append(something_went_wrong_msg)
 
             if status_msg:
                 current_time = pygame.time.get_ticks()

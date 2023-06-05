@@ -18,3 +18,5 @@ class GameState(Enum):
     SUBMIT_NAME = 11
     SELECT_RED_TOKEN = 12
     SELECT_YELLOW_TOKEN = 13
+    PLAY_AGAIN_YES = 14
+    PLAY_AGAIN_NO = 15
