@@ -21,7 +21,7 @@ from pygame_version.utils import Board, Token, GlowingToken
 from pygame_version.client import Client
 from pygame_version.states import Choice, TokenState
 from pygame_version.gamestate import GameState
-from pygame_version.ui_tools import UIElement, CopyButtonElement, DisabledOrEnabledBtn, TokenButton, InputBox, FadeOutText, ErrorNotifier, StatusNotifier, ScoreBoard, create_text_to_draw
+from pygame_version.ui_tools import UIElement, CopyButtonElement, DisabledOrEnabledBtn, TokenButton, InputBox, FadeOutText, ErrorNotifier, StatusNotifier, ScoreBoard, CurrentRoundBoard, create_text_to_draw
 
 from termcolor import colored  # type: ignore
 
@@ -997,6 +997,7 @@ class Connect4:
         winner = None
         your_scoreboard = None
         opponent_scoreboard = None
+        current_round_board = CurrentRoundBoard(WHITE, 40)
 
         glowing_tokens = pygame.sprite.Group() #  Tokens that will glow when four of them are in a row i.e. a player has won a round
         glowing_timer = 0
@@ -1084,6 +1085,9 @@ class Connect4:
                     if red_bird_position >= self.TEMPORARY_SURFACE_WIDTH*1.1:
                         red_bird_position = self.TEMPORARY_SURFACE_WIDTH*-0.01
 
+                    # Draw current round board before swinging girl so it appears to be behind her
+                    current_round_board.update(self.level.current_level)
+                    current_round_board.draw(temporary_surface)
 
                     current_time = pygame.time.get_ticks()
                     if current_time - last_update_of_girl_swinging >= girl_swinging_cooldown:
@@ -1096,7 +1100,7 @@ class Connect4:
                     
 
                     #------------------------------------------------ Animations ------------------------------------------------#
-                    
+                                        
                     self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token, tokens, notifiers, glowing_tokens)
                     your_scoreboard.update(self.player.points)
                     your_scoreboard.draw(temporary_surface)

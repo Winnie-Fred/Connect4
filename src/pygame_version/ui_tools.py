@@ -519,6 +519,42 @@ class ScoreBoard(Sprite):
             self.scoreboard_image.blit(text_surface, text_surface.get_rect(center=(114, 73)))
 
 
+class CurrentRoundBoard(Sprite):
+    def __init__(self, font_color: tuple, current_round_font_size: int):
+        super().__init__()
+        self.current_round_board_image = pygame.image.load(f'../../images/current round board.png')
+        self.font_color = font_color
+        self.current_round = 1
+
+        font = pygame.freetype.SysFont("Courier", 24, bold=True)
+        text_surface, _ = font.render(text='Round', fgcolor=(128, 128, 128))  
+        self.current_round_board_image.blit(text_surface, text_surface.get_rect(center=(152, 73)))
+        self.original_current_round_board_image_copy = self.current_round_board_image.copy()
+
+        self.font = pygame.freetype.SysFont("Courier", current_round_font_size, bold=True)
+        text_surface, _ = self.font.render(text=str(self.current_round), fgcolor=self.font_color)  
+        self.current_round_board_image.blit(text_surface, text_surface.get_rect(center=(152, 102)))
+
+
+    @property
+    def image(self):
+        return self.current_round_board_image
+
+    @property
+    def rect(self):
+        return (1230, 405)
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+
+    def update(self, current_round):
+        if self.current_round != current_round:
+            self.current_round = current_round
+            self.current_round_board_image = self.original_current_round_board_image_copy.copy()
+            text_surface, _ = self.font.render(text=str(self.current_round), fgcolor=self.font_color)  
+            self.current_round_board_image.blit(text_surface, text_surface.get_rect(center=(152, 102)))
+
+
 def create_surface_with_text(text, font_size, text_rgb, bg_rgb):
     """ Returns surface with text written on """
     font = pygame.freetype.SysFont("Courier", font_size, bold=True)
