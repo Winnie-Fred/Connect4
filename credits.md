@@ -43,3 +43,9 @@
     * Author: [pch.vector](https://www.freepik.com/author/pch-vector)
     * Source: <a href="https://www.freepik.com/free-vector/city-buildings-set_8270967.htm#query=cartoon%20buildings&position=27&from_view=keyword">Image by pch.vector</a> on Freepik
     * Changes: Image is cropped twice to use two of the five buildings
+
+8. Different design of wooden signs illustration
+   * Title: Different design of wooden signs illustration
+   * Author: [brgfx](https://www.freepik.com/author/brgfx)
+   * Source: <a href="https://www.freepik.com/free-vector/different-design-wooden-signs-illustration_1164256.htm#query=cartoon%20signpost&position=34&from_view=keyword&track=ais">Image by brgfx</a> on Freepik
+   * Changes: Image is cropped and background is removed to use one of the signposts
