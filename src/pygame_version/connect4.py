@@ -225,8 +225,12 @@ class Connect4:
         for i in range(41):
             sun_rotating_frames.append(pygame.image.load(f'../../images/sun frames/Sun frame ({i}).png').convert_alpha())
 
-        frames = namedtuple("frames", "loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames,  girl_swinging_frames, sun_rotating_frames")  
-        all_frames = frames(loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames)
+        sockets_disconnection_simulation_frames = []
+        for i in range(18):
+            sockets_disconnection_simulation_frames.append(pygame.image.load(f'../../images/sockets disconnection frames/sockets disconnection ({i}).png').convert_alpha())
+
+        frames = namedtuple("frames", "loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames,  girl_swinging_frames, sun_rotating_frames, sockets_disconnection_simulation_frames")  
+        all_frames = frames(loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames, sockets_disconnection_simulation_frames)
 
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.04, self.TEMPORARY_SURFACE_HEIGHT*0.98),
@@ -917,6 +921,7 @@ class Connect4:
         bigger_blue_bird_flying_frames = frames.bigger_blue_bird_flying_frames
         girl_swinging_frames = frames.girl_swinging_frames
         sun_rotating_frames = frames.sun_rotating_frames
+        sockets_disconnection_simulation_frames = frames.sockets_disconnection_simulation_frames
 
         last_update_of_loading_animation = pygame.time.get_ticks()
         loading_animation_cooldown = 370
@@ -949,6 +954,9 @@ class Connect4:
         sun_rotating_cooldown = 80
         sun_rotating_frame = 0  
 
+        last_update_of_sockets_disconnection_animation = pygame.time.get_ticks()
+        sockets_disconnection_animation_cooldown = 300
+        sockets_disconnection_animation_frame = 0
 
         last_click = None
         enabled = False
@@ -1474,13 +1482,24 @@ class Connect4:
 
             if errors and game_started:
                 screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
-                dimmed_screen.fill((0, 0, 0))
-                dimmed_screen.set_alpha(220)
+                dimmed_screen.fill((25, 25, 25)) #  (0, 0, 0) is not used because image of disconnected sockets has parts colored with (0, 0, 0) too such as the cord
+                dimmed_screen.set_alpha(230)
+
                 for error in errors:
                     error_text = create_text_to_draw(error, 18, RED, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, default_y_position_for_printing_error))
                     error_text.draw(dimmed_screen)
                     default_y_position_for_printing_error += self.TEMPORARY_SURFACE_HEIGHT*0.0833
+
                 buttons.draw(dimmed_screen)
+
+                current_time = pygame.time.get_ticks()
+                if current_time - last_update_of_sockets_disconnection_animation >= sockets_disconnection_animation_cooldown:
+                    sockets_disconnection_animation_frame += 1
+                    last_update_of_sockets_disconnection_animation = current_time
+                    if sockets_disconnection_animation_frame >= len(sockets_disconnection_simulation_frames):
+                        sockets_disconnection_animation_frame = 0
+
+                dimmed_screen.blit(sockets_disconnection_simulation_frames[sockets_disconnection_animation_frame], (0,0))
                 error_surface = pygame.transform.smoothscale(dimmed_screen, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
                 screen.blit(error_surface, (self.top_x_padding, self.top_y_padding))
 
@@ -1489,8 +1508,7 @@ class Connect4:
                     scaled_game_screen_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))
                     screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
                 else:
-                    frozen_game_screen = scaled_game_screen_surface.copy()
-                    screen.blit(frozen_game_screen, (self.top_x_padding, self.top_y_padding))
+                    screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
                     scaled_surface = pygame.transform.smoothscale(dimmed_screen, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
                     screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             
