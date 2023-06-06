@@ -904,6 +904,7 @@ class Connect4:
 
         temporary_surface = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
         dimmed_screen = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
+        scaled_game_screen_surface = None
 
         dim = False
         announce_next_round = False
@@ -1120,15 +1121,12 @@ class Connect4:
                 buttons.draw(temporary_surface)
 
                 
-                if errors:
-                    if game_started:
-                        pass
-                    else:                        
-                        clear_screen()
-                        for error in errors:
-                            error_text = create_text_to_draw(error, 15, RED, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, default_y_position_for_printing_error))
-                            error_text.draw(temporary_surface)
-                            default_y_position_for_printing_error += self.TEMPORARY_SURFACE_HEIGHT*0.0833
+                if errors and not game_started:
+                    clear_screen()
+                    for error in errors:
+                        error_text = create_text_to_draw(error, 18, RED, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, default_y_position_for_printing_error))
+                        error_text.draw(temporary_surface)
+                        default_y_position_for_printing_error += self.TEMPORARY_SURFACE_HEIGHT*0.0833
                         
 
                 for text in texts:
@@ -1205,6 +1203,7 @@ class Connect4:
                         elif self.play_again_reply_received and self.opponent_play_again_reply_received:
                             time_since_next_round_announcement = pygame.time.get_ticks()
                             announce_next_round = True
+                            dim = True
                             if self.play_again_reply:
                                 if self.opponent_play_again_reply:
                                     self.level.current_level += 1
@@ -1302,8 +1301,8 @@ class Connect4:
                                         errors.append(unpickled_json['other_client_disconnected'])
                                     elif 'timeout' in unpickled_json:
                                         error = unpickled_json['timeout']
-                                        errors.append(error)
                                         print(self.color_error_msg_red(error))
+                                        errors.append(error)
                                     elif "status" in unpickled_json:                                                                             
                                         loading_text = unpickled_json['status']                                
                                     elif "waiting_for_name" in unpickled_json:
@@ -1435,12 +1434,14 @@ class Connect4:
                 if not self.keyboard_interrupt:
                     print(self.color_error_msg_red(general_error_msg))
                     errors.append(general_error_msg)
+                    continue
             # except Exception as e: # Catch EOFError and other exceptions
             #     # NOTE: EOFError can also be raised when input() is interrupted with a Keyboard Interrupt
             #     print(self.color_error_msg_red(e))
             #     if not self.keyboard_interrupt:
             #         # print(self.color_error_msg_red(something_went_wrong_msg))
             #         errors.append(something_went_wrong_msg)
+            #         conitnue
 
             if status_msg:
                 current_time = pygame.time.get_ticks()
@@ -1451,7 +1452,6 @@ class Connect4:
                     status_msg = ''
 
             if announce_next_round:
-                dim = True     
                 dimmed_screen.fill((0, 0, 0))
                 dimmed_screen.set_alpha(200)
                 current_time = pygame.time.get_ticks()
@@ -1472,14 +1472,27 @@ class Connect4:
                         status_notifier.incoming = True
 
 
-            if not dim:              
-                scaled_game_screen_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))
+            if errors and game_started:
                 screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
+                dimmed_screen.fill((0, 0, 0))
+                dimmed_screen.set_alpha(220)
+                for error in errors:
+                    error_text = create_text_to_draw(error, 18, RED, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, default_y_position_for_printing_error))
+                    error_text.draw(dimmed_screen)
+                    default_y_position_for_printing_error += self.TEMPORARY_SURFACE_HEIGHT*0.0833
+                buttons.draw(dimmed_screen)
+                error_surface = pygame.transform.smoothscale(dimmed_screen, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
+                screen.blit(error_surface, (self.top_x_padding, self.top_y_padding))
+
             else:
-                frozen_game_screen = scaled_game_screen_surface.copy()
-                screen.blit(frozen_game_screen, (self.top_x_padding, self.top_y_padding))
-                scaled_surface = pygame.transform.smoothscale(dimmed_screen, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
-                screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
+                if not dim:              
+                    scaled_game_screen_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))
+                    screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
+                else:
+                    frozen_game_screen = scaled_game_screen_surface.copy()
+                    screen.blit(frozen_game_screen, (self.top_x_padding, self.top_y_padding))
+                    scaled_surface = pygame.transform.smoothscale(dimmed_screen, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
+                    screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             
             pygame.display.flip()
             
