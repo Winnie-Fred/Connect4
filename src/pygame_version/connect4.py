@@ -903,6 +903,12 @@ class Connect4:
             texts = []
 
         temporary_surface = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
+        dimmed_screen = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
+
+        dim = False
+        announce_next_round = False
+        time_since_next_round_announcement = None
+        next_round_msg = []
 
         loading_simulation_frames = frames.loading_simulation_frames
         red_bird_flying_frames = frames.red_bird_flying_frames
@@ -1032,10 +1038,9 @@ class Connect4:
             temporary_surface.fill(BLUE)
             try:
                 if game_started:
-                    clear_screen()
                     temporary_surface.blit(background, (0, 0))                
 
-                    #------------------------------------------------ Animations ------------------------------------------------#
+                    #------------------------------------------------ Animations plus "current round" board ------------------------------------------------#
 
                     current_time = pygame.time.get_ticks()
                     if current_time - last_update_of_sun_rotating >= sun_rotating_cooldown:
@@ -1099,7 +1104,7 @@ class Connect4:
                     temporary_surface.blit(girl_swinging_frames[girl_swinging_frame], (self.TEMPORARY_SURFACE_WIDTH*0.79, self.TEMPORARY_SURFACE_HEIGHT*0.5))
                     
 
-                    #------------------------------------------------ Animations ------------------------------------------------#
+                    #------------------------------------------------ Animations plus "current round" board ------------------------------------------------#
                                         
                     self.blit_board(temporary_surface, board, mouse_pos_on_click, scaled_pos, board_dimensions, red_token, yellow_token, tokens, notifiers, glowing_tokens)
                     your_scoreboard.update(self.player.points)
@@ -1115,14 +1120,15 @@ class Connect4:
                 buttons.draw(temporary_surface)
 
                 
-                for error in errors:
+                if errors:
                     if game_started:
                         pass
-                    else:
+                    else:                        
                         clear_screen()
-                        error_text = create_text_to_draw(error, 15, RED, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, default_y_position_for_printing_error))
-                        error_text.draw(temporary_surface)
-                        default_y_position_for_printing_error += self.TEMPORARY_SURFACE_HEIGHT*0.0833
+                        for error in errors:
+                            error_text = create_text_to_draw(error, 15, RED, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, default_y_position_for_printing_error))
+                            error_text.draw(temporary_surface)
+                            default_y_position_for_printing_error += self.TEMPORARY_SURFACE_HEIGHT*0.0833
                         
 
                 for text in texts:
@@ -1178,8 +1184,27 @@ class Connect4:
                                     if ui_action == GameState.MENU:
                                         return ui_action 
                         elif self.play_again_reply_received and not self.opponent_play_again_reply_received:
-                            loading_text = f"Waiting for {self.opponent.name} to reply"
+                            waiting_for_reply_text = f"Waiting for {self.opponent.name} to reply"
+
+                            # Dim the screen
+                            dim = True     
+                            dimmed_screen.fill((0, 0, 0))
+                            dimmed_screen.set_alpha(200)
+                            current_time = pygame.time.get_ticks()
+                            if current_time - last_update_of_loading_animation >= loading_animation_cooldown:
+                                loading_animation_frame += 1
+                                last_update_of_loading_animation = current_time
+                                if loading_animation_frame >= len(loading_simulation_frames):
+                                    loading_animation_frame = 0
+
+                            dimmed_screen.blit(loading_simulation_frames[loading_animation_frame], (self.TEMPORARY_SURFACE_WIDTH*0.385, self.TEMPORARY_SURFACE_HEIGHT*0.1))
+                            loading_msg = create_text_to_draw(waiting_for_reply_text, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
+                            loading_msg.draw(dimmed_screen)
+                            buttons.draw(dimmed_screen)
+
                         elif self.play_again_reply_received and self.opponent_play_again_reply_received:
+                            time_since_next_round_announcement = pygame.time.get_ticks()
+                            announce_next_round = True
                             if self.play_again_reply:
                                 if self.opponent_play_again_reply:
                                     self.level.current_level += 1
@@ -1341,6 +1366,7 @@ class Connect4:
                                     elif "opponent_player_object" in unpickled_json:
                                         self.round_over = False
                                         game_started = True
+                                        clear_screen()
                                         self.opponent = unpickled_json['opponent_player_object']
                                         notifiers = namedtuple("notifiers", "error_notifier, status_notifier")
                                         error_notifier = ErrorNotifier("That column is full", 15, WHITE)
@@ -1394,13 +1420,8 @@ class Connect4:
                                         self.opponent_play_again_reply_received = True                                                      
                                     elif 'first_player' in unpickled_json:
                                         self.first_player_for_next_round = unpickled_json['first_player']
-                                        status_msg = f"Round {self.level.current_level}......{self.first_player_for_next_round.name} goes first"
-                                        status_msg_end_time = pygame.time.get_ticks() + time_of_status_msg_display
-                                        print(status_msg)
-                                        if self.first_player_for_next_round.name == self.player.name:
-                                            self.your_turn = True                            
-                                        else:                            
-                                            self.your_turn = False                                                                           
+                                        next_round_msg = [f"Round {self.level.current_level}", f"{self.first_player_for_next_round.name} goes first"]
+                                        print('\n'.join(next_round_msg))                                                                                                                   
 
                                     # -------------------------------------Use unpickled json data here-------------------------------------
                                     # Remove the processed message from the buffer
@@ -1424,13 +1445,42 @@ class Connect4:
             if status_msg:
                 current_time = pygame.time.get_ticks()
                 if current_time < status_msg_end_time:
-                    loading_msg = create_text_to_draw(status_msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
+                    loading_msg = create_text_to_draw(status_msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6))
                     loading_msg.draw(temporary_surface)
                 else:
                     status_msg = ''
 
-            scaled_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))
-            screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
+            if announce_next_round:
+                dim = True     
+                dimmed_screen.fill((0, 0, 0))
+                dimmed_screen.set_alpha(200)
+                current_time = pygame.time.get_ticks()
+                next_round_msg_y_pos = 0.3
+                for msg in next_round_msg:
+                    loading_msg = create_text_to_draw(msg, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*next_round_msg_y_pos))
+                    loading_msg.draw(dimmed_screen)
+                    next_round_msg_y_pos += 0.3
+                buttons.draw(dimmed_screen)
+                
+                if time_since_next_round_announcement is not None and pygame.time.get_ticks() - time_since_next_round_announcement >= 3000:
+                    announce_next_round = False
+                    dim = False
+                    if self.first_player_for_next_round.name == self.player.name:
+                        self.your_turn = True                            
+                    else:                            
+                        self.your_turn = False
+                        status_notifier.incoming = True
+
+
+            if not dim:              
+                scaled_game_screen_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))
+                screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
+            else:
+                frozen_game_screen = scaled_game_screen_surface.copy()
+                screen.blit(frozen_game_screen, (self.top_x_padding, self.top_y_padding))
+                scaled_surface = pygame.transform.smoothscale(dimmed_screen, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
+                screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
+            
             pygame.display.flip()
             
     def get_scaled_mouse_position(self):
