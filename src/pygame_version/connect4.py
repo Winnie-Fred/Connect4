@@ -230,7 +230,7 @@ class Connect4:
 
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.04, self.TEMPORARY_SURFACE_HEIGHT*0.98),
-            font_size=15,
+            font_size=18,
             bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Quit",
@@ -426,7 +426,7 @@ class Connect4:
 
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.04, self.TEMPORARY_SURFACE_HEIGHT*0.98),
-            font_size=15,
+            font_size=18,
             bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Quit",
@@ -454,7 +454,7 @@ class Connect4:
         )
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.04, self.TEMPORARY_SURFACE_HEIGHT*0.98),
-            font_size=15,
+            font_size=18,
             bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Quit",
@@ -1441,7 +1441,7 @@ class Connect4:
             #     if not self.keyboard_interrupt:
             #         # print(self.color_error_msg_red(something_went_wrong_msg))
             #         errors.append(something_went_wrong_msg)
-            #         conitnue
+            #         continue
 
             if status_msg:
                 current_time = pygame.time.get_ticks()
