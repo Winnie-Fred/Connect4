@@ -49,3 +49,42 @@
    * Author: [brgfx](https://www.freepik.com/author/brgfx)
    * Source: <a href="https://www.freepik.com/free-vector/different-design-wooden-signs-illustration_1164256.htm#query=cartoon%20signpost&position=34&from_view=keyword&track=ais">Image by brgfx</a> on Freepik
    * Changes: Image is cropped and background is removed to use one of the signposts
+
+9. Orange spiral background design
+   * Title: Orange spiral background design
+   * Author: [davidzydd](https://www.freepik.com/author/davidzydd)
+   * Source: <a href="https://www.freepik.com/free-vector/orange-spiral-background-design_1118918.htm#query=spiral%20ray&position=6&from_view=search&track=ais">Image by davidzydd</a> on Freepik
+   * Changes: Image is resized and darkened and used as background for game screen
+
+10. Green abstract spiral background - vector design from spinning rays
+    * Title: Green abstract spiral background - vector design from spinning rays
+    * Author: [davidzydd](https://www.freepik.com/author/davidzydd)
+    * Source: <a href="https://www.freepik.com/free-vector/green-abstract-spiral-background-vector-design-from-spinning-rays_1195134.htm#query=spiral%20ray&position=11&from_view=search&track=ais">Image by davidzydd</a> on Freepik
+    * Changes: Image is resized and darkened and used as background for game screen
+
+11. Gradient purple swirl background
+    * Title: Gradient purple swirl background
+    * Author: [freepik](https://www.freepik.com/author/freepik)
+    * Source: Image by <a href="https://www.freepik.com/free-vector/gradient-purple-swirl-background_34709906.htm#query=spiral%20ray&position=14&from_view=search&track=ais">Freepik</a>
+    * Changes: Image is resized and darkened and used as background for game screen
+
+12. Coloured background design
+    * Title: Coloured background design
+    * Author: [davidzydd](https://www.freepik.com/author/davidzydd)
+    * Source: <a href="https://www.freepik.com/free-vector/coloured-background-design_915343.htm#query=spiral%20ray&position=7&from_view=search&track=ais">Image by davidzydd</a> on Freepik
+    * Changes: Image is resized and darkened and used as background for game screen
+
+13. Flat design red swirl background
+    * Title: Flat design red swirl background
+    * Author: [freepik](https://www.freepik.com/author/freepik)
+    * Source: Image by <a href="https://www.freepik.com/free-vector/flat-design-red-swirl-background_33955354.htm#page=2&query=spiral%20ray&position=17&from_view=search&track=ais">Freepik</a>
+    * Changes: Image is resized and darkened and used as background for game screen
+    
+14. Coloured background design
+    * Title: Coloured background design
+    * Author: [davidzydd](https://www.freepik.com/author/davidzydd)
+    * Source: <a href="https://www.freepik.com/free-vector/coloured-background-design_915339.htm#page=2&query=spiral%20ray&position=36&from_view=search&track=ais">Image by davidzydd</a> on Freepik
+    * Changes: Image is resized and darkened and used as background for game screen
+         
+         
+     
