@@ -1126,16 +1126,7 @@ class Connect4:
                     if ui_action != GameState.NO_ACTION:
                         return ui_action                    
                             
-                buttons.draw(temporary_surface)
-
-                
-                if errors and not game_started:
-                    clear_screen()
-                    for error in errors:
-                        error_text = create_text_to_draw(error, 18, RED, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, default_y_position_for_printing_error))
-                        error_text.draw(temporary_surface)
-                        default_y_position_for_printing_error += self.TEMPORARY_SURFACE_HEIGHT*0.0833
-                        
+                buttons.draw(temporary_surface)                        
 
                 for text in texts:
                     text.draw(temporary_surface)
@@ -1480,8 +1471,14 @@ class Connect4:
                         status_notifier.incoming = True
 
 
-            if errors and game_started:
-                screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
+            if errors:
+                if errors and game_started:
+                    screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
+                else:
+                    temporary_surface.fill(BLUE)
+                    scaled_game_screen_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))
+                    screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
+                
                 dimmed_screen.fill((25, 25, 25)) #  (0, 0, 0) is not used because image of disconnected sockets has parts colored with (0, 0, 0) too such as the cord
                 dimmed_screen.set_alpha(230)
 
