@@ -86,5 +86,8 @@
     * Source: <a href="https://www.freepik.com/free-vector/coloured-background-design_915339.htm#page=2&query=spiral%20ray&position=36&from_view=search&track=ais">Image by davidzydd</a> on Freepik
     * Changes: Image is resized and darkened and used as background for game screen
          
-         
-     
+## Audio Attributions
+1. Mouse Click sound effect
+    * Title: Mouse Click 00 Sound Effect
+    * Source: Gotten [here](https://www.fesliyanstudios.com/play-mp3/387)
+    * Changes: Audio is converted from .mp3 format to .wav to be used with Pygame
