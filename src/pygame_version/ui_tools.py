@@ -1,10 +1,15 @@
 from collections import namedtuple
 
 import pygame
+import pygame.mixer
 from pygame.sprite import Sprite
 
 from pygame_version.gamestate import GameState
 
+
+pygame.mixer.init()
+
+click_sound = pygame.mixer.Sound('../../audio/mouse-click-sound-effect.wav')
 
 class TextToDIsplay:
     def __init__(self, image, center_position):
@@ -64,6 +69,7 @@ class UIElement(Sprite):
         if self.rect.collidepoint(mouse_pos):
             self.mouse_over = True
             if mouse_up:
+                click_sound.play()
                 return self.action
         else:
             self.mouse_over = False
@@ -97,6 +103,7 @@ class TokenButton(Sprite):
         if self.rect.collidepoint(mouse_pos):
             self.mouse_over = True
             if mouse_up:
+                click_sound.play()
                 return self.action
         else:
             self.mouse_over = False
@@ -155,6 +162,7 @@ class DisabledOrEnabledBtn(UIElement):
             if self.rect.collidepoint(mouse_pos):
                 self.mouse_over = True
                 if mouse_up:
+                    click_sound.play()
                     return self.action
             else:
                 self.mouse_over = False
@@ -295,6 +303,7 @@ class CopyButtonElement(UIElement):
             else:
                 self.mouse_over = False
             if mouse_up:
+                click_sound.play()
                 self.mouse_up = True
                 return self.action
             self.mouse_up = False

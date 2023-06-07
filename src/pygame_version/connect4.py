@@ -8,6 +8,7 @@ from collections import namedtuple
 
 import pygame
 import pygame.freetype
+import pygame.mixer
 import pyperclip # type: ignore
 
 from pygame.sprite import RenderUpdates
@@ -49,6 +50,7 @@ class Connect4:
 
     def __init__(self):
         pygame.init()
+        pygame.mixer.init()
         self.client = Client()
         self.ID = None
         self.round_over = False
