@@ -71,6 +71,16 @@ class Connect4:
         self.top_x_padding = abs(self.screen.get_width() - int(self.TEMPORARY_SURFACE_WIDTH*self.scale)) / 2
         self.top_y_padding = abs(self.screen.get_height() - int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)) / 2
 
+        menu_screen_bg = pygame.image.load('../../images/screen backgrounds/menu screen bg.png').convert_alpha()
+        collect_ip_screen_bg = pygame.image.load('../../images/screen backgrounds/collect ip screen bg.png').convert_alpha()
+        collect_game_code_screen_bg = pygame.image.load('../../images/screen backgrounds/collect game code screen bg.png').convert_alpha()
+        choose_token_screen_bg = pygame.image.load('../../images/screen backgrounds/choose token screen bg.png').convert_alpha()
+        collect_name_screen_bg = pygame.image.load('../../images/screen backgrounds/collect name screen bg.png').convert_alpha()
+        game_setup_screen_bg = pygame.image.load('../../images/screen backgrounds/game setup screen bg.png').convert_alpha()
+
+        screen_backgrounds = namedtuple("screen_backgrounds", "menu_screen_bg, collect_ip_screen_bg, collect_game_code_screen_bg, choose_token_screen_bg, collect_name_screen_bg, game_setup_screen_bg")  
+        self.all_screen_backgrounds = screen_backgrounds(menu_screen_bg, collect_ip_screen_bg, collect_game_code_screen_bg, choose_token_screen_bg, collect_name_screen_bg, game_setup_screen_bg)
+
         self._reset_game()
 
     def _reset_game(self):
@@ -153,12 +163,12 @@ class Connect4:
 
     def menu_screen(self, screen):
         
-        menu_header = create_text_to_draw("Ready to play Connect4?", 30, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.17))
+        menu_header = create_text_to_draw("Ready to play Connect4?", 30, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.17))
 
         create_game_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.3),
             font_size=25,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Create a game",
             action=GameState.CREATE_GAME,
@@ -166,7 +176,7 @@ class Connect4:
         join_any_game_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.45),
             font_size=25,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Join any game",
             action=GameState.JOIN_ANY_GAME,
@@ -174,7 +184,7 @@ class Connect4:
         join_game_with_code_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6),
             font_size=25,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Join game with code",
             action=GameState.JOIN_GAME_WITH_CODE,
@@ -182,7 +192,7 @@ class Connect4:
         credits_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.75),
             font_size=25,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Credits",
             action=GameState.CREDITS,
@@ -190,7 +200,7 @@ class Connect4:
         quit_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.9),
             font_size=25,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Quit",
             action=GameState.QUIT,
@@ -230,7 +240,7 @@ class Connect4:
             sockets_disconnection_simulation_frames.append(pygame.image.load(f'../../images/sockets disconnection frames/sockets disconnection ({i}).png').convert_alpha())
 
         frames = namedtuple("frames", "loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames,  girl_swinging_frames, sun_rotating_frames, sockets_disconnection_simulation_frames")  
-        all_frames = frames(loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames, sockets_disconnection_simulation_frames)
+        all_frames = frames(loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames, sockets_disconnection_simulation_frames)        
 
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.04, self.TEMPORARY_SURFACE_HEIGHT*0.98),
@@ -244,7 +254,7 @@ class Connect4:
         copy_btn = CopyButtonElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.45),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Copy",
             text_after_mouse_up_event="Copied",
@@ -264,7 +274,7 @@ class Connect4:
         submit_ip_btn = DisabledOrEnabledBtn(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.4375, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
             font_size=20,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             grayed_out_text_rgb=GRAY,
             text="Continue",
@@ -274,7 +284,7 @@ class Connect4:
         help_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.1875, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Help",
             action=GameState.HELP,
@@ -283,7 +293,7 @@ class Connect4:
         default_ip_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text=f"Continue with {default_ip}",
             action=GameState.CONTINUE_WITH_DEFAULT_IP,
@@ -292,7 +302,7 @@ class Connect4:
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.13, self.TEMPORARY_SURFACE_HEIGHT*0.95),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Return to main menu",
             action=GameState.MENU,
@@ -301,7 +311,7 @@ class Connect4:
         paste_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Paste",
             action=GameState.PASTE,
@@ -310,7 +320,7 @@ class Connect4:
         clear_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.1875, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Clear",
             action=GameState.CLEAR,
@@ -320,7 +330,7 @@ class Connect4:
             center_position = (self.TEMPORARY_SURFACE_WIDTH*0.4375, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             placeholder_text='Enter IP of server machine here',
             font_size=20,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             max_input_length=MAX_IP_ADDR_LENGTH,
             min_input_length=MIN_IP_ADDR_LENGTH,
@@ -329,11 +339,12 @@ class Connect4:
         fade_out_text = FadeOutText(
             font_size=15,
             text_rgb=RED,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.4375, self.TEMPORARY_SURFACE_HEIGHT*0.5))
 
         buttons = RenderUpdates(return_btn, paste_btn, clear_btn, default_ip_btn, help_btn)
-        game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=submit_ip_btn, input_box=input_box, fade_out_text=fade_out_text, default_ip=default_ip)
+        bg = self.all_screen_backgrounds.collect_ip_screen_bg
+        game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=submit_ip_btn, input_box=input_box, fade_out_text=fade_out_text, bg=bg, default_ip=default_ip)
         ui_action = game_state_and_input.game_state
         if ui_action != GameState.MENU:
             if 'choice' in kwargs:
@@ -347,7 +358,7 @@ class Connect4:
         continue_btn = DisabledOrEnabledBtn(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
             font_size=20,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             grayed_out_text_rgb=GRAY,
             text="Continue",
@@ -357,7 +368,7 @@ class Connect4:
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.13, self.TEMPORARY_SURFACE_HEIGHT*0.95),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Return to main menu",
             action=GameState.MENU,
@@ -366,7 +377,7 @@ class Connect4:
         paste_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Paste",
             action=GameState.PASTE,
@@ -375,7 +386,7 @@ class Connect4:
         clear_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.25, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Clear",
             action=GameState.CLEAR,
@@ -385,7 +396,7 @@ class Connect4:
             center_position = (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             placeholder_text='Enter your name here',
             font_size=20,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             max_input_length=MAX_NAME_LENGTH,
             min_input_length=MIN_NAME_LENGTH,
@@ -394,11 +405,12 @@ class Connect4:
         fade_out_text = FadeOutText(
             font_size=15,
             text_rgb=RED,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.5))
 
         buttons = RenderUpdates(return_btn, paste_btn, clear_btn)
-        return self.collect_input_loop(screen, buttons=buttons, submit_input_btn=continue_btn, input_box=input_box, fade_out_text=fade_out_text, name=name)       
+        bg = self.all_screen_backgrounds.collect_name_screen_bg
+        return self.collect_input_loop(screen, buttons=buttons, submit_input_btn=continue_btn, input_box=input_box, fade_out_text=fade_out_text, bg=bg, name=name)       
 
     def play_again_screen(self, screen, temp_surf, winner=''):
         texts = []
@@ -472,9 +484,9 @@ class Connect4:
         
         texts = []
         msg = "You go first"
-        texts.append(create_text_to_draw(msg, 20, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.1667)))
+        texts.append(create_text_to_draw(msg, 20, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.1667)))
         msg = f"{name}, choose a token"
-        texts.append(create_text_to_draw(msg, 25, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.25)))
+        texts.append(create_text_to_draw(msg, 25, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.25)))
 
         inactive_red_button_img = pygame.image.load('../../images/token buttons/inactive red token button.png').convert_alpha()
         mouse_over_red_button_img = pygame.image.load('../../images/token buttons/mouse over red token button.png').convert_alpha()
@@ -498,7 +510,7 @@ class Connect4:
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.13, self.TEMPORARY_SURFACE_HEIGHT*0.9533),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Return to main menu",
             action=GameState.MENU,
@@ -512,7 +524,7 @@ class Connect4:
         join_game_btn = DisabledOrEnabledBtn(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
             font_size=20,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             grayed_out_text_rgb=GRAY,
             text="Join game",
@@ -522,7 +534,7 @@ class Connect4:
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.13, self.TEMPORARY_SURFACE_HEIGHT*0.95),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Return to main menu",
             action=GameState.MENU,
@@ -531,7 +543,7 @@ class Connect4:
         paste_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Paste",
             action=GameState.PASTE,
@@ -540,7 +552,7 @@ class Connect4:
         clear_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.25, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             font_size=15,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             text="Clear",
             action=GameState.CLEAR,
@@ -550,7 +562,7 @@ class Connect4:
             center_position = (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
             placeholder_text='Enter code here',
             font_size=20,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
             max_input_length=GAME_CODE_LENGTH,
             min_input_length=GAME_CODE_LENGTH,
@@ -559,11 +571,12 @@ class Connect4:
         fade_out_text = FadeOutText(
             font_size=15,
             text_rgb=RED,
-            bg_rgb=BLUE,
+            bg_rgb=TRANSPARENT,
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.5))
 
         buttons = RenderUpdates(return_btn, paste_btn, clear_btn)
-        game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box, fade_out_text=fade_out_text)
+        bg = self.all_screen_backgrounds.collect_game_code_screen_bg
+        game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box, fade_out_text=fade_out_text, bg=bg)
         ui_action = game_state_and_input.game_state
         if ui_action != GameState.MENU:
             return self.main_game_screen(screen, choice=Choice.JOIN_GAME_WITH_CODE, ip=ip, code=game_state_and_input.input)
@@ -593,7 +606,7 @@ class Connect4:
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     mouse_up = True            
                 
-            temporary_surface.fill(BLUE)
+            temporary_surface.blit(self.all_screen_backgrounds.menu_screen_bg, (0, 0))
 
             scaled_pos = self.get_scaled_mouse_position()
 
@@ -614,7 +627,7 @@ class Connect4:
             screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
 
-    def collect_input_loop(self, screen, buttons, input_box, submit_input_btn, fade_out_text, default_ip=None, name=''):
+    def collect_input_loop(self, screen, buttons, input_box, submit_input_btn, fade_out_text, bg, default_ip=None, name=''):
         """ Collects input in loop until an action is return by a button in the
             buttons sprite renderer.
         """
@@ -657,7 +670,7 @@ class Connect4:
                     else:
                         pressed_key = event.unicode
                 
-            temporary_surface.fill(BLUE)
+            temporary_surface.blit(bg, (0, 0))
 
             scaled_pos = self.get_scaled_mouse_position()
 
@@ -744,7 +757,7 @@ class Connect4:
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     mouse_up = True
                 
-            temporary_surface.fill(BLUE)
+            temporary_surface.blit(self.all_screen_backgrounds.choose_token_screen_bg, (0, 0))
             scaled_pos = self.get_scaled_mouse_position()
 
             for text in texts:
@@ -1044,7 +1057,7 @@ class Connect4:
                     mouse_pos_on_click = int((event.pos[0] - self.top_x_padding) / self.scale), int((event.pos[1] - self.top_y_padding) / self.scale)                    
 
             scaled_pos = self.get_scaled_mouse_position()
-            temporary_surface.fill(BLUE)
+            temporary_surface.blit(self.all_screen_backgrounds.game_setup_screen_bg, (0, 0))
             try:
                 if game_started:
                     temporary_surface.blit(background, (0, 0))                
@@ -1155,7 +1168,7 @@ class Connect4:
 
                     temporary_surface.blit(loading_simulation_frames[loading_animation_frame], (self.TEMPORARY_SURFACE_WIDTH*0.385, self.TEMPORARY_SURFACE_HEIGHT*0.1))
                     if loading_text:
-                        loading_msg = create_text_to_draw(loading_text, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
+                        loading_msg = create_text_to_draw(loading_text, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
                         loading_msg.draw(temporary_surface)
                 
 
@@ -1273,10 +1286,10 @@ class Connect4:
 
                                     if "code" in unpickled_json:
                                         code_to_copy = unpickled_json['code']
-                                        code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.45))
+                                        code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.45))
                                         texts.append(code_to_display)
                                         msg = "This is your special code. Send it to someone you wish to join this game."
-                                        texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.55)))
+                                        texts.append(create_text_to_draw(msg, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.55)))
                                     elif "no_games_found" in unpickled_json:
                                         # Result from unpickled_json is not used because it is too long and has to be broken 
                                         # to be printed on multiple lines                                    
@@ -1341,7 +1354,7 @@ class Connect4:
                                             self.client.send_data({'colors':colors})
                                         else:
                                             msg = f"{first} goes first"
-                                            texts.append(create_text_to_draw(msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.4167)))
+                                            texts.append(create_text_to_draw(msg, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.4167)))
                                             loading_text = f"Waiting for {self.opponent} to choose their token"
                                         print(msg)
                                     elif "colors" in unpickled_json:                                                                                     
@@ -1445,7 +1458,7 @@ class Connect4:
             if status_msg:
                 current_time = pygame.time.get_ticks()
                 if current_time < status_msg_end_time:
-                    loading_msg = create_text_to_draw(status_msg, 15, WHITE, BLUE, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6))
+                    loading_msg = create_text_to_draw(status_msg, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6))
                     loading_msg.draw(temporary_surface)
                 else:
                     status_msg = ''
@@ -1475,7 +1488,7 @@ class Connect4:
                 if errors and game_started:
                     screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
                 else:
-                    temporary_surface.fill(BLUE)
+                    temporary_surface.blit(self.all_screen_backgrounds.game_setup_screen_bg, (0, 0))
                     scaled_game_screen_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))
                     screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
                 
