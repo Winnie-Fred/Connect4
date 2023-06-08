@@ -41,7 +41,9 @@ MIN_NAME_LENGTH = 2
 HELP_LINK = "https://github.com/Winnie-Fred/Connect4#finding-your-internal-ipv4-address"
 CREDITS_LINK = "https://github.com/Winnie-Fred/Connect4/blob/49e342fd87cb3fb82386d59762bbb3f2ccf441f4/credits.md"
 
-
+# Set volume levels
+BACKGROUND_MUSIC_VOLUME = 0.4
+GAME_STARTED_BACKGROUND_MUSIC_VOLUME = 0.8
 
 class Connect4:
     POINTS_FOR_WINNING_ONE_ROUND = 10
@@ -83,6 +85,14 @@ class Connect4:
         screen_backgrounds = namedtuple("screen_backgrounds", "menu_screen_bg, collect_ip_screen_bg, collect_game_code_screen_bg, choose_token_screen_bg, collect_name_screen_bg, game_setup_screen_bg")  
         self.all_screen_backgrounds = screen_backgrounds(menu_screen_bg, collect_ip_screen_bg, collect_game_code_screen_bg, choose_token_screen_bg, collect_name_screen_bg, game_setup_screen_bg)
 
+        error_sound = pygame.mixer.Sound("../../audio/error.wav")
+        winner_sound = pygame.mixer.Sound("../../audio/winner.wav")
+        loser_sound = pygame.mixer.Sound("../../audio/loser.wav")
+        tie_sound = pygame.mixer.Sound("../../audio/tie.wav")
+
+        game_sounds = namedtuple("game_sounds", "error_sound, winner_sound, loser_sound, tie_sound")
+        self.all_game_sounds = game_sounds(error_sound, winner_sound, loser_sound, tie_sound)
+
         self._reset_game()
 
     def _reset_game(self):
@@ -106,17 +116,21 @@ class Connect4:
 
     def _calculate_and_display_final_result(self, players):
         player_one, player_two = players
+        winner = None
         result = [
             f"You have {player_one.points} points",
             f"{player_two.name} has {player_two.points} points"
         ]
         if player_one.points > player_two.points:
             result.append("You win!")
+            winner = player_one
         elif player_two.points > player_one.points:
-            result.append(f"{player_two.name} wins!")
+            result.append("You lose")
+            winner = player_two
         else:
             result.append("Game ends in a tie")
-        return result
+            winner = None
+        return result, winner
 
     def _display_result(self, round_or_game="round"):
         result = []
@@ -133,16 +147,21 @@ class Connect4:
             else:
                 result.append(f"At the end of the game, after {self.level.current_level} rounds,")
                 
-            final_result = self._calculate_and_display_final_result([self.player, self.opponent])
+            final_result, winner = self._calculate_and_display_final_result([self.player, self.opponent])
             result.extend(final_result)
             result.append("Thanks for playing")
-        return result
+        return result, winner
+
+    def _stop_all_sounds(self):
+        for sound in self.all_game_sounds:
+            sound.stop()
     
     def run_game(self):
         screen = self.screen
         pygame.display.set_caption("Connect4")
         icon = pygame.image.load('../../images/icon.png').convert_alpha()
         pygame.display.set_icon(icon)
+
         game_state = GameState.MENU
         
         while True:          
@@ -426,7 +445,7 @@ class Connect4:
         texts.append(create_text_to_draw(msg, 20, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.4)))
 
         yes_btn = UIElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.4, self.TEMPORARY_SURFACE_HEIGHT*0.7),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.3, self.TEMPORARY_SURFACE_HEIGHT*0.7),
             font_size=20,
             bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
@@ -588,6 +607,12 @@ class Connect4:
         """ Handles game menu loop until an action is return by a button in the
             buttons sprite renderer.
         """
+
+        pygame.mixer.music.stop()
+        self._stop_all_sounds()
+        pygame.mixer.music.load('../../audio/background music.wav')
+        pygame.mixer.music.play(-1)
+        pygame.mixer.music.set_volume(BACKGROUND_MUSIC_VOLUME)
 
         temporary_surface = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
 
@@ -778,6 +803,8 @@ class Connect4:
 
     def play_again_loop(self, screen, temp_surf, buttons, texts):
 
+        pygame.mixer.music.pause()
+        
         pause_screen = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
 
         while True:
@@ -970,7 +997,7 @@ class Connect4:
         sun_rotating_frame = 0  
 
         last_update_of_sockets_disconnection_animation = pygame.time.get_ticks()
-        sockets_disconnection_animation_cooldown = 300
+        sockets_disconnection_animation_cooldown = 100
         sockets_disconnection_animation_frame = 0
 
         last_click = None
@@ -1040,6 +1067,9 @@ class Connect4:
             status_msg = text_and_error['text']
             status_msg_end_time = pygame.time.get_ticks() + time_of_status_msg_display
 
+        game_started_background_music_played = False
+        error_sound_played = False
+
         # Buffer to store received data
         buffer = b''
 
@@ -1062,6 +1092,14 @@ class Connect4:
             temporary_surface.blit(self.all_screen_backgrounds.game_setup_screen_bg, (0, 0))
             try:
                 if game_started:
+
+                    if not game_started_background_music_played:
+                        pygame.mixer.music.load('../../audio/game started bg music.wav')
+                        pygame.mixer.music.play(-1)
+                        pygame.mixer.music.set_volume(GAME_STARTED_BACKGROUND_MUSIC_VOLUME)
+                        
+                        game_started_background_music_played = True
+
                     temporary_surface.blit(background, (0, 0))                
 
                     #------------------------------------------------ Animations plus "current round" board ------------------------------------------------#
@@ -1139,6 +1177,7 @@ class Connect4:
                 for button in buttons:
                     ui_action = button.update(scaled_pos, mouse_up)
                     if ui_action != GameState.NO_ACTION:
+
                         return ui_action                    
                             
                 buttons.draw(temporary_surface)                        
@@ -1192,14 +1231,21 @@ class Connect4:
                                     self.play_again_reply = False
                                     self.play_again_reply_received = True
                                     self.client.send_data({'play_again':False})
-                                    ui_action = self.display_result_screen(screen, temporary_surface, self._display_result("game"))                                                        
+                                    result, winner = self._display_result("game")
+                                    if winner == None:
+                                        self.all_game_sounds.tie_sound.play()
+                                    elif winner.name == self.player.name:
+                                        self.all_game_sounds.winner_sound.play()
+                                    else:
+                                        self.all_game_sounds.loser_sound.play()
+                                    ui_action = self.display_result_screen(screen, temporary_surface, result)                                                        
                                     if ui_action == GameState.MENU:
                                         return ui_action 
                         elif self.play_again_reply_received and not self.opponent_play_again_reply_received:
                             waiting_for_reply_text = f"Waiting for {self.opponent.name} to reply"
 
                             # Dim the screen
-                            dim = True     
+                            dim = True  
                             dimmed_screen.fill((0, 0, 0))
                             dimmed_screen.set_alpha(200)
                             current_time = pygame.time.get_ticks()
@@ -1230,9 +1276,16 @@ class Connect4:
                                         first_player = self.connect4game._shuffle_players([self.player, self.opponent])[0]
                                         self.client.send_data({'first_player':first_player})
                                 else:
-                                    result = [f"{self.opponent.name} has quit"]
-                                    result.extend(self._display_result("game"))
-                                    ui_action = self.display_result_screen(screen, temporary_surface, result)
+                                    final_result = [f"{self.opponent.name} has quit"]
+                                    result, winner = self._display_result("game")
+                                    final_result.extend(result)
+                                    if winner == None:
+                                        self.all_game_sounds.tie_sound.play()
+                                    elif winner.name == self.player.name:
+                                        self.all_game_sounds.winner_sound.play()
+                                    else:
+                                        self.all_game_sounds.loser_sound.play()
+                                    ui_action = self.display_result_screen(screen, temporary_surface, final_result)
                                     if ui_action == GameState.MENU:
                                         return ui_action                                                       
 
@@ -1423,8 +1476,8 @@ class Connect4:
                                             if winner.name != self.player.name:
                                                 print(f"\n{self.opponent.name} {self.opponent.marker} wins this round")
                                                 print("Better luck next time!\n")
-                                                self.opponent.points = round_over_json['winner'].points   
-
+                                                self.opponent.points = round_over_json['winner'].points
+                                               
                                             winner =  winner.name
                                         else:
                                             winner = ''
@@ -1479,6 +1532,7 @@ class Connect4:
                 if time_since_next_round_announcement is not None and pygame.time.get_ticks() - time_since_next_round_announcement >= 3000:
                     announce_next_round = False
                     dim = False
+                    pygame.mixer.music.unpause()
                     if self.first_player_for_next_round.name == self.player.name:
                         self.your_turn = True                            
                     else:                            
@@ -1487,6 +1541,12 @@ class Connect4:
 
 
             if errors:
+                if not error_sound_played:
+                    pygame.mixer.music.stop()
+                    self._stop_all_sounds()
+                    self.all_game_sounds.error_sound.play()
+                    error_sound_played = True
+
                 if errors and game_started:
                     screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
                 else:
@@ -1519,7 +1579,7 @@ class Connect4:
                 if not dim:              
                     scaled_game_screen_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))
                     screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
-                else:
+                else:                    
                     screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
                     scaled_surface = pygame.transform.smoothscale(dimmed_screen, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
                     screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
