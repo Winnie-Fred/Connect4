@@ -59,7 +59,7 @@ class Client(ServiceListener):
 
     def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:
         self.service_found = True
-        info = zeroconf.get_service_info(type_, name)
+        info = zc.get_service_info(type_, name)
         print(f"Service {name} added")
         print(colored("Connect4 Service found", "green", attrs=['bold']))
 

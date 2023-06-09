@@ -7,7 +7,9 @@ import copy
 import threading
 
 from typing import List
+from zeroconf import ServiceInfo, Zeroconf
 
+from core.config import service_name, service_type
 from core.exceptions import SendingDataError
 from core.game import Game
 
@@ -18,8 +20,7 @@ one_pair_server = OnePairServer()
 class Server:
     def __init__(self):
         self.HEADERSIZE = 10
-        self.SERVER = socket.gethostbyname(socket.gethostname())
-        # self.SERVER = "127.0.0.1" #  Uncomment this line to test on localhost
+        self.SERVER = "0.0.0.0"
         self.PORT = 5050
         self.ADDR = (self.SERVER, self.PORT)
         self.FORMAT = 'utf-8'
@@ -39,17 +40,7 @@ class Server:
             print(f"Error creating socket: {e}")
             sys.exit(1)
 
-    def host_game(self):
-        try:
-            ip = input("Enter the IP address of this machine or press Enter "
-                        f"to use {self.SERVER}\nTip - Visit https://github.com/Winnie-Fred/Connect4/blob/main/README.md#finding-your-internal-ipv4-address for help on how to find your internal IP address. If you are having trouble with this, or you do not wish to use this IP, "
-                        "copy the IPv4 address of this machine and paste it here: ").strip()
-        except EOFError:
-            pass
-        else:
-            if ip:
-                self.SERVER = ip
-                self.ADDR = (self.SERVER, self.PORT)
+    def host_game(self):        
 
         try:
             self.server.bind(self.ADDR)
@@ -62,6 +53,11 @@ class Server:
             if self.server is None:
                 print('Could not open socket')
                 sys.exit(1)
+            ip_address = socket.gethostbyname(socket.gethostname())
+            self.zeroconf = Zeroconf()            
+            self.service_info = ServiceInfo(type_=service_type, name=service_name, addresses=[ip_address], port=self.PORT, properties={})
+            self.zeroconf.register_service(self.service_info)
+            print("[REGISTERED] Connect4 service is registered")
             self.start()
 
     def send_data(self, conn, data):
@@ -443,6 +439,8 @@ class Server:
                     conn.close()
 
         self.server.close()
+        self.zeroconf.unregister_service(self.service_info)
+        self.zeroconf.close()
 
         main_thread = threading.main_thread()
         for thread in threading.enumerate():
@@ -451,6 +449,7 @@ class Server:
 
         print(f"\nKeyboard Interrupt detected")
         print("[CLOSED] server is closed")
+        print("[CLOSED] Connect4 service is closed")
         sys.exit(1)
 
 if __name__ == "__main__":
@@ -458,4 +457,8 @@ if __name__ == "__main__":
     try:
         server.host_game()
     except KeyboardInterrupt:
-        server.terminate_program()        
+        server.terminate_program()  
+    else:
+        server.zeroconf.unregister_service(server.service_info)
+        server.zeroconf.close()
+        print("[CLOSED] Connect4 service is closed")      

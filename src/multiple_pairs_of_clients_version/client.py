@@ -9,8 +9,10 @@ from threading import Thread, Event
 
 from termcolor import colored  # type: ignore
 from tabulate import tabulate  # type: ignore
+from zeroconf import Zeroconf, ServiceBrowser, ServiceListener
 
 from basic_version.connect4 import Connect4Game
+from core.config import service_type, TIMEOUT_FOR_SERVICE_SEARCH
 from core.player import Player
 from one_pair_of_clients_version.client import Client as BaseClient
 
@@ -64,20 +66,6 @@ class Client(BaseClient):
                 self.stop_flag.set()
                 self.connect_again.clear()
                 return
-
-        try:
-            ip = input("Enter the IP address of the machine the server is running on or press Enter if this machine is hosting the server"
-                        f" to use {self.server}"
-                        "\nTip - Visit https://github.com/Winnie-Fred/Connect4/blob/main/README.md#finding-your-internal-ipv4-address for help on how to find your internal IP address. If you are having trouble with this, or you do not wish to use this IP, "
-                        "copy the IPv4 address of the server host machine and paste it here: ").strip()
-        except EOFError:
-            ip = ''
-
-        print("\n")
-
-        if ip:
-            self.server = ip
-            self.addr = (self.server, self.port)
 
         try:
             self.client.connect(self.addr)
@@ -381,9 +369,29 @@ if __name__ == "__main__":
     client = Client()
     try:
         while client.connect_again.is_set():
-            client.connect_to_game()
-            while not client.stop_flag.is_set():  #  simulate work to keep main thread alive while other threads work
-                time.sleep(0.1)
-            client.wait_for_threads()  
+            zeroconf = Zeroconf()
+            print("\nSearching for Connect4 Game service...\n\n")
+            browser = ServiceBrowser(zeroconf, service_type, client)
+            start_time = time.time()
+
+            # Loop until the service is found or the timeout is reached
+            while not client.service_found:
+                elapsed_time = time.time() - start_time
+                if elapsed_time >= TIMEOUT_FOR_SERVICE_SEARCH:
+                    break
+
+                time.sleep(1)
+
+            zeroconf.close()
+
+            if client.service_found:
+                client.service_found = False
+                client.connect_to_game()
+                while not client.stop_flag.is_set():  #  simulate work to keep main thread alive while other threads work
+                    time.sleep(0.1)
+                client.wait_for_threads()
+            else:
+                print(colored("Connect4 Service not found. Unable to start game. Make sure the server is running and you are connected to the server's local network", "red", attrs=['bold']))  
+                client.connect_again.clear()
     except KeyboardInterrupt:
         client.terminate_program()
