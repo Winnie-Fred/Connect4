@@ -12,9 +12,11 @@ import pygame.mixer
 import pyperclip # type: ignore
 
 from pygame.sprite import RenderUpdates
+from zeroconf import Zeroconf, ServiceBrowser, ServiceListener
 
 from basic_version.connect4 import Connect4Game
 
+from core.config import service_type, TIMEOUT_FOR_SERVICE_SEARCH
 from core.player import Player
 from core.level import Level
 from pygame_version.utils import Board, Token, GlowingToken
@@ -25,6 +27,8 @@ from pygame_version.gamestate import GameState
 from pygame_version.ui_tools import UIElement, CopyButtonElement, DisabledOrEnabledBtn, TokenButton, InputBox, FadeOutText, ErrorNotifier, StatusNotifier, ScoreBoard, CurrentRoundBoard, create_text_to_draw
 
 from termcolor import colored  # type: ignore
+
+clock = pygame.time.Clock()
 
 BLUE = (106, 159, 181)
 RED = (204, 0, 0)
@@ -38,7 +42,6 @@ MAX_IP_ADDR_LENGTH = 15
 MIN_IP_ADDR_LENGTH = 7
 MAX_NAME_LENGTH = 15
 MIN_NAME_LENGTH = 2
-HELP_LINK = "https://github.com/Winnie-Fred/Connect4#finding-your-internal-ipv4-address"
 CREDITS_LINK = "https://github.com/Winnie-Fred/Connect4/blob/49e342fd87cb3fb82386d59762bbb3f2ccf441f4/credits.md"
 
 # Set volume levels
@@ -68,6 +71,7 @@ class Connect4:
         xscale = width / self.TEMPORARY_SURFACE_WIDTH
         yscale = height / self.TEMPORARY_SURFACE_HEIGHT
         self.scale = xscale if xscale < yscale else yscale
+        self.default_y_position_for_printing_error = self.TEMPORARY_SURFACE_HEIGHT*0.6667
 
         # These are the distances from the top of the screen to the top of the scaled surface or simply, 
         # the width and height of the horizontal and vertical black bars on either side of the screen (letterbox)
@@ -76,14 +80,14 @@ class Connect4:
         self.top_y_padding = abs(self.screen.get_height() - int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)) / 2
 
         menu_screen_bg = pygame.image.load('../../images/screen backgrounds/menu screen bg.png').convert_alpha()
-        collect_ip_screen_bg = pygame.image.load('../../images/screen backgrounds/collect ip screen bg.png').convert_alpha()
+        discover_connect4_service_bg = pygame.image.load('../../images/screen backgrounds/discover connect4 service screen bg.png').convert_alpha()
         collect_game_code_screen_bg = pygame.image.load('../../images/screen backgrounds/collect game code screen bg.png').convert_alpha()
         choose_token_screen_bg = pygame.image.load('../../images/screen backgrounds/choose token screen bg.png').convert_alpha()
         collect_name_screen_bg = pygame.image.load('../../images/screen backgrounds/collect name screen bg.png').convert_alpha()
         game_setup_screen_bg = pygame.image.load('../../images/screen backgrounds/game setup screen bg.png').convert_alpha()
 
-        screen_backgrounds = namedtuple("screen_backgrounds", "menu_screen_bg, collect_ip_screen_bg, collect_game_code_screen_bg, choose_token_screen_bg, collect_name_screen_bg, game_setup_screen_bg")  
-        self.all_screen_backgrounds = screen_backgrounds(menu_screen_bg, collect_ip_screen_bg, collect_game_code_screen_bg, choose_token_screen_bg, collect_name_screen_bg, game_setup_screen_bg)
+        screen_backgrounds = namedtuple("screen_backgrounds", "menu_screen_bg, discover_connect4_service_bg, collect_game_code_screen_bg, choose_token_screen_bg, collect_name_screen_bg, game_setup_screen_bg")  
+        self.all_screen_backgrounds = screen_backgrounds(menu_screen_bg, discover_connect4_service_bg, collect_game_code_screen_bg, choose_token_screen_bg, collect_name_screen_bg, game_setup_screen_bg)
 
         error_sound = pygame.mixer.Sound("../../audio/error.wav")
         winner_sound = pygame.mixer.Sound("../../audio/winner.wav")
@@ -92,6 +96,14 @@ class Connect4:
 
         game_sounds = namedtuple("game_sounds", "error_sound, winner_sound, loser_sound, tie_sound")
         self.all_game_sounds = game_sounds(error_sound, winner_sound, loser_sound, tie_sound)
+
+        self.loading_simulation_frames = []
+        for i in range(52):
+            self.loading_simulation_frames.append(pygame.image.load(f'../../images/loading animation frames/loading frame ({i}).png').convert_alpha())
+
+        self.error_frames = []
+        for i in range(1, 35):
+            self.error_frames.append(pygame.image.load(f'../../images/error frames/frame ({i}).png').convert_alpha())        
 
         self._reset_game()
 
@@ -170,13 +182,13 @@ class Connect4:
                 game_state = self.menu_screen(screen)                
 
             if game_state == GameState.CREATE_GAME:
-                game_state = self.collect_ip_screen(screen, self.main_game_screen, choice=Choice.CREATE_GAME)
+                game_state = self.discover_connect4_service_screen(screen, self.main_game_screen, choice=Choice.CREATE_GAME)
 
             if game_state == GameState.JOIN_ANY_GAME:
-                game_state = self.collect_ip_screen(screen, self.main_game_screen, choice=Choice.JOIN_ANY_GAME)
+                game_state = self.discover_connect4_service_screen(screen, self.main_game_screen, choice=Choice.JOIN_ANY_GAME)
 
             if game_state == GameState.JOIN_GAME_WITH_CODE:
-                game_state = self.collect_ip_screen(screen, self.join_game_with_code_screen)            
+                game_state = self.discover_connect4_service_screen(screen, self.join_game_with_code_screen)            
 
             if game_state == GameState.QUIT:                
                 pygame.quit()
@@ -231,12 +243,7 @@ class Connect4:
 
         return self.game_menu_loop(screen, buttons, menu_header)
 
-    def main_game_screen(self, screen, choice, ip, code=''):
-        
-
-        loading_simulation_frames = []
-        for i in range(52):
-            loading_simulation_frames.append(pygame.image.load(f'../../images/loading animation frames/loading frame ({i}).png').convert_alpha())
+    def main_game_screen(self, screen, choice, code=''):                
 
         red_bird_flying_frames = []
         for i in range(1, 8):
@@ -261,7 +268,7 @@ class Connect4:
             sockets_disconnection_simulation_frames.append(pygame.image.load(f'../../images/sockets disconnection frames/sockets disconnection ({i}).png').convert_alpha())
 
         frames = namedtuple("frames", "loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames,  girl_swinging_frames, sun_rotating_frames, sockets_disconnection_simulation_frames")  
-        all_frames = frames(loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames, sockets_disconnection_simulation_frames)        
+        all_frames = frames(self.loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames, sockets_disconnection_simulation_frames)        
 
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.04, self.TEMPORARY_SURFACE_HEIGHT*0.98),
@@ -287,38 +294,24 @@ class Connect4:
         background = pygame.image.load('../../images/playground.png').convert_alpha()
         board = pygame.image.load('../../images/Connect4 Giant set.png').convert_alpha()
         
-        return self.play_game(screen, background, board, buttons, copy_btn, all_frames, choice=choice, ip=ip, code=code)
+        return self.play_game(screen, background, board, buttons, copy_btn, all_frames, choice=choice, code=code)
 
-    def collect_ip_screen(self, screen, next_screen, **kwargs):
+    def discover_connect4_service_screen(self, screen, next_screen, **kwargs):
+
+        service_found_texts = []
+        service_not_found_texts = []
+
+        service_found_texts.append(create_text_to_draw("Connect4 Service found", 20, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6)))
+
+        service_not_found_msgs = [
+            "Connect4 Service not found. Unable to start game.", 
+            "Make sure the server is running and you are connected to the server's local network"
+        ]
         
-        default_ip = self.client.get_default_ip()
-        submit_ip_btn = DisabledOrEnabledBtn(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.4375, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
-            font_size=20,
-            bg_rgb=TRANSPARENT,
-            text_rgb=WHITE,
-            grayed_out_text_rgb=GRAY,
-            text="Continue",
-            action=GameState.CONTINUE,
-        )
-
-        help_btn = UIElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.1875, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
-            font_size=15,
-            bg_rgb=TRANSPARENT,
-            text_rgb=WHITE,
-            text="Help",
-            action=GameState.HELP,
-        )
-
-        default_ip_btn = UIElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
-            font_size=15,
-            bg_rgb=TRANSPARENT,
-            text_rgb=WHITE,
-            text=f"Continue with {default_ip}",
-            action=GameState.CONTINUE_WITH_DEFAULT_IP,
-        )
+        y_pos = self.default_y_position_for_printing_error
+        for msg in service_not_found_msgs:
+            service_not_found_texts.append(create_text_to_draw(msg, 18, RED, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, y_pos)))           
+            y_pos += self.TEMPORARY_SURFACE_HEIGHT*0.0833
 
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.13, self.TEMPORARY_SURFACE_HEIGHT*0.95),
@@ -329,49 +322,14 @@ class Connect4:
             action=GameState.MENU,
         )
         
-        paste_btn = UIElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
-            font_size=15,
-            bg_rgb=TRANSPARENT,
-            text_rgb=WHITE,
-            text="Paste",
-            action=GameState.PASTE,
-        )
+        buttons = RenderUpdates(return_btn)
+        ui_action = self.discover_connect4_service_loop(screen, buttons=buttons, loading_simulation_frames=self.loading_simulation_frames, service_found_texts=service_found_texts, service_not_found_texts=service_not_found_texts)
 
-        clear_btn = UIElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.1875, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
-            font_size=15,
-            bg_rgb=TRANSPARENT,
-            text_rgb=WHITE,
-            text="Clear",
-            action=GameState.CLEAR,
-        )
-
-        input_box = InputBox(
-            center_position = (self.TEMPORARY_SURFACE_WIDTH*0.4375, self.TEMPORARY_SURFACE_HEIGHT*0.3333),
-            placeholder_text='Enter IP of server machine here',
-            font_size=20,
-            bg_rgb=TRANSPARENT,
-            text_rgb=WHITE,
-            max_input_length=MAX_IP_ADDR_LENGTH,
-            min_input_length=MIN_IP_ADDR_LENGTH,
-        )
-
-        fade_out_text = FadeOutText(
-            font_size=15,
-            text_rgb=RED,
-            bg_rgb=TRANSPARENT,
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.4375, self.TEMPORARY_SURFACE_HEIGHT*0.5))
-
-        buttons = RenderUpdates(return_btn, paste_btn, clear_btn, default_ip_btn, help_btn)
-        bg = self.all_screen_backgrounds.collect_ip_screen_bg
-        game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=submit_ip_btn, input_box=input_box, fade_out_text=fade_out_text, bg=bg, default_ip=default_ip)
-        ui_action = game_state_and_input.game_state
-        if ui_action != GameState.MENU:
+        if ui_action == GameState.CONNECT4_SERVICE_FOUND:
             if 'choice' in kwargs:
                 choice = kwargs['choice']
-                return next_screen(screen, choice=choice, ip=game_state_and_input.input)
-            return next_screen(screen, ip=game_state_and_input.input)
+                return next_screen(screen, choice=choice)
+            return next_screen(screen)
         return ui_action
 
     def collect_name_screen(self, screen, name=''):
@@ -540,7 +498,7 @@ class Connect4:
         buttons = RenderUpdates(return_btn, red_token_btn, yellow_token_btn)
         return self.choose_token_loop(screen, buttons=buttons, texts=texts)
 
-    def join_game_with_code_screen(self, screen, ip):
+    def join_game_with_code_screen(self, screen):
         
         join_game_btn = DisabledOrEnabledBtn(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667),
@@ -600,7 +558,7 @@ class Connect4:
         game_state_and_input = self.collect_input_loop(screen, buttons=buttons, submit_input_btn=join_game_btn, input_box=input_box, fade_out_text=fade_out_text, bg=bg)
         ui_action = game_state_and_input.game_state
         if ui_action != GameState.MENU:
-            return self.main_game_screen(screen, choice=Choice.JOIN_GAME_WITH_CODE, ip=ip, code=game_state_and_input.input)
+            return self.main_game_screen(screen, choice=Choice.JOIN_GAME_WITH_CODE, code=game_state_and_input.input)
         return ui_action
 
     def game_menu_loop(self, screen, buttons, menu_header):
@@ -653,8 +611,115 @@ class Connect4:
             scaled_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
             screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
+            clock.tick(60)
 
-    def collect_input_loop(self, screen, buttons, input_box, submit_input_btn, fade_out_text, bg, default_ip=None, name=''):
+    def discover_connect4_service_loop(self, screen, buttons, loading_simulation_frames, service_found_texts, service_not_found_texts):
+
+        temporary_surface = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
+        dimmed_surface = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
+        zeroconf = Zeroconf()
+        print("\nSearching for Connect4 Game service...\n\n")
+        ServiceBrowser(zeroconf, service_type, self.client)
+        start_time = pygame.time.get_ticks()
+        timeout = TIMEOUT_FOR_SERVICE_SEARCH * 1000
+        search_complete = False
+
+        last_update_of_loading_animation = pygame.time.get_ticks()
+        loading_animation_cooldown = 370
+        loading_animation_frame = 0         
+        
+        last_update_of_error_animation = pygame.time.get_ticks()
+        error_animation_cooldown = 50
+        error_animation_frame = 0         
+
+        start_ticks = None 
+        error = False
+
+        while True:
+            mouse_up = False
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    mouse_up = True            
+                
+            temporary_surface.blit(self.all_screen_backgrounds.discover_connect4_service_bg, (0, 0))
+
+            scaled_pos = self.get_scaled_mouse_position()
+
+            for button in buttons:              
+                ui_action = button.update(scaled_pos, mouse_up)
+                if ui_action != GameState.NO_ACTION:                    
+                    return ui_action
+
+            buttons.draw(temporary_surface)
+
+            if not search_complete:
+                current_time = pygame.time.get_ticks()
+                if current_time - last_update_of_loading_animation >= loading_animation_cooldown:
+                    loading_animation_frame += 1
+                    last_update_of_loading_animation = current_time
+                    if loading_animation_frame >= len(loading_simulation_frames):
+                        loading_animation_frame = 0
+
+                temporary_surface.blit(loading_simulation_frames[loading_animation_frame], (self.TEMPORARY_SURFACE_WIDTH*0.385, self.TEMPORARY_SURFACE_HEIGHT*0.1))
+                loading_msg = create_text_to_draw("Searching for Connect4 service", 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
+                loading_msg.draw(temporary_surface)
+
+                if not self.client.service_found:
+                    elapsed_time = pygame.time.get_ticks() - start_time            
+                    if elapsed_time >= timeout:      
+                        zeroconf.close()
+                        start_ticks = pygame.time.get_ticks()
+                        search_complete = True
+                        error = True
+                        pygame.mixer.music.stop()
+                        self._stop_all_sounds()
+                        self.all_game_sounds.error_sound.play()
+                        print(colored("Connect4 Service not found. Unable to start game. Make sure the server is running and you are connected to the server's local network", "red", attrs=['bold']))
+                else:
+                    zeroconf.close()
+                    start_ticks = pygame.time.get_ticks()
+                    search_complete = True
+            
+            if search_complete:                
+                if self.client.service_found:
+                    elapsed_ticks = pygame.time.get_ticks() - start_ticks                
+                    if elapsed_ticks <= 3000:
+                        for text in service_found_texts:
+                            text.draw(temporary_surface)
+                    else:
+                        self.client.service_found = False
+                        return GameState.CONNECT4_SERVICE_FOUND
+                else:
+                    temporary_surface.blit(self.all_screen_backgrounds.game_setup_screen_bg, (0, 0))
+                    dimmed_surface.fill((0, 0, 0))
+                    dimmed_surface.set_alpha(220)
+                    current_time = pygame.time.get_ticks()
+                    if current_time - last_update_of_error_animation >= error_animation_cooldown:
+                        error_animation_frame += 1
+                        last_update_of_error_animation = current_time
+                        if error_animation_frame >= len(self.error_frames):
+                            error_animation_frame = 0
+                    dimmed_surface.blit(self.error_frames[error_animation_frame], (549, 79))
+                    for text in service_not_found_texts:
+                        text.draw(dimmed_surface)
+                    buttons.draw(dimmed_surface)
+
+
+            
+            scaled_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
+            screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
+            if error:
+                scaled_surface = pygame.transform.smoothscale(dimmed_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
+                screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
+
+            pygame.display.flip()
+            clock.tick(60)
+
+
+    def collect_input_loop(self, screen, buttons, input_box, submit_input_btn, fade_out_text, bg, name=''):
         """ Collects input in loop until an action is return by a button in the
             buttons sprite renderer.
         """
@@ -726,12 +791,7 @@ class Connect4:
                     if ui_action == GameState.PASTE:
                         pasted_input = pyperclip.paste()
                     elif ui_action == GameState.CLEAR:
-                        clear = True
-                    elif ui_action == GameState.CONTINUE_WITH_DEFAULT_IP:
-                        return game_state_and_input(ui_action, default_ip)
-                    elif ui_action == GameState.HELP:
-                        webbrowser.open(HELP_LINK, new=2)
-                        pygame.display.iconify() #  Minimize window to show opened browser tab since game runs in fullscreen mode                        
+                        clear = True                    
                     else:                                              
                         return game_state_and_input(ui_action, '')
 
@@ -767,6 +827,7 @@ class Connect4:
             scaled_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
             screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
+            clock.tick(60)
     
     def choose_token_loop(self, screen, buttons, texts):
         """ Collects player's token in loop until an action is return by a button in the
@@ -800,6 +861,7 @@ class Connect4:
             scaled_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
             screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
+            clock.tick(60)
 
     def play_again_loop(self, screen, temp_surf, buttons, texts):
 
@@ -835,6 +897,7 @@ class Connect4:
             scaled_surface = pygame.transform.smoothscale(pause_screen, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
             screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             pygame.display.flip()
+            clock.tick(60)
         
     def display_result_loop(self, screen, temp_surf, buttons, texts):
         return self.play_again_loop(screen, temp_surf, buttons, texts)
@@ -941,7 +1004,7 @@ class Connect4:
         return play_status
 
 
-    def play_game(self, screen, background, board, buttons, copy_btn, frames, choice, ip, code=''):
+    def play_game(self, screen, background, board, buttons, copy_btn, frames, choice, code=''):
 
         def clear_screen():
             nonlocal loading_text, texts
@@ -1059,7 +1122,7 @@ class Connect4:
         glowing_tokens = pygame.sprite.Group() #  Tokens that will glow when four of them are in a row i.e. a player has won a round
         glowing_timer = 0
 
-        text_and_error = self.client.connect_to_game(choice, ip, code)
+        text_and_error = self.client.connect_to_game(choice, code)
         if text_and_error['error']:
             errors.append(text_and_error['text'])
         else: 
@@ -1074,7 +1137,7 @@ class Connect4:
         buffer = b''
 
         while True:
-            default_y_position_for_printing_error = self.TEMPORARY_SURFACE_HEIGHT*0.6667
+            default_y_position_for_printing_error = self.default_y_position_for_printing_error
 
             mouse_up = False
             mouse_pos_on_click = (None, None)
@@ -1585,6 +1648,7 @@ class Connect4:
                     screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
             
             pygame.display.flip()
+            clock.tick(60)
             
     def get_scaled_mouse_position(self):
         pos = list(pygame.mouse.get_pos())

@@ -5,11 +5,12 @@ import pickle
 from termcolor import colored  # type: ignore
 
 from pygame_version.states import Choice
+from multiple_pairs_of_clients_version.client import Client as BaseClient
 
 os.system('') # To ensure that escape sequences work, and coloured text is displayed normally and not as weird characters
 
 
-class Client:
+class Client(BaseClient):
     FORMAT = 'utf-8'
     DISCONNECT_MESSAGE = "!DISCONNECT"
 
@@ -18,17 +19,10 @@ class Client:
         self.HEADERSIZE = 10
 
         self.client = None
-        self.server = None
-        # self.server = "127.0.0.1" #  Uncomment this line to test on localhost
-        self.port = 5050
         self.addr = None
+        self.service_found = False
 
-    def get_default_ip(self):
-        return socket.gethostbyname(socket.gethostname())
-
-    def connect_to_game(self, choice, ip, code):
-        self.server = ip
-        self.addr = (self.server, self.port)
+    def connect_to_game(self, choice, code):        
 
         try:
             self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -62,12 +56,3 @@ class Client:
                 self.send_data({'join_game_with_invite':code})
                 text = "Searching for game to join"
                 return {'text':text, 'error': False}
-
-        
-    def send_data(self, data):
-        data = pickle.dumps(data)
-        data = bytes(f'{len(data):<{self.HEADERSIZE}}', self.FORMAT) + data
-        try:
-            self.client.sendall(data)
-        except socket.error:
-            raise

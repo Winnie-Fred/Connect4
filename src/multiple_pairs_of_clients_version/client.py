@@ -371,7 +371,7 @@ if __name__ == "__main__":
         while client.connect_again.is_set():
             zeroconf = Zeroconf()
             print("\nSearching for Connect4 Game service...\n\n")
-            browser = ServiceBrowser(zeroconf, service_type, client)
+            ServiceBrowser(zeroconf, service_type, client)
             start_time = time.time()
 
             # Loop until the service is found or the timeout is reached
