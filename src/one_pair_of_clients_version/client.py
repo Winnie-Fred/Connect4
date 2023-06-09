@@ -7,15 +7,18 @@ import pickle
 from threading import Thread, Event, Condition, RLock
 
 from termcolor import colored  # type: ignore
+from zeroconf import Zeroconf, ServiceBrowser, ServiceListener
 
 from basic_version.connect4 import Connect4Game
+from core.config import service_type, TIMEOUT_FOR_SERVICE_SEARCH
 from core.player import Player
 from core.level import Level
 from core.board import Board
 
 os.system('') # To ensure that escape sequences work, and coloured text is displayed normally and not as weird characters
+    
 
-class Client:
+class Client(ServiceListener):
     connect4game = Connect4Game()
     FORMAT = 'utf-8'
     DISCONNECT_MESSAGE = "!DISCONNECT"
@@ -23,13 +26,14 @@ class Client:
 
     def __init__(self):
 
+        self.service_found = False
+
         self.HEADERSIZE = 10
 
         self.client = None
         self.server = socket.gethostbyname(socket.gethostname())
+        self.addr = None
         # self.server = "127.0.0.1" #  Uncomment this line to test on localhost
-        self.port = 5050
-        self.addr = (self.server, self.port)
 
         self.unpickled_json = {}
         self.unpickled_json_lock = RLock()
@@ -44,7 +48,26 @@ class Client:
     
         self.connect_again.set()
 
-        self._reset_game()        
+        self._reset_game()   
+
+    def update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
+        print(f"Service {name} updated")
+
+    def remove_service(self, zc: Zeroconf, type_: str, name: str) -> None:
+        self.service_found = False
+        print(f"Service {name} removed")        
+
+    def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:
+        self.service_found = True
+        info = zeroconf.get_service_info(type_, name)
+        print(f"Service {name} added")
+        print(colored("Connect4 Service found", "green", attrs=['bold']))
+
+        if info:
+            server_ip = socket.inet_ntoa(info.addresses[0])
+            server_port = info.port
+            self.addr = (server_ip, server_port)
+            print("Discovered Connect4 server at {}:{}".format(server_ip, server_port))            
 
     def connect_to_game(self):
         # ! self.client must be initialized first before collecting input so that client.send() in Keyboard Interrupt handler does not 
@@ -56,8 +79,7 @@ class Client:
             print(colored(f"Error creating socket: {e}", "red", attrs=['bold']))
             self.stop_flag.set()
             self.connect_again.clear()
-            return
-               
+            return               
 
         try:
             connect = input("\nReady to play Connect4?\nPress Enter to join a game or Q to quit: ").strip().lower()
@@ -70,21 +92,7 @@ class Client:
             self.stop_flag.set()
             self.connect_again.clear()
             return
-
-        try:
-            ip = input("Enter the IP address of the machine the server is running on or press Enter if this machine is hosting the server"
-                        f" to use {self.server}"
-                        "\nTip - Visit https://github.com/Winnie-Fred/Connect4/blob/main/README.md#finding-your-internal-ipv4-address for help on how to find your internal IP address. If you are having trouble with this, or you do not wish to use this IP, "
-                        "copy the IPv4 address of the server host machine and paste it here: ").strip()
-        except EOFError:
-            ip = ''
-
-        print("\n")
-
-        if ip:
-            self.server = ip
-            self.addr = (self.server, self.port)
-
+        
         try:
             self.client.connect(self.addr)
         except socket.gaierror as e:
@@ -657,11 +665,32 @@ class Client:
 
 if __name__ == "__main__":
     client = Client()
+
     try:
         while client.connect_again.is_set():
-            client.connect_to_game()
-            while not client.stop_flag.is_set():  #  simulate work to keep main thread alive while other threads work
-                time.sleep(0.1)
-            client.wait_for_threads()  
+            zeroconf = Zeroconf()
+            print("\nSearching for Connect4 Game service...\n\n")
+            browser = ServiceBrowser(zeroconf, service_type, client)
+            start_time = time.time()
+
+            # Loop until the service is found or the timeout is reached
+            while not client.service_found:
+                elapsed_time = time.time() - start_time
+                if elapsed_time >= TIMEOUT_FOR_SERVICE_SEARCH:
+                    break
+
+                time.sleep(1)
+
+            zeroconf.close()
+
+            if client.service_found:
+                client.service_found = False
+                client.connect_to_game()
+                while not client.stop_flag.is_set():  #  simulate work to keep main thread alive while other threads work
+                    time.sleep(0.1)
+                client.wait_for_threads()  
+            else:
+                print(colored("Connect4 Service not found. Unable to start game. Make sure the server is running and you are connected to the server's local network", "red", attrs=['bold']))
+                client.connect_again.clear()
     except KeyboardInterrupt:
         client.terminate_program()
