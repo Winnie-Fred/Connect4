@@ -89,5 +89,12 @@
 ## Audio Attributions
 1. Mouse Click sound effect
     * Title: Mouse Click 00 Sound Effect
-    * Source: Gotten [here](https://www.fesliyanstudios.com/play-mp3/387)
+    * Source: Gotten from [fesliyanstudios](https://www.fesliyanstudios.com/play-mp3/387)
     * Changes: Audio is converted from .mp3 format to .wav to be used with Pygame
+
+## Video Attributions
+1. Error animation
+    * Title: Error Animation
+    * Author: [Pavlo Monakhov](https://lottiefiles.com/pavlo)
+    * Source: From [lottiefiles](https://lottiefiles.com/22893-error-animation)
+    * Changes: .mp4 file is converted to images to make up spritesheet for non-socket error animation using ffmpeg
