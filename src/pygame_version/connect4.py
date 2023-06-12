@@ -268,7 +268,28 @@ class Connect4:
             sockets_disconnection_simulation_frames.append(pygame.image.load(f'../../images/sockets disconnection frames/sockets disconnection ({i}).png').convert_alpha())
 
         frames = namedtuple("frames", "loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames,  girl_swinging_frames, sun_rotating_frames, sockets_disconnection_simulation_frames")  
-        all_frames = frames(self.loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames, sockets_disconnection_simulation_frames)        
+        all_frames = frames(self.loading_simulation_frames, red_bird_flying_frames, blue_bird_flying_frames, bigger_blue_bird_flying_frames, girl_swinging_frames, sun_rotating_frames, sockets_disconnection_simulation_frames)                
+
+        msg = "Do you want to play another round?"
+        texts = []
+        texts.append(create_text_to_draw(msg, 20, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.4)))
+
+        yes_btn = UIElement(
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.3, self.TEMPORARY_SURFACE_HEIGHT*0.7),
+            font_size=20,
+            bg_rgb=TRANSPARENT,
+            text_rgb=WHITE,
+            text="Yes",
+            action=GameState.PLAY_AGAIN_YES,
+        )
+        no_btn = UIElement(
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.7, self.TEMPORARY_SURFACE_HEIGHT*0.7),
+            font_size=20,
+            bg_rgb=TRANSPARENT,
+            text_rgb=WHITE,
+            text="No",
+            action=GameState.PLAY_AGAIN_NO,
+        )
 
         return_btn = UIElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.04, self.TEMPORARY_SURFACE_HEIGHT*0.98),
@@ -278,6 +299,10 @@ class Connect4:
             text="Quit",
             action=GameState.MENU,
         )
+
+        play_again_screen_buttons = RenderUpdates(return_btn, yes_btn, no_btn)
+        play_again_screen = namedtuple("play_again_screen", "buttons, texts")
+        play_again_screen_ui = play_again_screen(play_again_screen_buttons, texts)        
 
         copy_btn = CopyButtonElement(
             center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.45),
@@ -294,7 +319,7 @@ class Connect4:
         background = pygame.image.load('../../images/playground.png').convert_alpha()
         board = pygame.image.load('../../images/Connect4 Giant set.png').convert_alpha()
         
-        return self.play_game(screen, background, board, buttons, copy_btn, all_frames, choice=choice, code=code)
+        return self.play_game(screen, background, board, buttons, copy_btn, all_frames, play_again_screen_ui, choice=choice, code=code)
 
     def discover_connect4_service_screen(self, screen, next_screen, **kwargs):
 
@@ -389,47 +414,7 @@ class Connect4:
 
         buttons = RenderUpdates(return_btn, paste_btn, clear_btn)
         bg = self.all_screen_backgrounds.collect_name_screen_bg
-        return self.collect_input_loop(screen, buttons=buttons, submit_input_btn=continue_btn, input_box=input_box, fade_out_text=fade_out_text, bg=bg, name=name)       
-
-    def play_again_screen(self, screen, temp_surf, winner=''):
-        texts = []
-        if winner == self.player.name:
-            msg = "You win this round"
-        else:
-            msg = f"{winner} wins this round"
-
-        texts.append(create_text_to_draw(msg, 20, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.2)))
-        msg = "Do you want to play another round?"
-        texts.append(create_text_to_draw(msg, 20, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.4)))
-
-        yes_btn = UIElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.3, self.TEMPORARY_SURFACE_HEIGHT*0.7),
-            font_size=20,
-            bg_rgb=TRANSPARENT,
-            text_rgb=WHITE,
-            text="Yes",
-            action=GameState.PLAY_AGAIN_YES,
-        )
-        no_btn = UIElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.7, self.TEMPORARY_SURFACE_HEIGHT*0.7),
-            font_size=20,
-            bg_rgb=TRANSPARENT,
-            text_rgb=WHITE,
-            text="No",
-            action=GameState.PLAY_AGAIN_NO,
-        )
-
-        return_btn = UIElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.04, self.TEMPORARY_SURFACE_HEIGHT*0.98),
-            font_size=18,
-            bg_rgb=TRANSPARENT,
-            text_rgb=WHITE,
-            text="Quit",
-            action=GameState.MENU,
-        )
-
-        buttons = RenderUpdates(return_btn, yes_btn, no_btn)
-        return self.play_again_loop(screen, temp_surf, buttons=buttons, texts=texts)     
+        return self.collect_input_loop(screen, buttons=buttons, submit_input_btn=continue_btn, input_box=input_box, fade_out_text=fade_out_text, bg=bg, name=name)               
 
     def display_result_screen(self, screen, temp_surf, results=[]):
         texts = []
@@ -686,7 +671,7 @@ class Connect4:
             if search_complete:                
                 if self.client.service_found:
                     elapsed_ticks = pygame.time.get_ticks() - start_ticks                
-                    if elapsed_ticks <= 3000:
+                    if elapsed_ticks <= 2000:
                         for text in service_found_texts:
                             text.draw(temporary_surface)
                     else:
@@ -1004,7 +989,7 @@ class Connect4:
         return play_status
 
 
-    def play_game(self, screen, background, board, buttons, copy_btn, frames, choice, code=''):
+    def play_game(self, screen, background, board, buttons, copy_btn, frames, play_again_screen_ui, choice, code=''):
 
         def clear_screen():
             nonlocal loading_text, texts
@@ -1013,12 +998,14 @@ class Connect4:
 
         temporary_surface = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
         dimmed_screen = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
+        pause_screen = pygame.Surface((self.TEMPORARY_SURFACE_WIDTH, self.TEMPORARY_SURFACE_HEIGHT))
         scaled_game_screen_surface = None
 
         dim = False
         announce_next_round = False
         time_since_next_round_announcement = None
         next_round_msg = []
+        show_play_again_screen = False
 
         loading_simulation_frames = frames.loading_simulation_frames
         red_bird_flying_frames = frames.red_bird_flying_frames
@@ -1135,6 +1122,8 @@ class Connect4:
 
         # Buffer to store received data
         buffer = b''
+        data = b''
+        client = self.client.client
 
         while True:
             default_y_position_for_printing_error = self.default_y_position_for_printing_error
@@ -1276,102 +1265,86 @@ class Connect4:
                         loading_msg.draw(temporary_surface)
                 
 
+                if self.round_over and game_started:
+                    if not self.play_again_reply_received:
+                        if glowing_timer > 0:
+                            glowing_timer -= pygame.time.get_ticks() - last_ticks
+                        else:
+                            show_play_again_screen = True
+                            if winner == self.player.name:
+                                msg = "You win this round"
+                            else:
+                                msg = f"{winner} wins this round"
+                            play_again_screen_ui.texts.append(create_text_to_draw(msg, 20, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.2)))                          
+                    elif self.play_again_reply_received and not self.opponent_play_again_reply_received:
+                        waiting_for_reply_text = f"Waiting for {self.opponent.name} to reply"
+
+                        # Dim the screen
+                        dim = True  
+                        dimmed_screen.fill((0, 0, 0))
+                        dimmed_screen.set_alpha(200)
+                        current_time = pygame.time.get_ticks()
+                        if current_time - last_update_of_loading_animation >= loading_animation_cooldown:
+                            loading_animation_frame += 1
+                            last_update_of_loading_animation = current_time
+                            if loading_animation_frame >= len(loading_simulation_frames):
+                                loading_animation_frame = 0
+
+                        dimmed_screen.blit(loading_simulation_frames[loading_animation_frame], (self.TEMPORARY_SURFACE_WIDTH*0.385, self.TEMPORARY_SURFACE_HEIGHT*0.1))
+                        loading_msg = create_text_to_draw(waiting_for_reply_text, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
+                        loading_msg.draw(dimmed_screen)
+                        buttons.draw(dimmed_screen)
+
+                    elif self.play_again_reply_received and self.opponent_play_again_reply_received:
+                        time_since_next_round_announcement = pygame.time.get_ticks()
+                        announce_next_round = True
+                        dim = True
+                        if self.play_again_reply:
+                            if self.opponent_play_again_reply:
+                                self.level.current_level += 1
+                                self._reset_for_new_round()                            
+                                self.round_over = False
+                                tokens = pygame.sprite.Group()
+                                glowing_tokens = pygame.sprite.Group()
+                                # Shuffle the players again before starting next round.
+                                if not self.ID:
+                                    first_player = self.connect4game._shuffle_players([self.player, self.opponent])[0]
+                                    self.client.send_data({'first_player':first_player})
+                            else:
+                                final_result = [f"{self.opponent.name} has quit"]
+                                result, winner = self._display_result("game")
+                                final_result.extend(result)
+                                if winner == None:
+                                    self.all_game_sounds.tie_sound.play()
+                                elif winner.name == self.player.name:
+                                    self.all_game_sounds.winner_sound.play()
+                                else:
+                                    self.all_game_sounds.loser_sound.play()
+                                ui_action = self.display_result_screen(screen, temporary_surface, final_result)
+                                if ui_action == GameState.MENU:
+                                    return ui_action   
+                                                                                    
                 if not errors and not status_msg:
 
-                    if self.round_over and game_started:
-                        if not self.play_again_reply_received:
-                            if glowing_timer > 0:
-                                glowing_timer -= pygame.time.get_ticks() - last_ticks
-                            else:
-                                ui_action = self.play_again_screen(screen, temporary_surface, winner)
-                                if ui_action == GameState.MENU:
-                                    return ui_action
-                                if ui_action == GameState.PLAY_AGAIN_YES:
-                                    self.play_again_reply = True
-                                    self.play_again_reply_received = True
-                                    self.client.send_data({'play_again':True})
-                                elif ui_action == GameState.PLAY_AGAIN_NO:
-                                    self.play_again_reply = False
-                                    self.play_again_reply_received = True
-                                    self.client.send_data({'play_again':False})
-                                    result, winner = self._display_result("game")
-                                    if winner == None:
-                                        self.all_game_sounds.tie_sound.play()
-                                    elif winner.name == self.player.name:
-                                        self.all_game_sounds.winner_sound.play()
-                                    else:
-                                        self.all_game_sounds.loser_sound.play()
-                                    ui_action = self.display_result_screen(screen, temporary_surface, result)                                                        
-                                    if ui_action == GameState.MENU:
-                                        return ui_action 
-                        elif self.play_again_reply_received and not self.opponent_play_again_reply_received:
-                            waiting_for_reply_text = f"Waiting for {self.opponent.name} to reply"
-
-                            # Dim the screen
-                            dim = True  
-                            dimmed_screen.fill((0, 0, 0))
-                            dimmed_screen.set_alpha(200)
-                            current_time = pygame.time.get_ticks()
-                            if current_time - last_update_of_loading_animation >= loading_animation_cooldown:
-                                loading_animation_frame += 1
-                                last_update_of_loading_animation = current_time
-                                if loading_animation_frame >= len(loading_simulation_frames):
-                                    loading_animation_frame = 0
-
-                            dimmed_screen.blit(loading_simulation_frames[loading_animation_frame], (self.TEMPORARY_SURFACE_WIDTH*0.385, self.TEMPORARY_SURFACE_HEIGHT*0.1))
-                            loading_msg = create_text_to_draw(waiting_for_reply_text, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
-                            loading_msg.draw(dimmed_screen)
-                            buttons.draw(dimmed_screen)
-
-                        elif self.play_again_reply_received and self.opponent_play_again_reply_received:
-                            time_since_next_round_announcement = pygame.time.get_ticks()
-                            announce_next_round = True
-                            dim = True
-                            if self.play_again_reply:
-                                if self.opponent_play_again_reply:
-                                    self.level.current_level += 1
-                                    self._reset_for_new_round()                            
-                                    self.round_over = False
-                                    tokens = pygame.sprite.Group()
-                                    glowing_tokens = pygame.sprite.Group()
-                                    # Shuffle the players again before starting next round.
-                                    if not self.ID:
-                                        first_player = self.connect4game._shuffle_players([self.player, self.opponent])[0]
-                                        self.client.send_data({'first_player':first_player})
-                                else:
-                                    final_result = [f"{self.opponent.name} has quit"]
-                                    result, winner = self._display_result("game")
-                                    final_result.extend(result)
-                                    if winner == None:
-                                        self.all_game_sounds.tie_sound.play()
-                                    elif winner.name == self.player.name:
-                                        self.all_game_sounds.winner_sound.play()
-                                    else:
-                                        self.all_game_sounds.loser_sound.play()
-                                    ui_action = self.display_result_screen(screen, temporary_surface, final_result)
-                                    if ui_action == GameState.MENU:
-                                        return ui_action                                                       
 
                     last_ticks = pygame.time.get_ticks()
 
-
-                    client = self.client.client
                     # Get the list of sockets which are readable
                     read_sockets, _, _ = select.select([client] , [], [], 0)
                     for sock in read_sockets:
                         # incoming message from remote server
                         if sock == client:
                             try:
-                                msg = client.recv(16)
+                                data = client.recv(16)
                             except ConnectionResetError: #  This exception is caught when the client tries to receive a msg from a disconnected server
                                 error = "Connection Reset: Server closed the connection or other client may have disconnected"
                                 errors.append(error)
                                 continue
                             except socket.error:
-                                errors.append(general_error_msg)
+                                errors.append(general_error_msg)                                
                                 continue
                             
-                            if not msg: #  This breaks out of the loop when disconnect msg has been sent to server and/or client conn has been closed server-side
+                            if not data: #  This breaks out of the loop when disconnect msg has been sent to server and/or client conn has been closed server-side
                                 error_msg = ''
                                 
                                 if not self.keyboard_interrupt: 
@@ -1382,7 +1355,7 @@ class Connect4:
                                 continue
                             
                             # Add received data to the buffer
-                            buffer += msg                            
+                            buffer += data                            
 
                             # Process complete messages
                             while len(buffer) >= self.client.HEADERSIZE:
@@ -1602,6 +1575,42 @@ class Connect4:
                         self.your_turn = False
                         status_notifier.incoming = True
 
+            if show_play_again_screen:                    
+                pygame.mixer.music.pause()
+                                            
+                pause_screen.fill((0, 0, 0))
+                pause_screen.set_alpha(200)    
+
+                for text in play_again_screen_ui.texts:
+                    text.draw(pause_screen)
+
+                for button in play_again_screen_ui.buttons:
+                    ui_action = button.update(scaled_pos, mouse_up)                        
+                    if ui_action == GameState.MENU:
+                        return ui_action
+                    if ui_action == GameState.PLAY_AGAIN_YES:
+                        self.play_again_reply = True
+                        self.play_again_reply_received = True
+                        show_play_again_screen = False
+                        self.client.send_data({'play_again':True})
+                    elif ui_action == GameState.PLAY_AGAIN_NO:
+                        self.play_again_reply = False
+                        self.play_again_reply_received = True
+                        show_play_again_screen = False
+                        self.client.send_data({'play_again':False})
+                        result, winner = self._display_result("game")
+                        if winner == None:
+                            self.all_game_sounds.tie_sound.play()
+                        elif winner.name == self.player.name:
+                            self.all_game_sounds.winner_sound.play()
+                        else:
+                            self.all_game_sounds.loser_sound.play()
+                        ui_action = self.display_result_screen(screen, temporary_surface, result)                                                        
+                        if ui_action == GameState.MENU:
+                            return ui_action 
+
+                play_again_screen_ui.buttons.draw(pause_screen)
+
 
             if errors:
                 if not error_sound_played:
@@ -1610,8 +1619,11 @@ class Connect4:
                     self.all_game_sounds.error_sound.play()
                     error_sound_played = True
 
-                if errors and game_started:
-                    screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
+                if game_started:
+                    if not self.opponent_play_again_reply:
+                        errors = [] #  Remove any errors that might have occured in order to display result screen
+                    else:
+                        screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
                 else:
                     temporary_surface.blit(self.all_screen_backgrounds.game_setup_screen_bg, (0, 0))
                     scaled_game_screen_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))
@@ -1638,10 +1650,15 @@ class Connect4:
                 error_surface = pygame.transform.smoothscale(dimmed_screen, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
                 screen.blit(error_surface, (self.top_x_padding, self.top_y_padding))
 
-            else:
+            if not errors:
                 if not dim:              
-                    scaled_game_screen_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))
-                    screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
+                    if show_play_again_screen:
+                        screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
+                        scaled_surface = pygame.transform.smoothscale(pause_screen, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
+                        screen.blit(scaled_surface, (self.top_x_padding, self.top_y_padding))
+                    else:
+                        scaled_game_screen_surface = pygame.transform.smoothscale(temporary_surface, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))
+                        screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
                 else:                    
                     screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
                     scaled_surface = pygame.transform.smoothscale(dimmed_screen, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
