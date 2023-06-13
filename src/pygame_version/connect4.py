@@ -98,8 +98,8 @@ class Connect4:
         self.all_game_sounds = game_sounds(error_sound, winner_sound, loser_sound, tie_sound)
 
         self.loading_simulation_frames = []
-        for i in range(52):
-            self.loading_simulation_frames.append(pygame.image.load(f'../../images/loading animation frames/loading frame ({i}).png').convert_alpha())
+        for i in range(1, 19):
+            self.loading_simulation_frames.append(pygame.image.load(f'../../images/loading animation/loading animation frame ({i}).png').convert_alpha())
 
         self.error_frames = []
         for i in range(1, 35):
@@ -648,7 +648,7 @@ class Connect4:
                     if loading_animation_frame >= len(loading_simulation_frames):
                         loading_animation_frame = 0
 
-                temporary_surface.blit(loading_simulation_frames[loading_animation_frame], (self.TEMPORARY_SURFACE_WIDTH*0.385, self.TEMPORARY_SURFACE_HEIGHT*0.1))
+                temporary_surface.blit(loading_simulation_frames[loading_animation_frame], (559, 94))
                 loading_msg = create_text_to_draw("Searching for Connect4 service", 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
                 loading_msg.draw(temporary_surface)
 
@@ -1016,7 +1016,7 @@ class Connect4:
         sockets_disconnection_simulation_frames = frames.sockets_disconnection_simulation_frames
 
         last_update_of_loading_animation = pygame.time.get_ticks()
-        loading_animation_cooldown = 370
+        loading_animation_cooldown = 200
         loading_animation_frame = 0  
 
         last_update_of_red_bird_flying = pygame.time.get_ticks()
@@ -1259,7 +1259,7 @@ class Connect4:
                         if loading_animation_frame >= len(loading_simulation_frames):
                             loading_animation_frame = 0
 
-                    temporary_surface.blit(loading_simulation_frames[loading_animation_frame], (self.TEMPORARY_SURFACE_WIDTH*0.385, self.TEMPORARY_SURFACE_HEIGHT*0.1))
+                    temporary_surface.blit(loading_simulation_frames[loading_animation_frame], (559, 94))
                     if loading_text:
                         loading_msg = create_text_to_draw(loading_text, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
                         loading_msg.draw(temporary_surface)
@@ -1290,7 +1290,7 @@ class Connect4:
                             if loading_animation_frame >= len(loading_simulation_frames):
                                 loading_animation_frame = 0
 
-                        dimmed_screen.blit(loading_simulation_frames[loading_animation_frame], (self.TEMPORARY_SURFACE_WIDTH*0.385, self.TEMPORARY_SURFACE_HEIGHT*0.1))
+                        dimmed_screen.blit(loading_simulation_frames[loading_animation_frame], (559, 94))
                         loading_msg = create_text_to_draw(waiting_for_reply_text, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
                         loading_msg.draw(dimmed_screen)
                         buttons.draw(dimmed_screen)
