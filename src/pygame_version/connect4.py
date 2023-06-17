@@ -786,9 +786,7 @@ class Connect4:
             ui_action = submit_input_btn.update(scaled_pos, mouse_up, submit_btn_enabled, enter_key_pressed)
             if ui_action != GameState.NO_ACTION:
                 if ui_action == GameState.JOIN_GAME_WITH_ENTERED_CODE:
-                    validation = self.validate_game_code(returned_input)
-                elif ui_action == GameState.CONTINUE:
-                    validation = self.validate_ip_address(returned_input)
+                    validation = self.validate_game_code(returned_input)                
                 elif ui_action == GameState.SUBMIT_NAME:
                     validation = self.validate_name(returned_input, name)
                 if validation is not None:
@@ -1049,6 +1047,10 @@ class Connect4:
         last_update_of_sockets_disconnection_animation = pygame.time.get_ticks()
         sockets_disconnection_animation_cooldown = 100
         sockets_disconnection_animation_frame = 0
+
+        last_update_of_error_animation = pygame.time.get_ticks()
+        error_animation_cooldown = 50
+        error_animation_frame = 0
 
         last_click = None
         enabled = False
@@ -1538,13 +1540,12 @@ class Connect4:
                     print(self.color_error_msg_red(general_error_msg))
                     errors.append(general_error_msg)
                     continue
-            # except Exception as e: # Catch EOFError and other exceptions
-            #     # NOTE: EOFError can also be raised when input() is interrupted with a Keyboard Interrupt
-            #     print(self.color_error_msg_red(e))
-            #     if not self.keyboard_interrupt:
-            #         # print(self.color_error_msg_red(something_went_wrong_msg))
-            #         errors.append(something_went_wrong_msg)
-            #         continue
+            except Exception as e: # Catch EOFError and other exceptions
+                print(self.color_error_msg_red(e))
+                if not self.keyboard_interrupt:
+                    print(self.color_error_msg_red(something_went_wrong_msg))
+                    errors.append(something_went_wrong_msg)
+                    continue
 
             if status_msg:
                 current_time = pygame.time.get_ticks()
@@ -1620,7 +1621,7 @@ class Connect4:
                     error_sound_played = True
 
                 if game_started:
-                    if not self.opponent_play_again_reply:
+                    if self.round_over and not self.opponent_play_again_reply:
                         errors = [] #  Remove any errors that might have occured in order to display result screen
                     else:
                         screen.blit(scaled_game_screen_surface, (self.top_x_padding, self.top_y_padding))
@@ -1640,13 +1641,22 @@ class Connect4:
                 buttons.draw(dimmed_screen)
 
                 current_time = pygame.time.get_ticks()
-                if current_time - last_update_of_sockets_disconnection_animation >= sockets_disconnection_animation_cooldown:
-                    sockets_disconnection_animation_frame += 1
-                    last_update_of_sockets_disconnection_animation = current_time
-                    if sockets_disconnection_animation_frame >= len(sockets_disconnection_simulation_frames):
-                        sockets_disconnection_animation_frame = 0
 
-                dimmed_screen.blit(sockets_disconnection_simulation_frames[sockets_disconnection_animation_frame], (0,0))
+                if something_went_wrong_msg not in errors:
+                    if current_time - last_update_of_sockets_disconnection_animation >= sockets_disconnection_animation_cooldown:
+                        sockets_disconnection_animation_frame += 1
+                        last_update_of_sockets_disconnection_animation = current_time
+                        if sockets_disconnection_animation_frame >= len(sockets_disconnection_simulation_frames):
+                            sockets_disconnection_animation_frame = 0
+                    dimmed_screen.blit(sockets_disconnection_simulation_frames[sockets_disconnection_animation_frame], (0,0))
+                else:                    
+                    if current_time - last_update_of_error_animation >= error_animation_cooldown:
+                        error_animation_frame += 1
+                        last_update_of_error_animation = current_time
+                        if error_animation_frame >= len(self.error_frames):
+                            error_animation_frame = 0
+                    dimmed_screen.blit(self.error_frames[error_animation_frame], (549, 79))
+
                 error_surface = pygame.transform.smoothscale(dimmed_screen, (int(self.TEMPORARY_SURFACE_WIDTH*self.scale), int(self.TEMPORARY_SURFACE_HEIGHT*self.scale)))     
                 screen.blit(error_surface, (self.top_x_padding, self.top_y_padding))
 
@@ -1688,18 +1698,6 @@ class Connect4:
         if returned_input.isalnum():
             return validation(True, returned_input)
         return validation(False, "Code may only contain letters and digits")
-    
-    def validate_ip_address(self, returned_input):
-        pattern = re.compile(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
-        match = pattern.search(returned_input)
-        validation = namedtuple("validation", "passed_validation, valid_input_or_error")              
-        if not returned_input:
-            return validation(False, "You must type in an IP address to continue")
-        if returned_input.lower() == "localhost":
-            return validation(True, returned_input)
-        if match:
-            return validation(True, returned_input)
-        return validation(False, "That IP address is invalid")
 
     def validate_name(self, returned_input, name):
         validation = namedtuple("validation", "passed_validation, valid_input_or_error")
