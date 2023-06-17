@@ -305,7 +305,7 @@ class Connect4:
         play_again_screen_ui = play_again_screen(play_again_screen_buttons, texts)        
 
         copy_btn = CopyButtonElement(
-            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.45),
+            center_position=(self.TEMPORARY_SURFACE_WIDTH*0.75, self.TEMPORARY_SURFACE_HEIGHT*0.65),
             font_size=15,
             bg_rgb=TRANSPARENT,
             text_rgb=WHITE,
@@ -326,7 +326,7 @@ class Connect4:
         service_found_texts = []
         service_not_found_texts = []
 
-        service_found_texts.append(create_text_to_draw("Connect4 Service found", 20, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6)))
+        service_found_texts.append(create_text_to_draw("Connect4 Service found", 20, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.75)))
 
         service_not_found_msgs = [
             "Connect4 Service not found. Unable to start game.", 
@@ -649,7 +649,7 @@ class Connect4:
                         loading_animation_frame = 0
 
                 temporary_surface.blit(loading_simulation_frames[loading_animation_frame], (559, 94))
-                loading_msg = create_text_to_draw("Searching for Connect4 service", 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
+                loading_msg = create_text_to_draw("Searching for Connect4 service", 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.75))
                 loading_msg.draw(temporary_surface)
 
                 if not self.client.service_found:
@@ -1263,7 +1263,7 @@ class Connect4:
 
                     temporary_surface.blit(loading_simulation_frames[loading_animation_frame], (559, 94))
                     if loading_text:
-                        loading_msg = create_text_to_draw(loading_text, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6667))
+                        loading_msg = create_text_to_draw(loading_text, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.75))
                         loading_msg.draw(temporary_surface)
                 
 
@@ -1379,10 +1379,10 @@ class Connect4:
 
                                     if "code" in unpickled_json:
                                         code_to_copy = unpickled_json['code']
-                                        code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.45))
+                                        code_to_display = create_text_to_draw(code_to_copy, 30, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.65))
                                         texts.append(code_to_display)
                                         msg = "This is your special code. Send it to someone you wish to join this game."
-                                        texts.append(create_text_to_draw(msg, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.55)))
+                                        texts.append(create_text_to_draw(msg, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.70)))
                                     elif "no_games_found" in unpickled_json:
                                         # Result from unpickled_json is not used because it is too long and has to be broken 
                                         # to be printed on multiple lines                                    
@@ -1550,7 +1550,7 @@ class Connect4:
             if status_msg:
                 current_time = pygame.time.get_ticks()
                 if current_time < status_msg_end_time:
-                    loading_msg = create_text_to_draw(status_msg, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.6))
+                    loading_msg = create_text_to_draw(status_msg, 15, WHITE, TRANSPARENT, (self.TEMPORARY_SURFACE_WIDTH*0.5, self.TEMPORARY_SURFACE_HEIGHT*0.70))
                     loading_msg.draw(temporary_surface)
                 else:
                     status_msg = ''
