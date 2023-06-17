@@ -81,6 +81,8 @@ class Server:
                 continue
             except socket.error as e:
                 break
+            except KeyboardInterrupt as e:
+                raise e
 
             create_or_join_game_thread = threading.Thread(target=self.create_or_join_game, args=(conn, addr, ))
             create_or_join_game_thread.daemon = True           
@@ -194,6 +196,7 @@ class Server:
                             if unpickled_json['is_alive']:
                                 print("Connection is alive")
                                 return True
+                            return False
                         # Remove the processed message from the buffer
                         buffer = buffer[self.HEADERSIZE + message_length:]
                     else:
@@ -299,11 +302,14 @@ class Server:
             else:
                 with self.games_lock:
                     if not self.is_connection_alive(found_game.clients[0][0], found_game.clients[0][1]):
+                        found_game.second_client_has_joined.set()
+                        self.stop_flag.set()
                         print("Connection is not alive")
                         if found_game in self.games:
                             self.games.remove(found_game)
                             print(f"[GAME DESTROYED] {found_game} destroyed.")
                             print(f"[NO OF GAMES LEFT] {len(self.games)}")
+                        #  go back again so that found_game is False since it has been removed from games list, this will send the "no_games_found" or "status" msgs
                         continue
                     else:
                         self.send_data(conn, {'join_successful':"Game joined successfully"})
