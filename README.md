@@ -1,5 +1,10 @@
 # Connect4
 
+
+https://github.com/Winnie-Fred/Connect4/assets/87154322/f2578e23-a504-4177-b476-35f9167f7ef5
+
+Check out the full [demo](https://drive.google.com/file/d/1jxqLMbYM95Hvf_FqdjDOufgd7IlJgsCL/view?usp=drive_link).
+
 ### A simple two-player Connect4 game in Python using Pygame and sockets. It can also be played in the terminal.
 
 #### How to play the game
@@ -9,7 +14,7 @@ Two players take turns to drop their tokens in a grid with 6 rows and 7 columns.
 I chose this project to get hands-on experience with sockets and how online multiplayer games work. I have also learned a lot about threading and concurrency and about the Pygame library. I also learned how to design with Figma for this project and used it to create/edit most of the pygame version game components and UI kit.
 
 #### About the project
-You can run four versions of the project. The first one runs in a single terminal session where players can take turns on the same computer. The second version also runs in the terminal but uses sockets so that players can connect and play from different computers or different terminal sessions. The second version supports one server and only one pair of clients at a time. The third version runs in the terminal but supports one server and multiple pairs of clients at a time. In this version, a client can choose to create a game (and they can invite another client to that particular game) or they can join any game. The fourth version is based off of the third and uses pygame (and obviously sockets) to create a nicer interface to play the game.
+You can run four versions of the project. The first one runs in a single terminal session where players can take turns on the same computer. The second version also runs in the terminal but uses sockets so that players can connect and play from different computers or different terminal sessions. The second version supports one server and only one pair of clients at a time. The third version runs in the terminal but supports one server and multiple pairs of clients at a time. In this version, a client can choose to create a game (and they can invite another client to that particular game) or they can join any game. The [fourth](https://drive.google.com/file/d/1jxqLMbYM95Hvf_FqdjDOufgd7IlJgsCL/view?usp=drive_link) version is based off of the third and uses pygame (and obviously sockets) to create a nicer interface to play the game.
 
 #### How to set up the project
 - Clone the project and cd into the project directory.
@@ -31,7 +36,7 @@ You can run four versions of the project. The first one runs in a single termina
         - cd into `multiple_pairs_of_clients_version` package.
         - Make sure to start the server first by running `python server.py` in one terminal session. 
         - Then run `python client.py` in two other terminal sessions.
-    - To run the fourth (pygame) version of the project
+    - To run the [fourth](https://drive.google.com/file/d/1jxqLMbYM95Hvf_FqdjDOufgd7IlJgsCL/view?usp=drive_link) (pygame) version of the project
         - cd into `pygame_version`.
         - Make sure to start the server first by running `python server.py` in one terminal session. 
         - Then run `python connect4.py` in two other terminal sessions.
