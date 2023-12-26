@@ -91,6 +91,34 @@
     * Title: Mouse Click 00 Sound Effect
     * Source: Gotten from [fesliyanstudios](https://www.fesliyanstudios.com/play-mp3/387)
     * Changes: Audio is converted from .mp3 format to .wav to be used with Pygame
+2. Crowd Cheer II
+    * Title: Crowd Cheer II
+    * Author: [Pixabay](https://pixabay.com/users/pixabay-1/)
+    * Source: Gotten from [pixabay](https://pixabay.com/sound-effects/crowd-cheer-ii-6263/)
+    * Changes: Audio is converted from .mp3 format to .wav to be used with Pygame
+3. Wah Wah Wah Sad Trombone
+    * Title: Wah Wah Wah Sad Trombone
+    * Author: [Pixabay](https://pixabay.com/users/pixabay-1/)
+    * Source: Gotten from [pixabay](https://pixabay.com/sound-effects/wah-wah-sad-trombone-6347/)
+    * Changes: Audio is converted from .mp3 format to .wav to be used with Pygame
+4. Error-126627
+    * Title: Error-126627
+    * Source: Gotten from [cjoint](https://www-cjoint-com.translate.goog/c/MEcqKeMNosS?_x_tr_sl=fr&_x_tr_tl=en&_x_tr_hl=en&_x_tr_pto=sc)
+    * Changes: Audio is converted from .mp3 format to .wav to be used with Pygame
+5. Fun Kids Playful Comic Carefree Game Happy Positive Music
+    * Title: Fun Kids Playful Comic Carefree Game Happy Positive Music
+    * Author: [REDproductions](https://pixabay.com/users/redproductions-970568/)
+    * Source: Gotten from [pixabay](https://pixabay.com/music/upbeat-fun-kids-playful-comic-carefree-game-happy-positive-music-57026/)
+    * Changes: Audio is converted from .mp3 format to .wav to be used with Pygame.
+6. KL Peach Game Over III
+    * Title: KL Peach Game Over III
+    * Author: [Lightyeartraxx](https://pixabay.com/users/lightyeartraxx-26697863/)
+    * Source: Gotten from [pixabay](https://pixabay.com/sound-effects/kl-peach-game-over-iii-142453/)
+    * Changes: Audio is converted from .mp3 format to .wav to be used with Pygame.
+7. Kids playing in the playground with birdsong and city atmosphere 25838 
+    * Title: kids-playing-in-the-playground-with-birdsong-and-city-atmosphere-25838
+    * Changes: Audio is converted from .mp3 format to .wav and is merged with audio number 5 for actual gameplay background music.
+
 
 ## Video Attributions
 1. Error animation
