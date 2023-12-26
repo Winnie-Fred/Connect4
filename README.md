@@ -50,4 +50,4 @@ You can run four versions of the project. The first one runs in a single termina
 #### Credits and Inspiration
 This project is inspired by the Connect4 project on Crio at crio.do [here](https://www.crio.do/projects/python-multiplayer-game-connect4/)
 
-All resources (media) used in this project that I did not create myself were gotten for free. Special thanks to these authors who I have [credited](https://github.com/Winnie-Fred/Connect4/blob/c2c27e70c7ae6c9251e205f844b6b485536b66d0/credits.md).
+All resources (media) used in this project that I did not create myself were gotten for free. Special thanks to these authors who I have [credited](https://github.com/Winnie-Fred/Connect4/blob/main/credits.md).
