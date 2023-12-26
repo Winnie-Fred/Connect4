@@ -48,6 +48,6 @@ You can run four versions of the project. The first one runs in a single termina
 - To avoid troubles during installation, ensure you are using an up-to-date version of pip (preferably pip ≥ 21.3) especially if you are doing an editable install. Also make sure you have stable internet access.
 
 #### Credits and Inspiration
-This project is inspired by the Connect4 project on Crio at crio.do [here](https://www.crio.do/projects/python-multiplayer-game-connect4/)
+This project is inspired by the Connect4 project on Crio at crio.do [here](https://www.crio.do/projects/python-multiplayer-game-connect4/).
 
-All resources (media) used in this project that I did not create myself were gotten for free. Special thanks to these authors who I have [credited](https://github.com/Winnie-Fred/Connect4/blob/main/credits.md).
+All resources (media) used in this project that I did not create myself were gotten for free. You can check all the resources out on Figma [Community](https://www.figma.com/community/file/1321487223215165631/connect4-ui-kit). Special thanks to these authors who I have [credited](https://github.com/Winnie-Fred/Connect4/blob/main/credits.md).
