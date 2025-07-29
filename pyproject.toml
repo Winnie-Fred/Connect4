@@ -23,7 +23,7 @@ dependencies = [
     "tomli==2.0.1",
     "typing_extensions==4.3.0",
     "pyperclip==1.8.2",
-    "pygame==2.1.2",
+    "pygame==2.6.1",
     "zeroconf==0.64.1",
 ]
 [project.optional-dependencies]
